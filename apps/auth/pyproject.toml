@@ -1,0 +1,70 @@
+[project]
+name = "quiz-auth"
+version = "0.1.0"
+description = "Auth microservice for quiz app"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.135",
+    "uvicorn[standard]>=0.41",
+    "sqlalchemy>=2.0",
+    "alembic>=1.16",
+    "pydantic>=2.12",
+    "pyjwt>=2.11",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0",
+    "pytest-cov>=7.0",
+    "ruff>=0.15",
+    "mypy>=1.19",
+    "pre-commit>=4.5",
+]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--cov=src",
+    "--cov-branch",
+    "--cov-report=term-missing",
+    "-q",
+]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+omit = ["**/__init__.py", "src/main.py"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 80
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.ruff]
+src = ["src", "tests"]
+line-length = 88
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "S", "C90"]
+fixable = ["ALL"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
