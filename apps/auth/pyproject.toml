@@ -11,6 +11,9 @@ dependencies = [
     "alembic>=1.16",
     "pydantic>=2.12",
     "pyjwt>=2.11",
+    "sqlmodel>=0.0.37",
+    "pydantic-settings>=2.13.1",
+    "passlib>=1.7.4",
 ]
 
 [dependency-groups]
