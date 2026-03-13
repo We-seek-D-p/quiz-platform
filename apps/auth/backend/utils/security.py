@@ -3,15 +3,17 @@ import jwt
 from passlib.context import CryptContext
 from backend.core.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+from pwdlib import PasswordHash
+
+password_hash = PasswordHash.recommended()
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return password_hash.hash(password)
 
 
-def verify_password(password_to_check: str, password: str) -> bool:
-    return pwd_context.verify(password_to_check, password)
+def verify_password(plain: str, hashed: str) -> bool:
+    return password_hash.verify(plain, hashed)
 
 
 def create_tokens(user_id: int, token_version: int) -> dict[str, str]:
@@ -23,14 +25,14 @@ def create_tokens(user_id: int, token_version: int) -> dict[str, str]:
         "exp": now + timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
         "type": "access"
     }
-    access_token = jwt.encode(access_payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    access_token = jwt.encode(access_payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
     refresh_payload = {
         "sub": str(user_id),
         "exp": now + timedelta(minutes=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS),
         "type": "refresh"
     }
-    refresh_token = jwt.encode(refresh_payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    refresh_token = jwt.encode(refresh_payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 

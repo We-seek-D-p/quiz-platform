@@ -24,9 +24,9 @@ class UserRepository:
         result = await self.db.exec(select(User).where(User.username == username, User.is_active == True))
         return result.first()
 
-    async def create_user(self, user_data: UserCreate, hash_password: str) -> User:
-        user = User.model_validate(user_data)
-        user.hashed_password = hash_password
+    async def create_user(self, user_data: UserCreate, hashed_password: str) -> User:
+        user_data_dict = user_data.model_dump(exclude={"password"})
+        user = User(**user_data_dict, hashed_password=hashed_password)
         self.db.add(user)
         await self.db.commit()
         await self.db.refresh(user)
@@ -53,7 +53,8 @@ class UserRepository:
         return True
 
     async def increment_token_version(self, user_id: int) -> None:
-        stmt = update(User).where(User.id == user_id, User.is_active == True).values(token_version=User.token_version + 1)
+        stmt = update(User).where(User.id == user_id, User.is_active == True).values(
+            token_version=User.token_version + 1)
         await self.db.exec(stmt)
         await self.db.commit()
 
@@ -61,5 +62,3 @@ class UserRepository:
         stmt = update(User).where(User.id == user_id, User.is_active == True).values(last_login_at=datetime.now())
         await self.db.exec(stmt)
         await self.db.commit()
-
-

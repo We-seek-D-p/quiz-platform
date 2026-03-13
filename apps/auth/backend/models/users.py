@@ -17,12 +17,12 @@ class UserPublic(UserBase):
 
 class User(UserBase, table=True):
     id: int | None = Field(primary_key=True, default=None)
-    role: str
+    role: str = Field(default="player")
     hashed_password: str
     is_active: bool = Field(default=True)
     token_version: int = Field(default=1)
-    created_at: datetime = Field(sa_column=Column(DateTime, server_default=func.now()))
-    updated_at: datetime = Field(sa_column=Column(DateTime, server_default=func.now(), onupdate=func.now()))
+    created_at: datetime | None = Field(sa_column=Column(DateTime, server_default=func.now()))
+    updated_at: datetime | None = Field(sa_column=Column(DateTime, server_default=func.now(), onupdate=func.now()))
     last_login_at: datetime | None = Field(default=None)
 
 
