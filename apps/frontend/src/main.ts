@@ -1,5 +1,6 @@
 import {createApp} from 'vue'
 import PrimeVue from 'primevue/config'
+import router from './router'
 import Aura from '@primevue/themes/aura'
 import {definePreset} from '@primevue/themes'
 import 'primeicons/primeicons.css'
@@ -72,4 +73,5 @@ app.use(PrimeVue, {
   }
 })
 
+app.use(router)
 app.mount('#app')
