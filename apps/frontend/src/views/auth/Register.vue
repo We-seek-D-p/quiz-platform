@@ -2,10 +2,11 @@
 import {ref} from 'vue'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
-import FloatLabel from 'primevue/floatlabel';
-import InputNumber from 'primevue/inputnumber'
+import Password from 'primevue/password'
+import InputText from 'primevue/inputtext'
+import FloatLabel from 'primevue/floatlabel'
 import { useRouter } from 'vue-router'
-import {getStoredThemeMode, toggleThemeMode, type ThemeMode} from '../theme'
+import {getStoredThemeMode, toggleThemeMode, type ThemeMode} from '../../theme.ts'
 
 const count = ref(0)
 const themeMode = ref<ThemeMode>(getStoredThemeMode())
@@ -15,30 +16,40 @@ const increment = () => {
   count.value += 1
 }
 
-const GoToLogin = () => {
-    router.push('/login')
-}
-
 const switchTheme = () => {
   themeMode.value = toggleThemeMode()
 }
+
+const SendRegister = (): void => {}
+
 </script>
 
 <template>
   <main class="app-root">
     <Card class="demo-card">
-      <template #title >
-        <div class="text-center">Join a game</div>
-      </template>
+      <template #title>Register</template>
       <template #content>
         <FloatLabel variant="in">
-          <InputNumber :useGrouping="false" fluid />
-          <label>Code</label>
-
+          <InputText id="email" v-model="value" autocomplete="off" />
+          <label for="email">Email</label>
         </FloatLabel>
+        <FloatLabel variant="in">
+          <InputText id="username" v-model="value" autocomplete="off" />
+          <label for="username">Username</label>
+        </FloatLabel>
+        <FloatLabel variant="in">
+        <Password v-model="value" :feedback="false" />
+        <label>Password</label>
+        </FloatLabel>
+        <FloatLabel variant="in">
+        <Password v-model="value" :feedback="false" />
+        <label>Confirm password</label>
+        </FloatLabel>
+        <span>Doesn't have an account yet? </span>
+        <Link label="login" @click="SendLogin"/>
       </template>
       <template #footer>
-        <Button label="Join" @click="increment"/>
+        <router-link to="/login">Login</router-link>
       </template>
     </Card>
 
@@ -51,12 +62,12 @@ const switchTheme = () => {
     <Button
         class="theme-button"
         :label="`Login page`"
-        @click="GoToLogin"
+        @click="router.push('/login')"
     />
     <Button
         class="theme-button"
-        :label="`Register page`"
-        @click="router.push('/register')"
+        :label="`Main page`"
+        @click="router.push('/')"
     />
   </main>
 </template>

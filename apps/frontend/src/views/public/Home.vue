@@ -2,45 +2,43 @@
 import {ref} from 'vue'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
-import Password from 'primevue/password'
-import InputText from 'primevue/inputtext'
-import FloatLabel from 'primevue/floatlabel'
+import FloatLabel from 'primevue/floatlabel';
+import InputNumber from 'primevue/inputnumber'
 import { useRouter } from 'vue-router'
-import {getStoredThemeMode, toggleThemeMode, type ThemeMode} from '../theme'
+import {getStoredThemeMode, toggleThemeMode, type ThemeMode} from '../../theme.ts'
 
 const count = ref(0)
 const themeMode = ref<ThemeMode>(getStoredThemeMode())
 const router = useRouter()
+
 const increment = () => {
   count.value += 1
+}
+
+const GoToLogin = () => {
+    router.push('/login')
 }
 
 const switchTheme = () => {
   themeMode.value = toggleThemeMode()
 }
-
-const SendLogin = (): void => {}
-
 </script>
 
 <template>
   <main class="app-root">
     <Card class="demo-card">
-      <template #title>Login</template>
+      <template #title >
+        <div class="text-center">Join a game</div>
+      </template>
       <template #content>
         <FloatLabel variant="in">
-          <InputText id="on_label" v-model="value" autocomplete="off" />
-          <label for="on_label">Email</label>
+          <InputNumber :useGrouping="false" fluid />
+          <label>Code</label>
+
         </FloatLabel>
-        <FloatLabel variant="in">
-        <Password v-model="value" :feedback="false" />
-        <label for="on_label">Password</label>
-        </FloatLabel>
-        <span>Doesn't have an account yet? </span>
-        <Link label="login" @click="SendLogin"/>
       </template>
       <template #footer>
-        <router-link to="/register">Register</router-link>
+        <Button label="Join" @click="increment"/>
       </template>
     </Card>
 
@@ -52,8 +50,8 @@ const SendLogin = (): void => {}
     />
     <Button
         class="theme-button"
-        :label="`Main page`"
-        @click="router.push('/')"
+        :label="`Login page`"
+        @click="GoToLogin"
     />
     <Button
         class="theme-button"
