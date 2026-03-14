@@ -2,6 +2,7 @@
 import {ref} from 'vue'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
+import InputText from 'primevue/inputtext'
 import { useRouter } from 'vue-router'
 import {getStoredThemeMode, toggleThemeMode, type ThemeMode} from '../theme'
 
@@ -25,12 +26,13 @@ const switchTheme = () => {
 <template>
   <main class="app-root">
     <Card class="demo-card">
-      <template #title>Hello world</template>
+      <template #title>Join a game</template>
       <template #content>
-        <p class="count-text">Counter: {{ count }}</p>
+        <p class="count-text">Enter the code</p>
+        <InputText type="text" v-model="value" placeholder="000000" />
       </template>
       <template #footer>
-        <Button label="+1" icon="pi pi-plus" @click="increment"/>
+        <Button label="Join" @click="increment"/>
       </template>
     </Card>
 

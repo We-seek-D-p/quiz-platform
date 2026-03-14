@@ -2,6 +2,8 @@
 import {ref} from 'vue'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
+import Password from 'primevue/password'
+import InputText from 'primevue/inputtext'
 import {getStoredThemeMode, toggleThemeMode, type ThemeMode} from '../theme'
 
 const count = ref(0)
@@ -25,9 +27,9 @@ const SendLogin = (): void => {}
       <template #title>Login</template>
       <template #content>
         <p class="count-text">Email</p>
-        <input/>
+        <InputText type="text" v-model="value" />
         <p class="count-text">Password</p>
-        <input/>
+        <Password v-model="value" :feedback="false" />
 
         <span>Doesn't have an account yet? </span>
         <Link label="login" @click="SendLogin"/>
