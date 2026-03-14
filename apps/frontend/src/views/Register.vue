@@ -4,10 +4,13 @@ import Button from 'primevue/button'
 import Card from 'primevue/card'
 import Password from 'primevue/password'
 import InputText from 'primevue/inputtext'
+import FloatLabel from 'primevue/floatlabel'
+import { useRouter } from 'vue-router'
 import {getStoredThemeMode, toggleThemeMode, type ThemeMode} from '../theme'
 
 const count = ref(0)
 const themeMode = ref<ThemeMode>(getStoredThemeMode())
+const router = useRouter()
 
 const increment = () => {
   count.value += 1
@@ -26,16 +29,24 @@ const SendRegister = (): void => {}
     <Card class="demo-card">
       <template #title>Register</template>
       <template #content>
-        <p class="count-text">Email</p>
-        <InputText type="text" v-model="value" />
-        <p class="count-text">Password</p>
+        <FloatLabel variant="in">
+          <InputText id="email" v-model="value" autocomplete="off" />
+          <label for="email">Email</label>
+        </FloatLabel>
+        <FloatLabel variant="in">
+          <InputText id="username" v-model="value" autocomplete="off" />
+          <label for="username">Username</label>
+        </FloatLabel>
+        <FloatLabel variant="in">
         <Password v-model="value" :feedback="false" />
-        <p class="count-text">Confirm password</p>
+        <label>Password</label>
+        </FloatLabel>
+        <FloatLabel variant="in">
         <Password v-model="value" :feedback="false" />
-
-
-        <span>Already registered? </span>
-        <Link label="login" @click="SendRegister"/>
+        <label>Confirm password</label>
+        </FloatLabel>
+        <span>Doesn't have an account yet? </span>
+        <Link label="login" @click="SendLogin"/>
       </template>
       <template #footer>
         <router-link to="/login">Login</router-link>
@@ -47,6 +58,16 @@ const SendRegister = (): void => {}
         :label="`Theme: ${themeMode}`"
         icon="pi pi-palette"
         @click="switchTheme"
+    />
+    <Button
+        class="theme-button"
+        :label="`Login page`"
+        @click="router.push('/login')"
+    />
+    <Button
+        class="theme-button"
+        :label="`Main page`"
+        @click="router.push('/')"
     />
   </main>
 </template>
