@@ -5,19 +5,9 @@ import Card from 'primevue/card'
 import Password from 'primevue/password'
 import InputText from 'primevue/inputtext'
 import FloatLabel from 'primevue/floatlabel'
-import { useRouter } from 'vue-router'
 import {getStoredThemeMode, toggleThemeMode, type ThemeMode} from '../../theme.ts'
 
-const count = ref(0)
 const themeMode = ref<ThemeMode>(getStoredThemeMode())
-const router = useRouter()
-const increment = () => {
-  count.value += 1
-}
-
-const switchTheme = () => {
-  themeMode.value = toggleThemeMode()
-}
 
 const SendLogin = (): void => {}
 
@@ -25,47 +15,38 @@ const SendLogin = (): void => {}
 
 <template>
   <main class="app-root">
-    <Card class="demo-card">
+    <Card class="demo-card p-anchored-overlay-enter-active">
       <template #title>Login</template>
       <template #content>
-        <FloatLabel variant="in">
+
+        <FloatLabel variant="in" class="m-2">
           <InputText id="on_label" v-model="value" autocomplete="off" />
           <label for="on_label">Email</label>
         </FloatLabel>
-        <FloatLabel variant="in">
+
+        <FloatLabel variant="in" class="m-2">
         <Password v-model="value" :feedback="false" />
         <label for="on_label">Password</label>
         </FloatLabel>
-        <span>Doesn't have an account yet? </span>
-        <Link label="login" @click="SendLogin"/>
-      </template>
-      <template #footer>
-        <router-link to="/register">Register</router-link>
-      </template>
-    </Card>
 
-    <Button
-        class="theme-button"
-        :label="`Theme: ${themeMode}`"
-        icon="pi pi-palette"
-        @click="switchTheme"
-    />
-    <Button
-        class="theme-button"
-        :label="`Main page`"
-        @click="router.push('/')"
-    />
-    <Button
-        class="theme-button"
-        :label="`Register page`"
-        @click="router.push('/register')"
-    />
+        <div class="flex justify-center w-full mt-3">
+          <Button label="Login"  @click="SendLogin"/>
+        </div>
+
+        
+      </template>
+
+      <template #footer>
+        <span class="text-xs">Doesn't have an account yet? </span>
+        <router-link to="/register"><span class="text-xs font-bold text-primary cursor-pointer select-none">Register</span></router-link>
+      </template>
+
+    </Card>
   </main>
 </template>
 
 <style scoped>
 .app-root {
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;

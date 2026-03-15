@@ -23,7 +23,7 @@ const router = useRouter();
             icon="pi pi-user"
             variant="outlined"
             class="w-10 h-10 p-0! rounded-none border-primary/30 text-primary! hover:bg-primary/5 transition-colors"
-            @click="router.push('/login')"
+            @click="router.push('/register')"
         />
       </div>
     </header>
