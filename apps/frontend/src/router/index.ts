@@ -28,12 +28,12 @@ const routes: Array<RouteRecordRaw> = [
   },
 
   // Host Routes (Dashboard Layout - Requires Auth)
-  // {
-  //   path: '/host',
-  //   name: 'dashboard',
-  //   component: () => import('../views/host/Dashboard.vue'),
-  //   meta: { layout: 'DashboardLayout', requiresAuth: true }
-  // },
+  {
+    path: '/host',
+    name: 'dashboard',
+    component: () => import('../views/host/Dashboard.vue'),
+    meta: {layout: 'DashboardLayout'}
+  },
   // {
   //   path: '/host/quiz/new',
   //   name: 'create-quiz',
