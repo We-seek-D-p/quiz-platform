@@ -26,9 +26,9 @@ const switchTheme = () => {
 
 <template>
   <main class="app-root">
-    <Card class="demo-card">
+    <Card class="demo-card p-anchored-overlay-enter-active">
       <template #title >
-        <div class="text-center">Join a game</div>
+        <div class="text-center mb-2">Join a game</div>
       </template>
       <template #content>
         <FloatLabel variant="in">
@@ -38,32 +38,16 @@ const switchTheme = () => {
         </FloatLabel>
       </template>
       <template #footer>
-        <Button label="Join" @click="increment"/>
+        <div class="flex justify-center w-full mt-3">
+          <Button label="Join"  @click="increment"/>
+        </div>
       </template>
     </Card>
-
-    <Button
-        class="theme-button"
-        :label="`Theme: ${themeMode}`"
-        icon="pi pi-palette"
-        @click="switchTheme"
-    />
-    <Button
-        class="theme-button"
-        :label="`Login page`"
-        @click="GoToLogin"
-    />
-    <Button
-        class="theme-button"
-        :label="`Register page`"
-        @click="router.push('/register')"
-    />
   </main>
 </template>
 
 <style scoped>
 .app-root {
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
