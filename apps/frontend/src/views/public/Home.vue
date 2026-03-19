@@ -15,8 +15,8 @@ const increment = () => {
   count.value += 1
 }
 
-const GoToLogin = () => {
-    router.push('/login')
+const goToDashboard = () => {
+  router.push('/host')
 }
 
 const switchTheme = () => {
@@ -43,6 +43,23 @@ const switchTheme = () => {
         </div>
       </template>
     </Card>
+
+    <Button
+        class="theme-button"
+        :label="`Theme: ${themeMode}`"
+        icon="pi pi-palette"
+        @click="switchTheme"
+    />
+    <Button
+         class="theme-button"
+         :label="`Host dashboard`"
+         @click="goToDashboard"
+    />
+    <Button
+        class="theme-button"
+        :label="`Register page`"
+        @click="router.push('/register')"
+    />
   </main>
 </template>
 

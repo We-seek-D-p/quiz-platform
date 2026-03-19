@@ -15,6 +15,9 @@
 
 :root {
   font-family: Inter, system-ui, sans-serif;
+  --app-bg-color: var(--p-surface-0, #ffffff);
+  --app-bg-image: radial-gradient(48rem 24rem at 8% -6%, rgba(99, 102, 241, 0.1), transparent 60%),
+  radial-gradient(36rem 20rem at 92% 108%, rgba(79, 70, 229, 0.07), transparent 62%);
 }
 
 html, body, #app {
@@ -23,15 +26,14 @@ html, body, #app {
 }
 
 body {
-  background-color: var(--p-surface-0, #ffffff);
-  background-image: radial-gradient(48rem 24rem at 8% -6%, rgba(99, 102, 241, 0.1), transparent 60%),
-  radial-gradient(36rem 20rem at 92% 108%, rgba(79, 70, 229, 0.07), transparent 62%);
+  background-color: var(--app-bg-color);
+  background-image: var(--app-bg-image);
   background-attachment: fixed;
   color: var(--p-text-color);
 }
 
 .app-dark body {
-  background-color: var(--p-surface-950, #14151d);
-  background-image: radial-gradient(52rem 26rem at 8% -8%, rgba(129, 140, 248, 0.18), transparent 60%),
+  --app-bg-color: var(--p-surface-950, #14151d);
+  --app-bg-image: radial-gradient(52rem 26rem at 8% -8%, rgba(129, 140, 248, 0.18), transparent 60%),
   radial-gradient(38rem 22rem at 94% 110%, rgba(99, 102, 241, 0.12), transparent 64%);
 }
