@@ -4,13 +4,16 @@ uv run uvicorn backend.main:app --reload
 
 `.env` example
 ```dotenv
-APP_NAME='Quiz App'
-DEBUG=True
+# App
+APP_NAME="Quiz Auth"
+DEBUG=False
 
-DATABASE_URL=postgresql+asyncpg://kostamak:seekdeep10@localhost:5432/postgres
+# Database
+DATABASE_URL=postgresql+asyncpg://auth_user:password@localhost:5432/quiz_auth
 
-JWT_SECRET_KEY=we_very_suck_deep_seek
+# JWT
+JWT_SECRET_KEY=change_me_in_prod
 JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
-JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=1440 # 1 day (temporarily)
+JWT_REFRESH_TOKEN_EXPIRE_DAYS=30
 ```

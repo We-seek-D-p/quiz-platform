@@ -13,6 +13,11 @@ class AuthService:
         self.user_repo = UserRepository(db)
         self.role_repo = RoleRepository(db)
 
+    @staticmethod
+    def _require_host(user: User | None) -> None:
+        if user and user.role != "host":
+            raise HTTPException(status_code=403, detail="User role is not allowed")
+
     async def registry_user(self, user_data: UserCreate) -> User:
         await self.role_repo.ensure_host_role()
 
@@ -29,6 +34,7 @@ class AuthService:
     async def login_user(self, user_to_login: UserLogin) -> dict[str, str]:
         email = str(user_to_login.email).lower()
         user = await self.user_repo.get_by_email(email)
+        self._require_host(user)
         if not user or not verify_password(user_to_login.password, user.password_hash):
             raise HTTPException(status_code=401, detail="Incorrect email or password")
         await self.user_repo.update_last_login(user.id)
@@ -42,4 +48,8 @@ class AuthService:
         user = await self.user_repo.get_by_id(user_id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
+        self._require_host(user)
         return create_tokens(user.id, user.token_version)
+
+    async def logout_user(self, user: User) -> None:
+        await self.user_repo.increment_token_version(user.id)

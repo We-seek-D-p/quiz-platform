@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, Response, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from backend.core.database import get_session
@@ -41,7 +41,18 @@ async def get_current_profile(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/logout")
-async def logout(_: User = Depends(get_current_user)):
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Logout not implemented yet"
+async def logout(
+    response: Response,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+):
+    auth_service = AuthService(db)
+    await auth_service.logout_user(current_user)
+    response.delete_cookie(
+        key="refresh_token",
+        path="/auth/refresh",
+        httponly=True,
+        secure=True,
+        samesite="strict",
     )
+    return {"status": "ok"}
