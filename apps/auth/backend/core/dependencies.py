@@ -5,10 +5,12 @@ from backend.core.database import get_session
 from backend.repositories.user_repository import UserRepository
 from backend.utils.security import decode_token
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/users/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_session)):
+async def get_current_user(
+    token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_session)
+):
     user_id, token_version = decode_token(token, "access")
     if not user_id:
         raise HTTPException(
@@ -30,4 +32,3 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
         )
 
     return user
-
