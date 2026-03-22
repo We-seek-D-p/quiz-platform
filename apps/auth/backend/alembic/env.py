@@ -8,7 +8,7 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..')))
+sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "..")))
 load_dotenv()
 
 from backend.core.config import settings
@@ -55,7 +55,12 @@ def run_migrations_offline() -> None:
 
 def do_run_migrations(connection: Connection) -> None:
     """Run migrations with a connection."""
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        include_schemas=True,
+        version_table_schema=target_metadata.schema,
+    )
 
     with context.begin_transaction():
         context.run_migrations()
