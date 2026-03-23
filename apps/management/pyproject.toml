@@ -19,6 +19,7 @@ dependencies = [
     "bcrypt>=5.0.0",
     "pwdlib>=0.3.0",
     "pwdlib[argon2]",
+    "uuid7>=0.1.0",
 ]
 
 [dependency-groups]
