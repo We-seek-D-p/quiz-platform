@@ -50,7 +50,7 @@ class UserRepository:
         await self.db.refresh(user)
         return user
 
-    async def update_user(self, user_data: dict, user_id: UUID) -> User:
+    async def update_user(self, user_id: UUID, user_data: dict) -> User:
         user = await self.get_by_id(user_id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
