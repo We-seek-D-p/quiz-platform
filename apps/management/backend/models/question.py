@@ -1,7 +1,7 @@
 from uuid import UUID, uuid7
 from sqlmodel import Field, SQLModel, Relationship
 
-from models.quizz import Quiz
+from backend.models.quizz import Quiz
 
 
 class QuestionBase(SQLModel):
