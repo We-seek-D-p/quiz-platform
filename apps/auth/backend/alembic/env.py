@@ -4,7 +4,7 @@ import sys
 from logging.config import fileConfig
 
 from dotenv import load_dotenv
-from sqlalchemy import pool
+from sqlalchemy import pool, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
@@ -55,6 +55,7 @@ def run_migrations_offline() -> None:
 
 def do_run_migrations(connection: Connection) -> None:
     """Run migrations with a connection."""
+    connection.execute(text("CREATE SCHEMA IF NOT EXISTS auth"))
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
