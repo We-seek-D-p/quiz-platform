@@ -43,7 +43,9 @@ class UserService:
             raise HTTPException(404, "User not found")
         return user
 
-    async def change_password(self, user_id: UUID, current_password: str, new_password: str) -> None:
+    async def change_password(
+        self, user_id: UUID, current_password: str, new_password: str
+    ) -> None:
         user = await self.user_repo.get_by_id(user_id)
         if not user or not verify_password(current_password, user.password_hash):
             raise HTTPException(status_code=401, detail="Incorrect current password")
