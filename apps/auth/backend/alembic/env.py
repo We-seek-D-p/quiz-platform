@@ -4,7 +4,7 @@ import sys
 from logging.config import fileConfig
 
 from dotenv import load_dotenv
-from sqlalchemy import pool, text
+from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), ".."
 load_dotenv()
 
 from backend.core.config import settings
-from backend.models import users, token
+from backend.models import users, token  # noqa: F401
 from sqlmodel import SQLModel
 from alembic import context
 
@@ -55,7 +55,9 @@ def run_migrations_offline() -> None:
 
 def do_run_migrations(connection: Connection) -> None:
     """Run migrations with a connection."""
-    connection.execute(text("CREATE SCHEMA IF NOT EXISTS auth"))
+    with connection.begin():
+        print("===> Ensuring auth schema exists")
+        connection.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS auth")
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
@@ -71,6 +73,7 @@ async def run_async_migrations() -> None:
     """Run migrations in 'online' mode with async engine."""
     configuration = config.get_section(config.config_ini_section)
     configuration["sqlalchemy.url"] = settings.DATABASE_URL
+    print(f"===> Running migrations against {settings.DATABASE_URL}")
     connectable = async_engine_from_config(
         configuration,
         prefix="sqlalchemy.",

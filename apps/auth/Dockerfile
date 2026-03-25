@@ -1,13 +1,18 @@
+FROM ghcr.io/astral-sh/uv:latest AS uv_bin
+
 FROM python:3.14-slim AS builder
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+COPY --from=uv_bin /uv /bin/uv
+
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never
+
+WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
@@ -18,21 +23,21 @@ FROM python:3.14-slim
 
 WORKDIR /app
 
-COPY --from=builder /app/.venv /app/.venv
+RUN groupadd -r app && useradd -r -g app app
 
-COPY . /app
+COPY --from=builder --chown=app:app /app/.venv /app/.venv
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq5 \
-    && rm -rf /var/lib/apt/lists/* \
-    && groupadd -r app && useradd -r -g app app && chown -R app:app /app
+COPY --chown=app:app . .
 
-USER app
+COPY --chown=app:app docker/app-entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
+USER app
+
 EXPOSE 8000
 
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["/app/entrypoint.sh"]

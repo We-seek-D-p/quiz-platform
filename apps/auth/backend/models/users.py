@@ -108,7 +108,12 @@ class RefreshToken(SQLModel, table=True):
             server_default=func.now(),
         ),
     )
-    expires_at: datetime
+    expires_at: datetime = Field(
+        sa_column=Column(
+            DateTime(timezone=True),
+            nullable=False,
+        )
+    )
     revoked_at: datetime | None = Field(
         default=None,
         sa_column=Column(DateTime(timezone=True), nullable=True),
