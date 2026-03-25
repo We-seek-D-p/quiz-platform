@@ -17,6 +17,7 @@ class Quiz(QuizBase, table=True):
     id: UUID = Field(default_factory=uuid7, primary_key=True)
     created_at: datetime = Field(default_factory=get_utc_now)
     updated_at: datetime = Field(default_factory=get_utc_now)
+    deleted_at: datetime | None  = Field(default = None)
 
     questions: list[Question] = Relationship(back_populates="quiz")
     sessions: list[GameSession] = Relationship(back_populates="quiz")
