@@ -1,6 +1,13 @@
 from sqlmodel import SQLModel
 
-class Token(SQLModel):
+from backend.models.users import UserPublic
+
+
+class AccessToken(SQLModel):
     access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
+    token_type: str = "Bearer"
+    expires_in: int
+
+
+class LoginResponse(AccessToken):
+    user: UserPublic
