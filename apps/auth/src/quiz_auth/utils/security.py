@@ -36,8 +36,8 @@ def hash_refresh_token(refresh_token: str) -> str:
 
 def create_tokens(user_id: UUID, token_version: int, session_id: UUID | None = None) -> TokenPair:
     now = datetime.now(UTC)
-    access_expires_delta = timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
-    refresh_expires_delta = timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
+    access_expires_delta = timedelta(minutes=settings.access_token_ttl_minutes)
+    refresh_expires_delta = timedelta(days=settings.refresh_token_ttl_days)
     session = session_id or uuid7()
 
     access_payload = {
@@ -48,7 +48,7 @@ def create_tokens(user_id: UUID, token_version: int, session_id: UUID | None = N
         "sid": str(session),
     }
     access_token = jwt.encode(
-        access_payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+        access_payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
     )
 
     refresh_expires_at = now + refresh_expires_delta
@@ -59,7 +59,7 @@ def create_tokens(user_id: UUID, token_version: int, session_id: UUID | None = N
         "sid": str(session),
     }
     refresh_token = jwt.encode(
-        refresh_payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+        refresh_payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
     )
 
     return TokenPair(
@@ -77,7 +77,7 @@ def decode_token(
     token: str, expected_type: str = "access"
 ) -> tuple[UUID | None, int | None, UUID | None]:
     try:
-        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
         if payload.get("type") != expected_type:
             return None, None, None
         user_id = payload.get("sub")

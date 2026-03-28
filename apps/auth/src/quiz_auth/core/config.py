@@ -1,27 +1,35 @@
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+BASE_DIR = Path(__file__).resolve().parents[3]
 
 
 class Settings(BaseSettings):
-    APP_NAME: str = "Quiz App"
-    DEBUG: bool = False
+    app_name: str = "Quiz Auth"
+    debug: bool = False
 
-    DATABASE_URL: str
+    database_url: str
 
-    JWT_SECRET_KEY: str
-    JWT_ALGORITHM: str = "HS256"
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 5
-    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 30
-
-    GO_GRPC_HOST: str = "localhost"
-    GO_GRPC_PORT: int = 50051
+    jwt_secret_key: str
+    jwt_algorithm: str = "HS256"
+    access_token_ttl_minutes: int = 5
+    refresh_token_ttl_days: int = 30
 
     model_config = SettingsConfigDict(
-        env_file=BASE_DIR / ".env", env_file_encoding="utf-8", extra="ignore"
+        env_prefix="AUTH_",
+        env_file=BASE_DIR / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
     )
+
+    @field_validator("jwt_secret_key")
+    @classmethod
+    def validate_jwt_secret_key(cls, value: str) -> str:
+        if len(value) < 32:
+            raise ValueError("AUTH_JWT_SECRET_KEY must be at least 32 characters long")
+        return value
 
 
 settings = Settings()
