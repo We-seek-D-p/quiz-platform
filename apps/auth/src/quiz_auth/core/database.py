@@ -5,7 +5,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from quiz_auth.core.config import settings
 
-async_db_url = settings.DATABASE_URL
+async_db_url = settings.database_url
 
 async_engine = create_async_engine(async_db_url, echo=True, future=True)
 

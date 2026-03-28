@@ -1,40 +1,34 @@
-## Local run
+# Auth Service
+
+Микросервис аутентификации платформы Quiz.
+
+Функционал:
+
+- Регистрация и вход пользователей
+- Выпуск access/refresh токенов
+- Валидация access-токена через GET `/validate` (возвращает `X-Auth-User-Id` и `X-Auth-Role` в заголовках)
+
+## Локальный запуск
+
+Команду нужно выполнять из корня репозитория:
 
 ```shell
-uv run uvicorn src.main:app --reload
+uv run --package quiz-auth uvicorn quiz_auth.main:app --reload
 ```
 
-### `.env` example
+## Пример `.env`
 
 ```dotenv
-# App
-APP_NAME="Quiz Auth"
-DEBUG=False
+# Приложение
+AUTH_APP_NAME="Quiz Auth"
+AUTH_DEBUG=false
 
-# Database
-DATABASE_URL=postgresql+asyncpg://auth_user:password@db:5432/quiz_auth
+# База данных
+AUTH_DATABASE_URL=postgresql+asyncpg://quiz_auth:auth_password@db:5432/quiz
 
 # JWT
-JWT_SECRET_KEY=change_me_in_prod
-JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=10
-JWT_REFRESH_TOKEN_EXPIRE_DAYS=30
+AUTH_JWT_SECRET_KEY=replace-with-at-least-32-characters
+AUTH_JWT_ALGORITHM=HS256
+AUTH_ACCESS_TOKEN_TTL_MINUTES=10
+AUTH_REFRESH_TOKEN_TTL_DAYS=30
 ```
-
-## Docker Compose
-
-The repo ships with `docker-compose.yml` that brings up Postgres 18 and the auth service.
-
-```shell
-docker compose up --build
-```
-
-- Compose loads every variable from `.env`. Add `DATABASE_URL_DOCKER` (already present in the sample) if you need a different DSN for containers—the compose file passes it as `DATABASE_URL` while leaving your local `DATABASE_URL` untouched.
-- The image entrypoint (`docker/app-entrypoint.sh`) runs `alembic upgrade head` inside the container before booting Uvicorn, so migrations apply automatically on the first run.
-- To rerun migrations manually:
-
-  ```shell
-  docker compose run --rm app alembic upgrade head
-  ```
-
-Postgres data is stored in the `pg_data` Docker volume. Remove it (`docker volume rm quiz-auth_pg_data`) to reset the cluster.
