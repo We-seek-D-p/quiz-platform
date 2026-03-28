@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID, uuid7
 
 from pydantic import EmailStr
@@ -9,7 +9,7 @@ AUTH_SCHEMA = "auth"
 
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class Role(SQLModel, table=True):

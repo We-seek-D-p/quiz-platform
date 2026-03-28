@@ -31,49 +31,9 @@ dev = [
     "pre-commit>=4.5",
 ]
 
-[tool.pytest.ini_options]
-addopts = [
-    "--cov=src",
-    "--cov-branch",
-    "--cov-report=term-missing",
-    "-q",
-]
-testpaths = ["tests"]
-pythonpath = ["."]
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
 
-[tool.coverage.run]
-source = ["src"]
-branch = true
-omit = ["**/__init__.py", "src/main.py"]
-
-[tool.coverage.report]
-show_missing = true
-fail_under = 80
-exclude_lines = [
-    "pragma: no cover",
-    "if __name__ == .__main__.:",
-    "raise NotImplementedError",
-    "\\.\\.\\.",
-    "class .*\\bProtocol\\):",
-    "@(abc\\.)?abstractmethod",
-]
-
-[tool.ruff]
-src = ["src", "tests"]
-line-length = 100
-target-version = "py314"
-
-[tool.ruff.lint]
-select = ["E", "F", "W", "I", "N", "UP", "B", "A", "S", "C90"]
-fixable = ["ALL"]
-
-[tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101"]
-
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-
-[tool.mypy]
-python_version = "3.14"
-strict = true
+[tool.hatch.build.targets.wheel]
+packages = ["src/quiz_management"]

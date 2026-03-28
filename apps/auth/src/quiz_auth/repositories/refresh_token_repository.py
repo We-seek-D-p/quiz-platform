@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import UUID
 
@@ -6,7 +6,6 @@ from sqlmodel import select, update
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from quiz_auth.models.users import RefreshToken
-
 
 REFRESH_TOKEN_TABLE: Any = cast(Any, RefreshToken).__table__
 _REVOKED_AT_COLUMN = REFRESH_TOKEN_TABLE.c.revoked_at
@@ -38,7 +37,7 @@ class RefreshTokenRepository:
     async def revoke(self, token: RefreshToken) -> None:
         if token.revoked_at is not None:
             return
-        token.revoked_at = datetime.now(timezone.utc)
+        token.revoked_at = datetime.now(UTC)
         self.db.add(token)
         await self.db.commit()
 
@@ -52,6 +51,6 @@ class RefreshTokenRepository:
         await self.db.exec(
             update(RefreshToken)
             .where(_USER_ID_COLUMN == user_id, _REVOKED_AT_COLUMN.is_(None))
-            .values(revoked_at=datetime.now(timezone.utc))
+            .values(revoked_at=datetime.now(UTC))
         )
         await self.db.commit()

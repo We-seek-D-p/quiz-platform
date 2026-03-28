@@ -1,7 +1,7 @@
 """init auth schema
 
 Revision ID: da132227e5a8
-Revises: 
+Revises:
 Create Date: 2026-03-22 17:10:20.310993
 
 """

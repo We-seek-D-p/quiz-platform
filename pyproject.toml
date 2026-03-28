@@ -1,0 +1,39 @@
+[project]
+name = "quiz-platform"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = []
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["apps/auth", "apps/management"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0",
+    "ruff>=0.15",
+]
+
+[tool.ruff]
+src = ["apps/auth", "apps/management"]
+line-length = 100
+target-version = "py314"
+force-exclude = true
+extend-exclude = [
+    "apps/frontend",
+    "apps/*/alembic/versions/*.py",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "S", "C90"]
+fixable = ["ALL"]
+
+[tool.ruff.lint.per-file-ignores]
+"apps/*/tests/*" = ["S101"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+exclude = ["apps/*/alembic/versions/*.py"]

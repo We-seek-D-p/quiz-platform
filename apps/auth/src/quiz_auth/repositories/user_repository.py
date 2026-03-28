@@ -7,7 +7,6 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from quiz_auth.models.users import User, UserCreate, utcnow
 
-
 USER_TABLE: Any = cast(Any, User).__table__
 _DELETED_AT_COLUMN = USER_TABLE.c.deleted_at
 

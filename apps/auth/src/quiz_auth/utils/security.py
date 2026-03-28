@@ -1,14 +1,12 @@
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from uuid import UUID, uuid7
 
 import jwt
-
 from pwdlib import PasswordHash
 
 from quiz_auth.core.config import settings
-
 
 password_hash = PasswordHash.recommended()
 
@@ -37,7 +35,7 @@ def hash_refresh_token(refresh_token: str) -> str:
 
 
 def create_tokens(user_id: UUID, token_version: int, session_id: UUID | None = None) -> TokenPair:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     access_expires_delta = timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
     refresh_expires_delta = timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
     session = session_id or uuid7()

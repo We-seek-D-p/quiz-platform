@@ -9,7 +9,6 @@ from quiz_auth.models.token import AccessToken, LoginResponse
 from quiz_auth.models.users import User, UserCreate, UserLogin, UserPublic
 from quiz_auth.services.auth_service import AuthService
 
-
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 REFRESH_COOKIE_NAME = "refresh_token"
