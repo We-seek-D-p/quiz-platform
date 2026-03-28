@@ -1,7 +1,7 @@
 ## Local run
 
 ```shell
-uv run uvicorn backend.main:app --reload
+uv run uvicorn src.main:app --reload
 ```
 
 ### `.env` example

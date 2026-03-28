@@ -3,10 +3,10 @@ set -euo pipefail
 
 cd /app
 
+export PYTHONPATH="/app/src:${PYTHONPATH:-}"
+
 echo "===> Applying database migrations..."
-cd backend
 alembic upgrade head
-cd ..
 
 echo "===> Starting API server..."
-exec python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
+exec python -m uvicorn quiz_auth.main:app --host 0.0.0.0 --port 8000
