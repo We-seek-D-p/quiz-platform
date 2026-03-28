@@ -1,0 +1,79 @@
+[project]
+name = "quiz-management"
+version = "0.1.0"
+description = "Management microservice for quiz app"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.135",
+    "uvicorn[standard]>=0.42",
+    "sqlalchemy>=2.0",
+    "alembic>=1.16",
+    "pydantic[email]>=2.12",
+    "pyjwt>=2.12",
+    "sqlmodel>=0.0.37",
+    "pydantic-settings>=2.13.1",
+    "passlib>=1.7.4",
+    "asyncpg>=0.31.0",
+    "greenlet>=3.3.2",
+    "bcrypt>=5.0.0",
+    "pwdlib>=0.3.0",
+    "pwdlib[argon2]",
+    "uuid7>=0.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0",
+    "pytest-cov>=7.1",
+    "ruff>=0.15.7",
+    "mypy>=1.19",
+    "pre-commit>=4.5",
+]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--cov=src",
+    "--cov-branch",
+    "--cov-report=term-missing",
+    "-q",
+]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+omit = ["**/__init__.py", "src/main.py"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 80
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.ruff]
+src = ["src", "tests"]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "S", "C90"]
+fixable = ["ALL"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
