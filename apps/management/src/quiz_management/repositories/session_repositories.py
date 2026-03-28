@@ -1,5 +1,6 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
-from quiz_management.models.session import SessionParticipant, GameSession
+
+from quiz_management.models.session import GameSession, SessionParticipant
 
 
 class SessionRepository:

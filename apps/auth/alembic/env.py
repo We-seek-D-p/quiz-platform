@@ -12,8 +12,9 @@ sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), ".."
 load_dotenv()
 
 from quiz_auth.core.config import settings
-from quiz_auth.models import users, token  # noqa: F401
+from quiz_auth.models import token, users  # noqa: F401
 from sqlmodel import SQLModel
+
 from alembic import context
 
 # this is the Alembic Config object, which provides

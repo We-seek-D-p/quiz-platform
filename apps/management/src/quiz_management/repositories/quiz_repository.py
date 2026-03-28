@@ -1,7 +1,9 @@
 import datetime
 from uuid import UUID
+
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
+
 from quiz_management.models.quiz import Quiz
 
 QUIZ_TABLE = Quiz.__table__

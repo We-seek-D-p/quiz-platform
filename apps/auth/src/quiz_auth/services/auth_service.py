@@ -1,11 +1,10 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import HTTPException, status
-
+from fastapi import HTTPException
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from quiz_auth.models.users import UserCreate, User, UserLogin
+from quiz_auth.models.users import User, UserCreate, UserLogin
 from quiz_auth.repositories.refresh_token_repository import RefreshTokenRepository
 from quiz_auth.repositories.role_repository import RoleRepository
 from quiz_auth.repositories.user_repository import UserRepository
@@ -79,8 +78,8 @@ class AuthService:
             raise HTTPException(status_code=403, detail="Refresh token revoked or reused")
         expires_at = stored_token.expires_at
         if expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
-        if expires_at <= datetime.now(timezone.utc):
+            expires_at = expires_at.replace(tzinfo=UTC)
+        if expires_at <= datetime.now(UTC):
             await self.refresh_repo.revoke(stored_token)
             raise HTTPException(status_code=401, detail="Refresh token expired")
         user = await self.user_repo.get_by_id(stored_token.user_id)

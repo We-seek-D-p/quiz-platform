@@ -1,12 +1,13 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID, uuid7
-from sqlmodel import Field, SQLModel, Relationship
+
+from sqlmodel import Field, Relationship, SQLModel
 
 from quiz_management.models.quiz import Quiz
 
 
 def get_utc_now():
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class GameSession(SQLModel, table=True):

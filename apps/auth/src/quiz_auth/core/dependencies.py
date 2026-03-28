@@ -1,8 +1,7 @@
-from datetime import datetime, timezone
-from typing import Tuple
+from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -14,7 +13,7 @@ from quiz_auth.utils.security import decode_token
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 
-async def _resolve_current_session(token: str, db: AsyncSession) -> Tuple["User", UUID]:
+async def _resolve_current_session(token: str, db: AsyncSession) -> tuple[User, UUID]:
     user_id, token_version, session_id = decode_token(token, "access")
     if not user_id or not session_id:
         raise HTTPException(
@@ -48,10 +47,8 @@ async def _resolve_current_session(token: str, db: AsyncSession) -> Tuple["User"
     if session.revoked_at is not None:
         raise HTTPException(status_code=401, detail="Session has been revoked")
     expires_at = session.expires_at
-    expires_at = (
-        expires_at.replace(tzinfo=timezone.utc) if expires_at.tzinfo is None else expires_at
-    )
-    if expires_at <= datetime.now(timezone.utc):
+    expires_at = expires_at.replace(tzinfo=UTC) if expires_at.tzinfo is None else expires_at
+    if expires_at <= datetime.now(UTC):
         await session_repo.revoke(session)
         raise HTTPException(status_code=401, detail="Session has expired")
 
