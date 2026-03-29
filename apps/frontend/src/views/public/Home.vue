@@ -28,7 +28,7 @@ const switchTheme = () => {
   <main class="app-root">
     <Card class="demo-card p-anchored-overlay-enter-active">
       <template #title>
-        <div class="text-center mb-2">Join a game</div>
+        <div class="mb-2 text-center">Join a game</div>
       </template>
       <template #content>
         <FloatLabel variant="in">
@@ -37,7 +37,7 @@ const switchTheme = () => {
         </FloatLabel>
       </template>
       <template #footer>
-        <div class="flex justify-center w-full mt-3">
+        <div class="flex w-full justify-center mt-3">
           <Button label="Join" @click="increment" />
         </div>
       </template>

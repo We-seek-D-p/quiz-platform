@@ -7,12 +7,12 @@ const router = useRouter()
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col bg-transparent">
+  <div class="flex flex-col min-h-screen bg-transparent">
     <header
-      class="h-14 flex justify-between items-center px-4 border-b border-surface-200 dark:border-surface-800 bg-surface-0 dark:bg-surface-900"
+      class="flex h-14 items-center justify-between px-4 border-b border-surface-200 bg-surface-0 dark:border-surface-800 dark:bg-surface-900"
     >
       <div
-        class="text-xl font-bold text-primary cursor-pointer select-none"
+        class="text-xl text-primary font-bold cursor-pointer select-none"
         @click="router.push('/')"
       >
         Quiz Platform
@@ -30,7 +30,7 @@ const router = useRouter()
       </div>
     </header>
 
-    <main class="flex-1 flex items-center justify-center p-6">
+    <main class="flex flex-1 items-center justify-center p-6">
       <slot />
     </main>
   </div>

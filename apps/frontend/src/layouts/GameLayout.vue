@@ -1,8 +1,8 @@
 <script setup lang="ts"></script>
 
 <template>
-  <div class="min-h-screen flex flex-col bg-transparent">
-    <main class="flex-1 flex items-center justify-center p-2 sm:p-4">
+  <div class="flex flex-col min-h-screen bg-transparent">
+    <main class="flex flex-1 items-center justify-center p-2 sm:p-4">
       <div class="w-full max-w-4xl">
         <slot />
       </div>

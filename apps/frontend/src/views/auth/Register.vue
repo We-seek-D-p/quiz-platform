@@ -5,7 +5,6 @@ import Password from 'primevue/password'
 import InputText from 'primevue/inputtext'
 import FloatLabel from 'primevue/floatlabel'
 
-
 const SendRegister = (): void => {}
 </script>
 
@@ -34,14 +33,14 @@ const SendRegister = (): void => {}
           <label>Confirm password</label>
         </FloatLabel>
 
-        <div class="flex justify-center w-full mt-4 mb-1">
+        <div class="flex w-full justify-center mt-4 mb-1">
           <Button label="Register" @click="SendRegister" />
         </div>
       </template>
       <template #footer>
         <span class="text-xs">Have an account already? </span>
         <router-link to="/login"
-          ><span class="text-xs font-bold text-primary cursor-pointer select-none"
+          ><span class="text-xs text-primary font-bold cursor-pointer select-none"
             >Login</span
           ></router-link
         >

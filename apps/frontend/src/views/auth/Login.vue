@@ -5,7 +5,6 @@ import Password from 'primevue/password'
 import InputText from 'primevue/inputtext'
 import FloatLabel from 'primevue/floatlabel'
 
-
 const SendLogin = (): void => {}
 </script>
 
@@ -24,7 +23,7 @@ const SendLogin = (): void => {}
           <label for="on_label">Password</label>
         </FloatLabel>
 
-        <div class="flex justify-center w-full mt-3">
+        <div class="flex w-full justify-center mt-3">
           <Button label="Login" @click="SendLogin" />
         </div>
       </template>
@@ -32,7 +31,7 @@ const SendLogin = (): void => {}
       <template #footer>
         <span class="text-xs">Doesn't have an account yet? </span>
         <router-link to="/register"
-          ><span class="text-xs font-bold text-primary cursor-pointer select-none"
+          ><span class="text-xs text-primary font-bold cursor-pointer select-none"
             >Register</span
           ></router-link
         >

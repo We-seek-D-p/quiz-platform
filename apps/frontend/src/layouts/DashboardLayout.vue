@@ -64,9 +64,9 @@ const toggleSidebar = () => {
 </script>
 
 <template>
-  <div class="min-h-screen flex bg-transparent">
+  <div class="flex min-h-screen bg-transparent">
     <aside
-      class="hidden lg:flex flex-col border-r border-surface-200 dark:border-surface-800 bg-surface-0 dark:bg-surface-900 overflow-hidden transition-[width,opacity,transform] duration-200 ease-in-out"
+      class="hidden flex flex-col border-r border-surface-200 bg-surface-0 overflow-hidden transition-[width,opacity,transform] duration-200 ease-in-out lg:flex dark:border-surface-800 dark:bg-surface-900"
       :class="
         isDesktopSidebarVisible
           ? 'w-64 opacity-100 translate-x-0'
@@ -75,12 +75,12 @@ const toggleSidebar = () => {
     >
       <button
         type="button"
-        class="px-5 py-4 text-left text-lg font-semibold text-primary hover:text-primary-600 transition-colors"
+        class="px-5 py-4 text-left text-lg text-primary font-semibold transition-colors hover:text-primary-600"
         @click="goHome"
       >
         Quiz Platform
       </button>
-      <div class="flex-1 flex flex-col px-3 pb-4">
+      <div class="flex flex-col flex-1 px-3 pb-4">
         <nav class="flex flex-col gap-1">
           <AppMenuItem
             v-for="item in menuItems"
@@ -98,13 +98,13 @@ const toggleSidebar = () => {
 
     <Drawer v-if="!isDesktop" v-model:visible="isMobileMenuOpen" class="w-64" :closable="false">
       <template #header>
-        <div class="text-xl font-bold text-primary cursor-pointer select-none" @click="goHome">
+        <div class="text-xl text-primary font-bold cursor-pointer select-none" @click="goHome">
           Quiz Platform
         </div>
       </template>
 
       <div class="flex flex-col h-full">
-        <div class="mt-6 flex flex-col gap-1 flex-1">
+        <div class="flex flex-col flex-1 gap-1 mt-6">
           <AppMenuItem
             v-for="item in menuItems"
             :key="item.label"
@@ -120,17 +120,17 @@ const toggleSidebar = () => {
       </div>
     </Drawer>
 
-    <div class="flex-1 flex flex-col">
+    <div class="flex flex-col flex-1">
       <header
-        class="h-14 flex justify-between items-center px-4 border-b border-surface-200 dark:border-surface-800 bg-surface-0 dark:bg-surface-900"
+        class="flex h-14 items-center justify-between px-4 border-b border-surface-200 bg-surface-0 dark:border-surface-800 dark:bg-surface-900"
       >
         <Button icon="pi pi-bars" class="inline-flex" text @click="toggleSidebar" />
-        <div class="hidden lg:block font-semibold text-surface-600 dark:text-surface-400">
+        <div class="hidden text-surface-600 font-semibold lg:block dark:text-surface-400">
           Панель управления
         </div>
         <div class="flex items-center gap-4">
           <ThemeSwitcher />
-          <span class="font-medium hidden sm:inline">{{ userEmail }}</span>
+          <span class="hidden font-medium sm:inline">{{ userEmail }}</span>
         </div>
       </header>
       <main class="flex-1 p-6 overflow-y-auto">
