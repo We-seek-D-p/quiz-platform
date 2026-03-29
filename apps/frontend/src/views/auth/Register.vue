@@ -1,73 +1,71 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
-import Password from 'primevue/password'
-import InputText from 'primevue/inputtext'
 import FloatLabel from 'primevue/floatlabel'
+import InputText from 'primevue/inputtext'
+import Password from 'primevue/password'
 
-const SendRegister = (): void => {}
+const email = ref('')
+const username = ref('')
+const password = ref('')
+const confirmPassword = ref('')
+
+const handleRegister = (): void => {}
 </script>
 
 <template>
-  <main class="app-root">
-    <Card class="demo-card p-anchored-overlay-enter-active">
-      <template #title>Registration</template>
-      <template #content>
-        <FloatLabel variant="in" class="m-3">
-          <InputText id="email" v-model="value" autocomplete="off" />
-          <label for="email">Email</label>
+  <Card class="w-full max-w-md">
+    <template #title>Registration</template>
+
+    <template #content>
+      <div class="space-y-4">
+        <FloatLabel variant="in" class="w-full">
+          <InputText id="register_email" v-model="email" autocomplete="off" class="w-full" />
+          <label for="register_email">Email</label>
         </FloatLabel>
 
-        <FloatLabel variant="in" class="m-3">
-          <InputText id="username" v-model="value" autocomplete="off" />
-          <label for="username">Username</label>
+        <FloatLabel variant="in" class="w-full">
+          <InputText id="register_username" v-model="username" autocomplete="off" class="w-full" />
+          <label for="register_username">Username</label>
         </FloatLabel>
 
-        <FloatLabel variant="in" class="m-3">
-          <Password v-model="value" :feedback="false" />
-          <label>Password</label>
+        <FloatLabel variant="in" class="w-full">
+          <Password
+            v-model="password"
+            :feedback="false"
+            class="w-full"
+            input-class="w-full"
+            input-id="register_password"
+          />
+          <label for="register_password">Password</label>
         </FloatLabel>
 
-        <FloatLabel variant="in" class="m-3">
-          <Password v-model="value" :feedback="false" />
-          <label>Confirm password</label>
+        <FloatLabel variant="in" class="w-full">
+          <Password
+            v-model="confirmPassword"
+            :feedback="false"
+            class="w-full"
+            input-class="w-full"
+            input-id="register_confirm_password"
+          />
+          <label for="register_confirm_password">Confirm password</label>
         </FloatLabel>
 
-        <div class="flex w-full justify-center mt-4 mb-1">
-          <Button label="Register" @click="SendRegister" />
+        <div class="flex justify-center pt-2">
+          <Button label="Register" @click="handleRegister" />
         </div>
-      </template>
-      <template #footer>
-        <span class="text-xs">Have an account already? </span>
-        <router-link to="/login"
-          ><span class="text-xs text-primary font-bold cursor-pointer select-none"
-            >Login</span
-          ></router-link
-        >
-      </template>
-    </Card>
-  </main>
+      </div>
+    </template>
+
+    <template #footer>
+      <span class="text-xs">Have an account already? </span>
+      <router-link
+        to="/login"
+        class="text-xs font-bold text-[var(--app-color-primary)] transition-colors hover:text-[var(--app-color-primary-hover)]"
+      >
+        Login
+      </router-link>
+    </template>
+  </Card>
 </template>
-
-<style scoped>
-.app-root {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  padding: 1rem;
-}
-
-.demo-card {
-  width: min(28rem, 100%);
-}
-
-.count-text {
-  margin: 0;
-}
-
-.theme-button {
-  width: min(28rem, 100%);
-}
-</style>

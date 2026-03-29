@@ -1,70 +1,110 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 
-const routes: Array<RouteRecordRaw> = [
-  // Public Routes (Default Layout)
+const routes: RouteRecordRaw[] = [
   {
     path: '/',
     name: 'home',
-    component: () => import('../views/public/Home.vue'),
-    meta: { layout: 'DefaultLayout' },
+    component: () => import('@/views/public/Home.vue'),
+    meta: {
+      layout: 'DefaultLayout',
+      title: '',
+    },
   },
   // {
   //   path: '/join/:code',
   //   name: 'join',
-  //   component: () => import('../views/public/JoinRoom.vue'),
+  //   component: () => import('@/views/public/JoinRoom.vue'),
   //   meta: { layout: 'DefaultLayout' }
   // },
   {
     path: '/login',
     name: 'login',
-    component: () => import('../views/auth/Login.vue'),
-    meta: { layout: 'DefaultLayout', guestOnly: true },
+    component: () => import('@/views/auth/Login.vue'),
+    meta: {
+      layout: 'DefaultLayout',
+      title: 'Вход',
+      guestOnly: true,
+    },
   },
   {
     path: '/register',
     name: 'register',
-    component: () => import('../views/auth/Register.vue'),
-    meta: { layout: 'DefaultLayout', guestOnly: true },
+    component: () => import('@/views/auth/Register.vue'),
+    meta: {
+      layout: 'DefaultLayout',
+      title: 'Регистрация',
+      guestOnly: true,
+    },
   },
 
-  // Host Routes (Dashboard Layout - Requires Auth)
   {
     path: '/host',
     name: 'dashboard',
-    component: () => import('../views/host/Dashboard.vue'),
-    meta: { layout: 'DashboardLayout' },
+    component: () => import('@/views/host/Dashboard.vue'),
+    meta: {
+      layout: 'DashboardLayout',
+      title: 'Панель управления',
+      requiresAuth: true,
+    },
   },
+
+  // {
+  //   path: '/host/quizzes',
+  //   name: 'host-quizzes',
+  //   component: () => import('@/views/host/Quizzes.vue'),
+  //   meta: {
+  //     layout: 'DashboardLayout',
+  //     title: 'Мои квизы',
+  //     requiresAuth: true,
+  //   },
+  // },
   // {
   //   path: '/host/quiz/new',
   //   name: 'create-quiz',
-  //   component: () => import('../views/host/QuizEditor.vue'),
-  //   meta: { layout: 'DashboardLayout', requiresAuth: true }
+  //   component: () => import('@/views/host/QuizEditor.vue'),
+  //   meta: {
+  //     layout: 'DashboardLayout',
+  //     title: 'Создать квиз',
+  //     requiresAuth: true,
+  //   },
   // },
   // {
   //   path: '/host/quiz/:id/edit',
   //   name: 'edit-quiz',
-  //   component: () => import('../views/host/QuizEditor.vue'),
-  //   meta: { layout: 'DashboardLayout', requiresAuth: true }
+  //   component: () => import('@/views/host/QuizEditor.vue'),
+  //   meta: {
+  //     layout: 'DashboardLayout',
+  //     title: 'Редактирование квиза',
+  //     requiresAuth: true,
+  //   },
   // },
 
-  // Game Routes (Game Layout)
   // {
   //   path: '/game/:code/lobby',
   //   name: 'lobby',
-  //   component: () => import('../views/game/Lobby.vue'),
-  //   meta: { layout: 'GameLayout' } // Доступ проверяется по WS
+  //   component: () => import('@/views/game/Lobby.vue'),
+  //   meta: {
+  //     layout: 'GameLayout',
+  //     title: 'Лобби',
+  //   },
   // },
   // {
   //   path: '/game/:code/play',
   //   name: 'play',
-  //   component: () => import('../views/game/Play.vue'),
-  //   meta: { layout: 'GameLayout' }
+  //   component: () => import('@/views/game/Play.vue'),
+  //   meta: {
+  //     layout: 'GameLayout',
+  //     title: 'Игра',
+  //   },
   // },
   // {
   //   path: '/game/:code/results',
   //   name: 'results',
-  //   component: () => import('../views/game/Results.vue'),
-  //   meta: { layout: 'GameLayout' }
+  //   component: () => import('@/views/game/Results.vue'),
+  //   meta: {
+  //     layout: 'GameLayout',
+  //     title: 'Результаты',
+  //   },
   // },
 ]
 

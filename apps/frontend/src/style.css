@@ -1,27 +1,41 @@
 @import 'tailwindcss';
 
-@custom-variant dark (&:is(.app-dark *));
-
-@theme {
-  --color-primary: var(--p-primary-500);
-  --color-surface-0: var(--p-surface-0);
-  --color-surface-200: var(--p-surface-200);
-  --color-surface-800: var(--p-surface-800);
-  --color-surface-900: var(--p-surface-900);
-  --color-surface-950: var(--p-surface-950);
-
-  --color-text: var(--p-text-color);
-  --color-text-muted: var(--p-surface-600);
-  --color-text-strong: var(--p-surface-900);
-  --color-text-inverse: var(--p-surface-0);
-}
-
 :root {
   font-family: Inter, system-ui, sans-serif;
-  --app-bg-color: var(--color-surface-0, #ffffff);
+
+  --app-color-primary: var(--p-primary-500);
+  --app-color-primary-hover: var(--p-primary-600, var(--p-primary-500));
+
+  --app-color-surface: var(--p-surface-0);
+  --app-color-surface-hover: var(--p-surface-200);
+  --app-color-border: var(--p-surface-200);
+
+  --app-color-text: var(--p-text-color);
+  --app-color-text-muted: var(--p-surface-600);
+  --app-color-text-strong: var(--p-surface-900);
+
+  --app-bg-color: var(--p-surface-0, #ffffff);
   --app-bg-image:
     radial-gradient(48rem 24rem at 8% -6%, rgba(99, 102, 241, 0.1), transparent 60%),
     radial-gradient(36rem 20rem at 92% 108%, rgba(79, 70, 229, 0.07), transparent 62%);
+}
+
+.app-dark {
+  --app-color-primary: var(--p-primary-400, var(--p-primary-500));
+  --app-color-primary-hover: var(--p-primary-300, var(--p-primary-400, var(--p-primary-500)));
+
+  --app-color-surface: var(--p-surface-900);
+  --app-color-surface-hover: var(--p-surface-800);
+  --app-color-border: var(--p-surface-800);
+
+  --app-color-text: var(--p-text-color);
+  --app-color-text-muted: var(--p-surface-200);
+  --app-color-text-strong: var(--p-surface-0);
+
+  --app-bg-color: var(--p-surface-950, #14151d);
+  --app-bg-image:
+    radial-gradient(52rem 26rem at 8% -8%, rgba(129, 140, 248, 0.18), transparent 60%),
+    radial-gradient(38rem 22rem at 94% 110%, rgba(99, 102, 241, 0.12), transparent 64%);
 }
 
 *,
@@ -41,14 +55,7 @@ body {
   background-color: var(--app-bg-color);
   background-image: var(--app-bg-image);
   background-attachment: fixed;
-  color: var(--color-text);
-}
-
-.app-dark body {
-  --app-bg-color: var(--color-surface-950, #14151d);
-  --app-bg-image:
-    radial-gradient(52rem 26rem at 8% -8%, rgba(129, 140, 248, 0.18), transparent 60%),
-    radial-gradient(38rem 22rem at 94% 110%, rgba(99, 102, 241, 0.12), transparent 64%);
+  color: var(--app-color-text);
 }
 
 .layout-shell {
@@ -71,8 +78,8 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-right: 1px solid var(--color-surface-200);
-  background-color: var(--color-surface-0);
+  border-right: 1px solid var(--app-color-border);
+  background-color: var(--app-color-surface);
   transition:
     width 200ms ease,
     opacity 200ms ease,
@@ -80,12 +87,7 @@ body {
     border-color 200ms ease;
 }
 
-.app-dark .dashboard-sidebar {
-  border-color: var(--color-surface-800);
-  background-color: var(--color-surface-900);
-}
-
-.dashboard-sidebar.is-hidden {
+.dashboard-sidebar--collapsed {
   width: 0;
   opacity: 0;
   transform: translateX(-0.75rem);

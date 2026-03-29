@@ -1,64 +1,53 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
-import Password from 'primevue/password'
-import InputText from 'primevue/inputtext'
 import FloatLabel from 'primevue/floatlabel'
+import InputText from 'primevue/inputtext'
+import Password from 'primevue/password'
 
-const SendLogin = (): void => {}
+const email = ref('')
+const password = ref('')
+
+const handleLogin = (): void => {}
 </script>
 
 <template>
-  <main class="app-root">
-    <Card class="demo-card p-anchored-overlay-enter-active">
-      <template #title>Login</template>
-      <template #content>
-        <FloatLabel variant="in" class="m-2">
-          <InputText id="on_label" v-model="value" autocomplete="off" />
-          <label for="on_label">Email</label>
+  <Card class="w-full max-w-sm">
+    <template #title>Login</template>
+
+    <template #content>
+      <div class="space-y-4">
+        <FloatLabel variant="in" class="w-full">
+          <InputText id="login_email" v-model="email" autocomplete="off" class="w-full" />
+          <label for="login_email">Email</label>
         </FloatLabel>
 
-        <FloatLabel variant="in" class="m-2">
-          <Password v-model="value" :feedback="false" />
-          <label for="on_label">Password</label>
+        <FloatLabel variant="in" class="w-full">
+          <Password
+            v-model="password"
+            :feedback="false"
+            class="w-full"
+            input-class="w-full"
+            input-id="login_password"
+          />
+          <label for="login_password">Password</label>
         </FloatLabel>
 
-        <div class="flex w-full justify-center mt-3">
-          <Button label="Login" @click="SendLogin" />
+        <div class="flex justify-center pt-2">
+          <Button label="Login" @click="handleLogin" />
         </div>
-      </template>
+      </div>
+    </template>
 
-      <template #footer>
-        <span class="text-xs">Doesn't have an account yet? </span>
-        <router-link to="/register"
-          ><span class="text-xs text-primary font-bold cursor-pointer select-none"
-            >Register</span
-          ></router-link
-        >
-      </template>
-    </Card>
-  </main>
+    <template #footer>
+      <span class="text-xs">Doesn't have an account yet? </span>
+      <router-link
+        to="/register"
+        class="text-xs font-bold text-[var(--app-color-primary)] transition-colors hover:text-[var(--app-color-primary-hover)]"
+      >
+        Register
+      </router-link>
+    </template>
+  </Card>
 </template>
-
-<style scoped>
-.app-root {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  padding: 1rem;
-}
-
-.demo-card {
-  width: min(28rem, 100%);
-}
-
-.count-text {
-  margin: 0;
-}
-
-.theme-button {
-  width: min(28rem, 100%);
-}
-</style>
