@@ -1,18 +1,18 @@
-import js from "@eslint/js"
-import pluginVue from "eslint-plugin-vue"
-import globals from "globals"
-import tseslint from "typescript-eslint"
-import eslintConfigPrettier from "eslint-config-prettier"
+import js from '@eslint/js'
+import pluginVue from 'eslint-plugin-vue'
+import globals from 'globals'
+import tseslint from 'typescript-eslint'
+import eslintConfigPrettier from 'eslint-config-prettier'
 
 export default [
   {
-    ignores: ["dist/**", "node_modules/**", "coverage/**"],
+    ignores: ['dist/**', 'node_modules/**', 'coverage/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
-  ...pluginVue.configs["flat/recommended"],
+  ...pluginVue.configs['flat/recommended'],
   {
-    files: ["**/*.vue"],
+    files: ['**/*.vue'],
     languageOptions: {
       parserOptions: {
         parser: tseslint.parser,
@@ -20,14 +20,14 @@ export default [
     },
   },
   {
-    files: ["**/*.{js,ts,vue}"],
+    files: ['**/*.{js,ts,vue}'],
     languageOptions: {
       globals: {
         ...globals.browser,
       },
     },
     rules: {
-      "vue/multi-word-component-names": "off",
+      'vue/multi-word-component-names': 'off',
     },
   },
   eslintConfigPrettier,

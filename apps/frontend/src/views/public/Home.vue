@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import {ref} from 'vue'
+import { ref } from 'vue'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
-import FloatLabel from 'primevue/floatlabel';
+import FloatLabel from 'primevue/floatlabel'
 import InputNumber from 'primevue/inputnumber'
 import { useRouter } from 'vue-router'
-import {getStoredThemeMode, toggleThemeMode, type ThemeMode} from '../../theme.ts'
+import { getStoredThemeMode, toggleThemeMode, type ThemeMode } from '../../theme.ts'
 
 const count = ref(0)
 const themeMode = ref<ThemeMode>(getStoredThemeMode())
@@ -27,39 +27,30 @@ const switchTheme = () => {
 <template>
   <main class="app-root">
     <Card class="demo-card p-anchored-overlay-enter-active">
-      <template #title >
+      <template #title>
         <div class="text-center mb-2">Join a game</div>
       </template>
       <template #content>
         <FloatLabel variant="in">
-          <InputNumber :useGrouping="false" fluid />
+          <InputNumber :use-grouping="false" fluid />
           <label>Code</label>
-
         </FloatLabel>
       </template>
       <template #footer>
         <div class="flex justify-center w-full mt-3">
-          <Button label="Join"  @click="increment"/>
+          <Button label="Join" @click="increment" />
         </div>
       </template>
     </Card>
 
     <Button
-        class="theme-button"
-        :label="`Theme: ${themeMode}`"
-        icon="pi pi-palette"
-        @click="switchTheme"
+      class="theme-button"
+      :label="`Theme: ${themeMode}`"
+      icon="pi pi-palette"
+      @click="switchTheme"
     />
-    <Button
-         class="theme-button"
-         :label="`Host dashboard`"
-         @click="goToDashboard"
-    />
-    <Button
-        class="theme-button"
-        :label="`Register page`"
-        @click="router.push('/register')"
-    />
+    <Button class="theme-button" :label="`Host dashboard`" @click="goToDashboard" />
+    <Button class="theme-button" :label="`Register page`" @click="router.push('/register')" />
   </main>
 </template>
 

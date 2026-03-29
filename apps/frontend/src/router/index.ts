@@ -1,4 +1,4 @@
-import {createRouter, createWebHistory, type RouteRecordRaw} from 'vue-router'
+import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 
 const routes: Array<RouteRecordRaw> = [
   // Public Routes (Default Layout)
@@ -6,7 +6,7 @@ const routes: Array<RouteRecordRaw> = [
     path: '/',
     name: 'home',
     component: () => import('../views/public/Home.vue'),
-    meta: {layout: 'DefaultLayout'}
+    meta: { layout: 'DefaultLayout' },
   },
   // {
   //   path: '/join/:code',
@@ -18,13 +18,13 @@ const routes: Array<RouteRecordRaw> = [
     path: '/login',
     name: 'login',
     component: () => import('../views/auth/Login.vue'),
-    meta: {layout: 'DefaultLayout', guestOnly: true}
+    meta: { layout: 'DefaultLayout', guestOnly: true },
   },
   {
     path: '/register',
     name: 'register',
     component: () => import('../views/auth/Register.vue'),
-    meta: {layout: 'DefaultLayout', guestOnly: true}
+    meta: { layout: 'DefaultLayout', guestOnly: true },
   },
 
   // Host Routes (Dashboard Layout - Requires Auth)
@@ -32,7 +32,7 @@ const routes: Array<RouteRecordRaw> = [
     path: '/host',
     name: 'dashboard',
     component: () => import('../views/host/Dashboard.vue'),
-    meta: {layout: 'DashboardLayout'}
+    meta: { layout: 'DashboardLayout' },
   },
   // {
   //   path: '/host/quiz/new',
@@ -66,11 +66,11 @@ const routes: Array<RouteRecordRaw> = [
   //   component: () => import('../views/game/Results.vue'),
   //   meta: { layout: 'GameLayout' }
   // },
-];
+]
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
-  routes
+  routes,
 })
 
 export default router

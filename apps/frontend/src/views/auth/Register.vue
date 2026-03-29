@@ -1,16 +1,15 @@
 <script setup lang="ts">
-import {ref} from 'vue'
+import { ref } from 'vue'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
 import Password from 'primevue/password'
 import InputText from 'primevue/inputtext'
 import FloatLabel from 'primevue/floatlabel'
-import {getStoredThemeMode, toggleThemeMode, type ThemeMode} from '../../theme.ts'
+import { getStoredThemeMode, toggleThemeMode, type ThemeMode } from '../../theme.ts'
 
 const themeMode = ref<ThemeMode>(getStoredThemeMode())
 
 const SendRegister = (): void => {}
-
 </script>
 
 <template>
@@ -29,23 +28,26 @@ const SendRegister = (): void => {}
         </FloatLabel>
 
         <FloatLabel variant="in" class="m-3">
-        <Password v-model="value" :feedback="false" />
-        <label>Password</label>
+          <Password v-model="value" :feedback="false" />
+          <label>Password</label>
         </FloatLabel>
 
         <FloatLabel variant="in" class="m-3">
-        <Password v-model="value" :feedback="false" />
-        <label>Confirm password</label>
+          <Password v-model="value" :feedback="false" />
+          <label>Confirm password</label>
         </FloatLabel>
 
         <div class="flex justify-center w-full mt-4 mb-1">
-          <Button label="Register"  @click="SendRegister"/>
+          <Button label="Register" @click="SendRegister" />
         </div>
-
       </template>
       <template #footer>
         <span class="text-xs">Have an account already? </span>
-        <router-link to="/login"><span class="text-xs font-bold text-primary cursor-pointer select-none">Login</span></router-link>
+        <router-link to="/login"
+          ><span class="text-xs font-bold text-primary cursor-pointer select-none"
+            >Login</span
+          ></router-link
+        >
       </template>
     </Card>
   </main>

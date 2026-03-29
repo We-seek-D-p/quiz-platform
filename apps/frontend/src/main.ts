@@ -1,12 +1,12 @@
-import {createApp} from 'vue'
+import { createApp } from 'vue'
 import PrimeVue from 'primevue/config'
 import router from './router'
 import Aura from '@primevue/themes/aura'
-import {definePreset} from '@primevue/themes'
+import { definePreset } from '@primevue/themes'
 import 'primeicons/primeicons.css'
 import './style.css'
 import App from './App.vue'
-import {initThemeMode} from './theme'
+import { initThemeMode } from './theme'
 
 const AuraIndigoPreset = definePreset(Aura, {
   semantic: {
@@ -21,7 +21,7 @@ const AuraIndigoPreset = definePreset(Aura, {
       700: '{indigo.700}',
       800: '{indigo.800}',
       900: '{indigo.900}',
-      950: '{indigo.950}'
+      950: '{indigo.950}',
     },
     colorScheme: {
       light: {
@@ -37,8 +37,8 @@ const AuraIndigoPreset = definePreset(Aura, {
           700: '#435565',
           800: '#2d3844',
           900: '#161c22',
-          950: '#0d1117'
-        }
+          950: '#0d1117',
+        },
       },
       dark: {
         surface: {
@@ -53,11 +53,11 @@ const AuraIndigoPreset = definePreset(Aura, {
           700: '#4a4b52',
           800: '#34343d',
           900: '#1d1e27',
-          950: '#14151d'
-        }
-      }
-    }
-  }
+          950: '#14151d',
+        },
+      },
+    },
+  },
 })
 
 const app = createApp(App)
@@ -68,9 +68,9 @@ app.use(PrimeVue, {
   theme: {
     preset: AuraIndigoPreset,
     options: {
-      darkModeSelector: '.app-dark'
-    }
-  }
+      darkModeSelector: '.app-dark',
+    },
+  },
 })
 
 app.use(router)

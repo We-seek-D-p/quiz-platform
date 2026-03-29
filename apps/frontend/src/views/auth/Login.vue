@@ -1,16 +1,15 @@
 <script setup lang="ts">
-import {ref} from 'vue'
+import { ref } from 'vue'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
 import Password from 'primevue/password'
 import InputText from 'primevue/inputtext'
 import FloatLabel from 'primevue/floatlabel'
-import {getStoredThemeMode, toggleThemeMode, type ThemeMode} from '../../theme.ts'
+import { getStoredThemeMode, toggleThemeMode, type ThemeMode } from '../../theme.ts'
 
 const themeMode = ref<ThemeMode>(getStoredThemeMode())
 
 const SendLogin = (): void => {}
-
 </script>
 
 <template>
@@ -18,29 +17,29 @@ const SendLogin = (): void => {}
     <Card class="demo-card p-anchored-overlay-enter-active">
       <template #title>Login</template>
       <template #content>
-
         <FloatLabel variant="in" class="m-2">
           <InputText id="on_label" v-model="value" autocomplete="off" />
           <label for="on_label">Email</label>
         </FloatLabel>
 
         <FloatLabel variant="in" class="m-2">
-        <Password v-model="value" :feedback="false" />
-        <label for="on_label">Password</label>
+          <Password v-model="value" :feedback="false" />
+          <label for="on_label">Password</label>
         </FloatLabel>
 
         <div class="flex justify-center w-full mt-3">
-          <Button label="Login"  @click="SendLogin"/>
+          <Button label="Login" @click="SendLogin" />
         </div>
-
-
       </template>
 
       <template #footer>
         <span class="text-xs">Doesn't have an account yet? </span>
-        <router-link to="/register"><span class="text-xs font-bold text-primary cursor-pointer select-none">Register</span></router-link>
+        <router-link to="/register"
+          ><span class="text-xs font-bold text-primary cursor-pointer select-none"
+            >Register</span
+          ></router-link
+        >
       </template>
-
     </Card>
   </main>
 </template>
