@@ -1,13 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
 import Password from 'primevue/password'
 import InputText from 'primevue/inputtext'
 import FloatLabel from 'primevue/floatlabel'
-import { getStoredThemeMode, toggleThemeMode, type ThemeMode } from '../../theme.ts'
 
-const themeMode = ref<ThemeMode>(getStoredThemeMode())
 
 const SendRegister = (): void => {}
 </script>
