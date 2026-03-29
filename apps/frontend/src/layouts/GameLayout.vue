@@ -1,17 +1,9 @@
-<script setup lang="ts">
-
-</script>
-
 <template>
-  <div class="min-h-screen flex flex-col bg-transparent">
-    <main class="flex-1 flex items-center justify-center p-2 sm:p-4">
+  <div class="layout-shell">
+    <main class="layout-main flex items-center justify-center px-3 py-4 sm:px-4 md:px-6 md:py-8">
       <div class="w-full max-w-4xl">
-        <slot/>
+        <slot />
       </div>
     </main>
   </div>
 </template>
-
-<style scoped>
-
-</style>

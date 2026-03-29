@@ -1,16 +1,16 @@
 <script setup lang="ts">
 defineProps<{
-  icon: string;
-  label: string;
-}>();
+  icon: string
+  label: string
+}>()
 </script>
 
 <template>
   <button
-      type="button"
-      class="w-full flex items-center gap-3 rounded-md px-3 py-2 text-left text-surface-700 hover:bg-surface-100 dark:text-surface-200 dark:hover:bg-surface-800 transition-colors"
+    type="button"
+    class="flex w-full items-center gap-3 px-3 py-2 rounded-lg text-left text-sm font-medium text-[var(--app-color-text-muted)] transition-colors hover:bg-[var(--app-color-surface-hover)] hover:text-[var(--app-color-text-strong)]"
   >
-    <i :class="icon" class="text-base" aria-hidden="true"></i>
-    <span class="text-sm font-medium">{{ label }}</span>
+    <i :class="[icon, 'text-base']" aria-hidden="true"></i>
+    <span class="flex-1">{{ label }}</span>
   </button>
 </template>

@@ -43,6 +43,9 @@ fmt-front:
 lint-front:
     cd apps/frontend && bun run lint
 
+fix-front:
+    cd apps/frontend && bun run lint:fix
+
 test-front:
     cd apps/frontend && bun run test
 

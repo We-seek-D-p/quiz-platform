@@ -102,6 +102,12 @@ just fmt-front
 just lint-front
 ```
 
+### Автоисправление
+
+```bash
+fix-front
+```
+
 ### Тесты
 
 ```bash

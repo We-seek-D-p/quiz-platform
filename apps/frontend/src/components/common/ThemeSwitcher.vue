@@ -1,34 +1,31 @@
 <script setup lang="ts">
-import {ref, onMounted} from 'vue';
-import Button from 'primevue/button';
-import {toggleThemeMode, getStoredThemeMode, type ThemeMode} from '@/theme';
+import { computed, onMounted, ref } from 'vue'
+import Button from 'primevue/button'
+import { getStoredThemeMode, toggleThemeMode, type ThemeMode } from '@/theme'
 
-const currentMode = ref<ThemeMode>('system');
+const currentMode = ref<ThemeMode>('system')
 
 onMounted(() => {
-  currentMode.value = getStoredThemeMode();
-});
+  currentMode.value = getStoredThemeMode()
+})
+
+const currentIcon = computed(() => {
+  if (currentMode.value === 'dark') return 'pi pi-moon'
+  if (currentMode.value === 'light') return 'pi pi-sun'
+  return 'pi pi-desktop'
+})
 
 const handleToggle = () => {
-  currentMode.value = toggleThemeMode();
-};
-
-const getIcon = () => {
-  if (currentMode.value === 'dark') return 'pi pi-moon';
-  if (currentMode.value === 'light') return 'pi pi-sun';
-  return 'pi pi-desktop';
-};
+  currentMode.value = toggleThemeMode()
+}
 </script>
 
 <template>
   <Button
-      :icon="getIcon()"
-      @click="handleToggle"
-      severity="secondary"
-      text
-      rounded
-      aria-label="Toggle Theme"
-      :p-tooltip="`Тема: ${currentMode}`"
-      tooltip-position="bottom"
+    :icon="currentIcon"
+    text
+    severity="secondary"
+    :aria-label="`Theme: ${currentMode}`"
+    @click="handleToggle"
   />
 </template>
