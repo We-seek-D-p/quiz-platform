@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import Depends, HTTPException
@@ -6,6 +7,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from quiz_auth.core.database import get_session
+from quiz_auth.models.users import User
 from quiz_auth.repositories.refresh_token_repository import RefreshTokenRepository
 from quiz_auth.repositories.user_repository import UserRepository
 from quiz_auth.utils.security import decode_token
@@ -56,13 +58,15 @@ async def _resolve_current_session(token: str, db: AsyncSession) -> tuple[User, 
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_session)
+    token: Annotated[str, Depends(oauth2_scheme)],
+    db: Annotated[AsyncSession, Depends(get_session)],
 ):
     user, _ = await _resolve_current_session(token, db)
     return user
 
 
 async def get_current_user_with_session(
-    token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_session)
+    token: Annotated[str, Depends(oauth2_scheme)],
+    db: Annotated[AsyncSession, Depends(get_session)],
 ):
     return await _resolve_current_session(token, db)
