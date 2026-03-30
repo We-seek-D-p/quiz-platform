@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -42,7 +43,7 @@ def _clear_refresh_cookie(response: Response) -> None:
 
 
 @router.post("/register", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
-async def register(user_data: UserCreate, db: AsyncSession = Depends(get_session)):
+async def register(user_data: UserCreate, db: Annotated[AsyncSession, Depends(get_session)]):
     auth_service = AuthService(db)
     user = await auth_service.registry_user(user_data)
     return user
@@ -52,7 +53,7 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_session
 async def login(
     user_data: UserLogin,
     response: Response,
-    db: AsyncSession = Depends(get_session),
+    db: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth_service = AuthService(db)
     token_pair, user = await auth_service.login_user(user_data)
@@ -74,7 +75,7 @@ async def login(
 async def refresh_token(
     request: Request,
     response: Response,
-    db: AsyncSession = Depends(get_session),
+    db: Annotated[AsyncSession, Depends(get_session)],
 ):
     refresh_token_cookie = request.cookies.get(REFRESH_COOKIE_NAME)
     if not refresh_token_cookie:
@@ -97,15 +98,15 @@ async def refresh_token(
 
 
 @router.get("/me", response_model=UserPublic)
-async def get_current_profile(current_user: User = Depends(get_current_user)):
+async def get_current_profile(current_user: Annotated[User, Depends(get_current_user)]):
     return current_user
 
 
 @router.post("/logout")
 async def logout(
     response: Response,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_session),
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth_service = AuthService(db)
     await auth_service.logout_user(current_user)

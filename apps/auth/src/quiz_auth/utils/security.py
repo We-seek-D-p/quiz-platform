@@ -65,7 +65,7 @@ def create_tokens(user_id: UUID, token_version: int, session_id: UUID | None = N
     return TokenPair(
         access_token=access_token,
         refresh_token=refresh_token,
-        token_type="Bearer",
+        token_type="Bearer",  # noqa: S106
         access_expires_in=int(access_expires_delta.total_seconds()),
         refresh_expires_at=refresh_expires_at,
         refresh_expires_in=int(refresh_expires_delta.total_seconds()),

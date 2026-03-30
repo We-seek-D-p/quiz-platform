@@ -1,8 +1,11 @@
+# ruff: noqa: E402, I001
+
 import asyncio
 import os
 import sys
 from logging.config import fileConfig
 
+from alembic import context
 from dotenv import load_dotenv
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
@@ -14,8 +17,6 @@ load_dotenv()
 from quiz_auth.core.config import settings
 from quiz_auth.models import token, users  # noqa: F401
 from sqlmodel import SQLModel
-
-from alembic import context
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

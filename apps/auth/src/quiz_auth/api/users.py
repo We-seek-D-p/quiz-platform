@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Body, Depends, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -12,8 +14,8 @@ router = APIRouter(prefix="/users", tags=["users"])
 @router.patch("/me", response_model=UserPublic)
 async def update_me(
     user_data: UserUpdate,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_session),
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_session)],
 ):
     service = UserService(db)
     return await service.update_profile(current_user.id, user_data)
@@ -21,10 +23,10 @@ async def update_me(
 
 @router.post("/me/change-password", status_code=status.HTTP_204_NO_CONTENT)
 async def change_my_password(
-    current_password: str = Body(..., embed=True),
-    new_password: str = Body(..., embed=True),
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_session),
+    current_password: Annotated[str, Body(embed=True)],
+    new_password: Annotated[str, Body(embed=True)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_session)],
 ):
     service = UserService(db)
     await service.change_password(current_user.id, current_password, new_password)
@@ -33,7 +35,8 @@ async def change_my_password(
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_my_account(
-    current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_session)
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_session)],
 ):
     user_repo = UserService(db)
     await user_repo.delete_user(current_user, current_user.id)
