@@ -1,7 +1,6 @@
+from apps.auth.src.quiz_auth.models.users import Role
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
-
-from quiz_auth.models.users import Role
 
 
 class RoleRepository:

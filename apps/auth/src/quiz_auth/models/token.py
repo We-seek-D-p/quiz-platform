@@ -1,6 +1,5 @@
+from apps.auth.src.quiz_auth.models.users import UserPublic
 from sqlmodel import SQLModel
-
-from quiz_auth.models.users import UserPublic
 
 
 class AccessToken(SQLModel):

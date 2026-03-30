@@ -1,11 +1,10 @@
 from uuid import UUID
 
+from apps.auth.src.quiz_auth.models.users import User, UserUpdate
+from apps.auth.src.quiz_auth.repositories.user_repository import UserRepository
+from apps.auth.src.quiz_auth.utils.security import hash_password, verify_password
 from fastapi import HTTPException
 from sqlmodel.ext.asyncio.session import AsyncSession
-
-from quiz_auth.models.users import User, UserUpdate
-from quiz_auth.repositories.user_repository import UserRepository
-from quiz_auth.utils.security import hash_password, verify_password
 
 
 class UserService:

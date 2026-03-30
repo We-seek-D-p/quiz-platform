@@ -1,14 +1,13 @@
 from datetime import datetime
 from typing import Annotated
 
+from apps.auth.src.quiz_auth.core.database import get_session
+from apps.auth.src.quiz_auth.core.dependencies import get_current_user
+from apps.auth.src.quiz_auth.models.token import AccessToken, LoginResponse
+from apps.auth.src.quiz_auth.models.users import User, UserCreate, UserLogin, UserPublic
+from apps.auth.src.quiz_auth.services.auth_service import AuthService
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlmodel.ext.asyncio.session import AsyncSession
-
-from quiz_auth.core.database import get_session
-from quiz_auth.core.dependencies import get_current_user
-from quiz_auth.models.token import AccessToken, LoginResponse
-from quiz_auth.models.users import User, UserCreate, UserLogin, UserPublic
-from quiz_auth.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

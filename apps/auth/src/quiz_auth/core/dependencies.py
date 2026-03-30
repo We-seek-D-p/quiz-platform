@@ -2,15 +2,14 @@ from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
+from apps.auth.src.quiz_auth.core.database import get_session
+from apps.auth.src.quiz_auth.models.users import User
+from apps.auth.src.quiz_auth.repositories.refresh_token_repository import RefreshTokenRepository
+from apps.auth.src.quiz_auth.repositories.user_repository import UserRepository
+from apps.auth.src.quiz_auth.utils.security import decode_token
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from sqlmodel.ext.asyncio.session import AsyncSession
-
-from quiz_auth.core.database import get_session
-from quiz_auth.models.users import User
-from quiz_auth.repositories.refresh_token_repository import RefreshTokenRepository
-from quiz_auth.repositories.user_repository import UserRepository
-from quiz_auth.utils.security import decode_token
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 

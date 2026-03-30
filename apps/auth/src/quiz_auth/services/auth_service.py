@@ -1,14 +1,11 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import HTTPException
-from sqlmodel.ext.asyncio.session import AsyncSession
-
-from quiz_auth.models.users import User, UserCreate, UserLogin
-from quiz_auth.repositories.refresh_token_repository import RefreshTokenRepository
-from quiz_auth.repositories.role_repository import RoleRepository
-from quiz_auth.repositories.user_repository import UserRepository
-from quiz_auth.utils.security import (
+from apps.auth.src.quiz_auth.models.users import User, UserCreate, UserLogin
+from apps.auth.src.quiz_auth.repositories.refresh_token_repository import RefreshTokenRepository
+from apps.auth.src.quiz_auth.repositories.role_repository import RoleRepository
+from apps.auth.src.quiz_auth.repositories.user_repository import UserRepository
+from apps.auth.src.quiz_auth.utils.security import (
     TokenPair,
     create_tokens,
     decode_token,
@@ -16,6 +13,8 @@ from quiz_auth.utils.security import (
     hash_refresh_token,
     verify_password,
 )
+from fastapi import HTTPException
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 
 class AuthService:
