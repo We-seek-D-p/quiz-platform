@@ -6,9 +6,9 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from quiz_auth.core.database import get_session
 from quiz_auth.core.dependencies import get_current_user
+from quiz_auth.models.token import AccessToken, LoginResponse
 from quiz_auth.models.users import User, UserCreate, UserLogin, UserPublic
 from quiz_auth.services.auth_service import AuthService
-from src.quiz_auth.models.token import AccessToken, LoginResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
