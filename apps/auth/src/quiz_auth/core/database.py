@@ -1,8 +1,9 @@
 from collections.abc import AsyncGenerator
 
-from apps.auth.src.quiz_auth.core.config import settings
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlmodel.ext.asyncio.session import AsyncSession
+
+from quiz_auth.core.config import settings
 
 async_db_url = settings.database_url
 

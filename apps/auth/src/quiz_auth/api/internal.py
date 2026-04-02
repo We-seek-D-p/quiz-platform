@@ -1,8 +1,9 @@
 from typing import Annotated
 
-from apps.auth.src.quiz_auth.core.dependencies import get_current_user
-from apps.auth.src.quiz_auth.models.users import User
 from fastapi import APIRouter, Depends, Response, status
+
+from quiz_auth.core.dependencies import get_current_user
+from quiz_auth.models.users import User
 
 router = APIRouter(tags=["internal"])
 

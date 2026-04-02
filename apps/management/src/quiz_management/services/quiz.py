@@ -1,9 +1,10 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from apps.management.src.quiz_management.models.quiz import Quiz, QuizCreate, QuizUpdate
-from apps.management.src.quiz_management.repositories.quiz_repository import QuizRepository
 from sqlalchemy.ext.asyncio.session import AsyncSession
+
+from quiz_management.models.quiz import Quiz, QuizCreate, QuizUpdate
+from quiz_management.repositories.quiz_repository import QuizRepository
 
 
 class QuizService:

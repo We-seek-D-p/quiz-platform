@@ -1,10 +1,11 @@
 import datetime
 from uuid import UUID
 
-from apps.management.src.quiz_management.models.question import Question
-from apps.management.src.quiz_management.models.quiz import Quiz
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
+
+from quiz_management.models.question import Question
+from quiz_management.models.quiz import Quiz
 
 QUESTION_TABLE = Question.__table__
 _DELETED_AT_COLUMN = QUESTION_TABLE.c.deleted_at

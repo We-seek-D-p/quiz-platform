@@ -1,7 +1,8 @@
 from uuid import UUID, uuid7
 
-from apps.management.src.quiz_management.models.quiz import Quiz
 from sqlmodel import Field, Relationship, SQLModel
+
+from quiz_management.models.quiz import Quiz
 
 
 class QuestionBase(SQLModel):

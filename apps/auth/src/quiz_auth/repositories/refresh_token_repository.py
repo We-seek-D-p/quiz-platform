@@ -2,9 +2,10 @@ from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import UUID
 
-from apps.auth.src.quiz_auth.models.users import RefreshToken
 from sqlmodel import select, update
 from sqlmodel.ext.asyncio.session import AsyncSession
+
+from quiz_auth.models.users import RefreshToken
 
 REFRESH_TOKEN_TABLE: Any = cast(Any, RefreshToken).__table__
 _REVOKED_AT_COLUMN = REFRESH_TOKEN_TABLE.c.revoked_at

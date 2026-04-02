@@ -5,10 +5,11 @@ from apps.management.src.quiz_management.core.dependencies import (
     get_quiz_service,
     get_valid_quiz,
 )
-from apps.management.src.quiz_management.models.quiz import Quiz, QuizCreate, QuizPublic, QuizUpdate
-from apps.management.src.quiz_management.services.quiz import QuizService
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.sql.annotation import Annotated
+
+from quiz_management.models.quiz import Quiz, QuizCreate, QuizPublic, QuizUpdate
+from quiz_management.services.quiz import QuizService
 
 router = APIRouter(prefix="/quizzes", tags=["Quizzes"])
 

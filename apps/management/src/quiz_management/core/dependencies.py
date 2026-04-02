@@ -1,13 +1,14 @@
 from uuid import UUID
 
-from apps.management.src.quiz_management.models.quiz import Quiz
-from apps.management.src.quiz_management.repositories.quiz_repository import QuizRepository
-from apps.management.src.quiz_management.services.quiz import QuizService
 from core.database import get_session
 from fastapi import Depends, Header, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.annotation import Annotated
 from starlette import status
+
+from quiz_management.models.quiz import Quiz
+from quiz_management.repositories.quiz_repository import QuizRepository
+from quiz_management.services.quiz import QuizService
 
 
 async def get_current_user_id(user_id: str = Header(None, alias="X-User-Id")) -> str:

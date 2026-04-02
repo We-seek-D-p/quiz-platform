@@ -4,8 +4,9 @@ from hashlib import sha256
 from uuid import UUID, uuid7
 
 import jwt
-from apps.auth.src.quiz_auth.core.config import settings
 from pwdlib import PasswordHash
+
+from quiz_auth.core.config import settings
 
 password_hash = PasswordHash.recommended()
 

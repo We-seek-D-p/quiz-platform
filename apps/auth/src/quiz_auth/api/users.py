@@ -1,11 +1,12 @@
 from typing import Annotated
 
-from apps.auth.src.quiz_auth.core.database import get_session
-from apps.auth.src.quiz_auth.core.dependencies import get_current_user
-from apps.auth.src.quiz_auth.models.users import User, UserPublic, UserUpdate
-from apps.auth.src.quiz_auth.services.user_service import UserService
 from fastapi import APIRouter, Body, Depends, status
 from sqlmodel.ext.asyncio.session import AsyncSession
+
+from quiz_auth.core.database import get_session
+from quiz_auth.core.dependencies import get_current_user
+from quiz_auth.models.users import User, UserPublic, UserUpdate
+from quiz_auth.services.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["users"])
 
