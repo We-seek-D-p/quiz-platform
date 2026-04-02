@@ -11,9 +11,6 @@ QUESTION_TABLE = Question.__table__
 _DELETED_AT_COLUMN = QUESTION_TABLE.c.deleted_at
 
 
-# TODO - There is a code's duplicate - should we use Quiz | Question in repositories? Or is it just at the initial stage?.
-
-
 class QuestionRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
