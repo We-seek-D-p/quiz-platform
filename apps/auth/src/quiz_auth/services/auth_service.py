@@ -6,6 +6,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from quiz_auth.models.users import User, UserCreate, UserLogin
 from quiz_auth.repositories.refresh_token_repository import RefreshTokenRepository
+from quiz_auth.repositories.role_repository import RoleRepository
 from quiz_auth.repositories.user_repository import UserRepository
 from quiz_auth.utils.security import (
     TokenPair,
@@ -15,7 +16,6 @@ from quiz_auth.utils.security import (
     hash_refresh_token,
     verify_password,
 )
-from src.quiz_auth.repositories.role_repository import RoleRepository
 
 
 class AuthService:
