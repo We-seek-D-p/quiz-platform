@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from models.question import QuestionOption
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -18,7 +19,7 @@ class QuestionRepository:
                 Question.id == question_id,
                 Question.deleted_at == None,  # noqa: E711
             )
-            .options(selectinload(Question.options))
+            .options(selectinload(Question.options).where(QuestionOption.deleted_at == None))  # noqa: E711
         )
         result = await self.db.exec(statement)
         return result.first()
