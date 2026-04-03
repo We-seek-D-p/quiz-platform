@@ -1,8 +1,21 @@
+from datetime import UTC, datetime
 from uuid import UUID, uuid7
 
 from sqlmodel import Field, Relationship, SQLModel
 
 from quiz_management.models.quiz import Quiz
+
+
+def get_utc_now():
+    return datetime.now(UTC)
+
+
+class TimestampMixin(SQLModel):
+    created_at: datetime = Field(default_factory=get_utc_now)
+    updated_at: datetime = Field(
+        default_factory=get_utc_now, sa_column_kwargs={"onupdate": get_utc_now()}
+    )
+    deleted_at: datetime | None = Field(default=None)
 
 
 class QuestionBase(SQLModel):
@@ -19,7 +32,7 @@ class OptionBase(SQLModel):
     is_correct: bool = Field(default=False)
 
 
-class Question(QuestionBase, table=True):
+class Question(QuestionBase, TimestampMixin, table=True):
     __tablename__ = "questions"
     __table_args__ = {"schema": "management"}
 
@@ -29,7 +42,7 @@ class Question(QuestionBase, table=True):
     options: list[QuestionOption] = Relationship(back_populates="question")
 
 
-class QuestionOption(OptionBase, table=True):
+class QuestionOption(OptionBase, TimestampMixin, table=True):
     __tablename__ = "question_options"
     __table_args__ = {"schema": "management"}
 
