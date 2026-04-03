@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
 import FloatLabel from 'primevue/floatlabel'
-import InputNumber from 'primevue/inputnumber'
+import InputMask from 'primevue/inputmask'
 
 const router = useRouter()
 const gameCode = ref<number | null>(null)
@@ -19,7 +19,7 @@ const goToRegister = () => {
 </script>
 
 <template>
-  <section class="flex w-full max-w-md flex-col gap-3">
+  <section class="flex flex-col gap-3">
     <Card class="w-full">
       <template #title>
         <div class="mb-2 text-center">Join a game</div>
@@ -27,8 +27,8 @@ const goToRegister = () => {
 
       <template #content>
         <FloatLabel variant="in">
-          <InputNumber v-model="gameCode" :use-grouping="false" fluid />
-          <label>Code</label>
+          <InputMask id="digits" v-model="value" mask="999999" slotChar="" />
+          <label for="digits">Code</label>
         </FloatLabel>
       </template>
 

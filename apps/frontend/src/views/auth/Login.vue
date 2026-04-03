@@ -13,11 +13,11 @@ const handleLogin = (): void => {}
 </script>
 
 <template>
-  <Card class="w-full max-w-sm">
+  <Card>
     <template #title>Login</template>
 
     <template #content>
-      <div class="space-y-4">
+      <div class="space-y-3">
         <FloatLabel variant="in" class="w-full">
           <InputText id="login_email" v-model="email" autocomplete="off" class="w-full" />
           <label for="login_email">Email</label>
@@ -41,7 +41,7 @@ const handleLogin = (): void => {}
     </template>
 
     <template #footer>
-      <span class="text-xs">Doesn't have an account yet? </span>
+      <span class="text-xs ">Doesn't have an account yet? </span>
       <router-link
         to="/register"
         class="text-xs font-bold text-[var(--app-color-primary)] transition-colors hover:text-[var(--app-color-primary-hover)]"

@@ -15,11 +15,11 @@ const handleRegister = (): void => {}
 </script>
 
 <template>
-  <Card class="w-full max-w-md">
+  <Card>
     <template #title>Registration</template>
 
     <template #content>
-      <div class="space-y-4">
+      <div class="space-y-2">
         <FloatLabel variant="in" class="w-full">
           <InputText id="register_email" v-model="email" autocomplete="off" class="w-full" />
           <label for="register_email">Email</label>
