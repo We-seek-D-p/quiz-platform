@@ -35,6 +35,7 @@ check-py service="":
     just fix-py {{service}}
     just fmt-py {{service}}
     just lint-py {{service}}
+    just test-py {{service}}
 
 # Frontend
 fmt-front:
