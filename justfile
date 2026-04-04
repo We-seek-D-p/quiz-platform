@@ -28,8 +28,8 @@ fmt-py service="":
 lint-py service="":
     if [ -n "{{service}}" ]; then uv run ruff check apps/{{service}}; else uv run ruff check apps/auth apps/management; fi
 
-# test-py service="":
-#     if [ -n "{{service}}" ]; then uv run pytest apps/{{service}}/tests; else uv run pytest apps/auth/tests apps/management/tests; fi
+test-py service="":
+    if [ -n "{{service}}" ]; then if [ -d "apps/{{service}}/tests" ]; then uv run pytest apps/{{service}}/tests; else echo "No tests for apps/{{service}}"; fi; else if [ -d "apps/auth/tests" ]; then uv run pytest apps/auth/tests; else echo "No tests for apps/auth"; fi; if [ -d "apps/management/tests" ]; then uv run pytest apps/management/tests; else echo "No tests for apps/management"; fi; fi
 
 check-py service="":
     just fix-py {{service}}

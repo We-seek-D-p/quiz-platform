@@ -793,15 +793,6 @@ dependencies = [
     { name = "uvicorn", extra = ["standard"] },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "mypy" },
-    { name = "pre-commit" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.16" },
@@ -810,23 +801,13 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.135" },
     { name = "greenlet", specifier = ">=3.3.2" },
     { name = "passlib", specifier = ">=1.7.4" },
-    { name = "pwdlib", specifier = ">=0.3.0" },
-    { name = "pwdlib", extras = ["argon2"] },
+    { name = "pwdlib", extras = ["argon2"], specifier = ">=0.3.0" },
     { name = "pydantic", extras = ["email"], specifier = ">=2.12" },
     { name = "pydantic-settings", specifier = ">=2.13.1" },
     { name = "pyjwt", specifier = ">=2.12" },
     { name = "sqlalchemy", specifier = ">=2.0" },
     { name = "sqlmodel", specifier = ">=0.0.37" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.42" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "mypy", specifier = ">=1.19" },
-    { name = "pre-commit", specifier = ">=4.5" },
-    { name = "pytest", specifier = ">=9.0" },
-    { name = "pytest-cov", specifier = ">=7.1" },
-    { name = "ruff", specifier = ">=0.15.7" },
 ]
 
 [[package]]
