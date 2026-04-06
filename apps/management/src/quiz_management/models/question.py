@@ -13,7 +13,7 @@ def get_utc_now():
 class TimestampMixin(SQLModel):
     created_at: datetime = Field(default_factory=get_utc_now)
     updated_at: datetime = Field(
-        default_factory=get_utc_now, sa_column_kwargs={"onupdate": get_utc_now()}
+        default_factory=get_utc_now, sa_column_kwargs={"onupdate": get_utc_now}
     )
     deleted_at: datetime | None = Field(default=None)
 
@@ -60,11 +60,19 @@ class QuestionCreate(QuestionBase):
     options: list[OptionBase]
 
 
+class OptionUpdate(SQLModel):
+    id: UUID | None = None
+    text: str | None = None
+    order_index: int | None = None
+    is_correct: bool | None = None
+
+
 class QuestionUpdate(SQLModel):
     text: str | None = None
     selection_type: str | None = None
     time_limit_seconds: int | None = None
     order_index: int | None = None
+    options: list[OptionUpdate] | None = None
 
 
 class QuestionPublic(QuestionBase):
