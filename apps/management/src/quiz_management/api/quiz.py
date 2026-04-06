@@ -1,13 +1,13 @@
 from uuid import UUID
 
-from apps.management.src.quiz_management.core.dependencies import (
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.sql.annotation import Annotated
+
+from quiz_management.core.dependencies import (
     get_current_user_id,
     get_quiz_service,
     get_valid_quiz,
 )
-from fastapi import APIRouter, Depends, status
-from sqlalchemy.sql.annotation import Annotated
-
 from quiz_management.models.quiz import Quiz, QuizCreate, QuizPublic, QuizUpdate
 from quiz_management.services.quiz import QuizService
 

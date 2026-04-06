@@ -1,5 +1,7 @@
 from datetime import UTC, datetime
+from uuid import UUID
 
+from sqlalchemy import Sequence
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
 from quiz_management.models.question import Question, QuestionCreate, QuestionOption, QuestionUpdate
@@ -9,6 +11,9 @@ from quiz_management.repositories.question_repository import QuestionRepository
 class QuestionService:
     def __init__(self, db: AsyncSession):
         self.repository = QuestionRepository(db)
+
+    async def get_quiz_questions(self, quiz_id: UUID) -> Sequence[Question]:
+        return await self.repository.get_by_quiz_id(quiz_id)
 
     async def create_question(self, data: QuestionCreate) -> Question:
         options_data = sorted(data.options, key=lambda x: x.order_index)
