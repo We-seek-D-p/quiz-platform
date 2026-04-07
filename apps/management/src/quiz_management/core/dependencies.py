@@ -12,6 +12,7 @@ from starlette import status
 from quiz_management.models.quiz import Quiz
 from quiz_management.repositories.quiz_repository import QuizRepository
 from quiz_management.services.quiz import QuizService
+from quiz_management.services.session import SessionService
 
 
 async def get_current_user_id(user_id: str = Header(None, alias="X-User-Id")) -> str:
@@ -52,3 +53,9 @@ async def get_question_service(
     db: Annotated[AsyncSession, Depends(get_session)],
 ) -> QuestionService:
     return QuestionService(db)
+
+
+async def get_session_service(
+    db: Annotated[AsyncSession, Depends(get_session)],
+) -> SessionService:
+    return SessionService(db)

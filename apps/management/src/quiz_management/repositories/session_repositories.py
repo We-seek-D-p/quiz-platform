@@ -11,8 +11,7 @@ class SessionRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def save_session(self, session: TSession) -> TSession:
+    async def save_session(self, session: TSession) -> None:
         self.db.add(session)
         await self.db.commit()
         await self.db.refresh(session)
-        return session
