@@ -36,6 +36,16 @@ check-py service="":
     just fmt-py {{service}}
     just lint-py {{service}}
 
+openapi-auth:
+    uv run --package quiz-auth python -m quiz_auth.openapi.export
+
+#openapi-management:
+#    uv run --package quiz-management python -m quiz_management.openapi.export
+#
+#openapi:
+#    just openapi-auth
+#    just openapi-management
+
 # Frontend
 fmt-front:
     cd apps/frontend && bun run format
