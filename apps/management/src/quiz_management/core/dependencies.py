@@ -2,6 +2,9 @@ from uuid import UUID
 
 from core.database import get_session
 from fastapi import Depends, Header, HTTPException
+from models.question import Question
+from repositories.question_repository import QuestionRepository
+from services.quiestion import QuestionService
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.annotation import Annotated
 from starlette import status
@@ -31,3 +34,21 @@ async def get_valid_quiz(
 
 async def get_quiz_service(db: Annotated[AsyncSession, Depends(get_session)]) -> QuizService:
     return QuizService(db)
+
+
+async def get_valid_question(
+    question_id,
+    quiz: Annotated[Quiz, Depends(get_quiz_service)],
+    db: Annotated[AsyncSession, Depends(get_session)],
+) -> Question:
+    repo = QuestionRepository(db)
+    question = await repo.get_by_id(question_id)
+    if not question or question.quiz_id != quiz.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question not found")
+    return question
+
+
+async def get_question_service(
+    db: Annotated[AsyncSession, Depends(get_session)],
+) -> QuestionService:
+    return QuestionService(db)
