@@ -6,5 +6,5 @@ class SessionService:
     def __init__(self, db: AsyncSession):
         self.repository = SessionRepository(db)
 
-    async def create_session(self, data: TSession) -> TSession:
-        return await self.repository.save_session(data)
+    async def create_session(self, data: TSession) -> None:
+        await self.repository.save_session(data)
