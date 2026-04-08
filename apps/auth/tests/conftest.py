@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
