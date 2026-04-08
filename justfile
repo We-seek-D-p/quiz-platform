@@ -1,4 +1,5 @@
 set dotenv-load := true
+set windows-shell := ["powershell.exe", "/c"]
 
 default:
     @just --list
