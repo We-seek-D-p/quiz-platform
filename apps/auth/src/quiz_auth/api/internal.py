@@ -11,6 +11,6 @@ router = APIRouter(tags=["internal"])
 @router.get("/validate", status_code=status.HTTP_200_OK)
 async def validate(current_user: Annotated[User, Depends(get_current_user)]) -> Response:
     response = Response(status_code=status.HTTP_200_OK)
-    response.headers["X-Auth-User-Id"] = str(current_user.id)
-    response.headers["X-Auth-Role"] = current_user.role
+    response.headers["X-User-Id"] = str(current_user.id)
+    response.headers["X-User-Role"] = current_user.role
     return response
