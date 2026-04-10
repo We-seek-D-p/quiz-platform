@@ -4,8 +4,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-
-from quiz_auth.models.users import User, UserLogin
+from quiz_auth.models.token import AccessToken, LoginResponse
+from quiz_auth.models.users import User, UserPublic, UserLogin
 
 
 class MockTockenPair:
@@ -46,7 +46,7 @@ def fake_user() -> User:
 
 
 @pytest.fixture
-def fake_user_public() -> User:
+def fake_user_public(fake_user) -> UserPublic:
     return User(
         id = fake_user.id,
         nickname = fake_user.nickname,
@@ -65,3 +65,15 @@ def user_login_factory():
     def _factory(*, email: str = 'user@example.com', password: str = 'secret_password') -> UserLogin:
         return UserLogin(email=email, password=password)
     return _factory
+
+
+def test_register_success(mock_auth_service, user_create_factory, fake_user_public, run_async):
+    """Test successful user registration"""
+    user_data = user_create_factory()
+    mock_auth_service.registry_user = AsyncMock(return_value=fake_user_public)
+
+    from quiz_auth.api.auth import register
+    result = run_async(register(user_data, AsyncMock()))
+
+    assert result == fake_user_public
+    mock_auth_service.registry_user.assert_called_once_with(user_data)
