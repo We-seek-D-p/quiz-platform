@@ -175,3 +175,61 @@ def test_refresh_token_missing_cookie(run_async):
 
     assert e.value.status_code == 401
     assert e.value.detail == 'Missing refresh token'
+
+
+def test_refresh_token_invalid(mock_auth_service, run_async):
+    """Test refresh with invalid token returns 401"""
+    from quiz_auth.api.auth import refresh_token
+
+    mock_auth_service.refresh_tokens = AsyncMock(
+        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid refresh token')
+    )
+
+    request = _create_request_with_cookies({'refresh_token': 'invalid_token'})
+
+    with pytest.raises(HTTPException) as e:
+        run_async(refresh_token(request, Response(), AsyncMock()))
+
+    assert e.value.status_code == 401
+
+
+def test_refresh_token_expired(mock_auth_service, run_async):
+    """Test refresh with expired token returns 401"""
+    from quiz_auth.api.auth import refresh_token
+
+    mock_auth_service.refresh_tokens = AsyncMock(
+        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Refresh token expired')
+    )
+
+    request = _create_request_with_cookies({'refresh_token': 'expired_token'})
+
+    with pytest.raises(HTTPException) as e:
+        run_async(refresh_token(request, Response(), AsyncMock()))
+
+    assert e.value.status_code == 401
+
+
+def test_get_current_pofile_success(fake_user, run_async):
+    """Test getting current user pofile"""
+    from quiz_auth.api.auth import get_current_profile
+
+    result = run_async(get_current_profile(fake_user))
+
+    assert result.id == fake_user.id
+    assert result.nickname == fake_user.nickname
+    assert result.email == fake_user.email
+    assert result.role == fake_user.role
+
+
+def test_logout_success(mock_auth_service, fake_user, run_async):
+    """Test successful logout clear cookie"""
+    mock_auth_service.logout_user = AsyncMock(return_value=None)
+
+    from quiz_auth.api.auth import logout
+
+    response = Response()
+
+    result = run_async(logout(response, fake_user, AsyncMock()))
+
+    assert result == {'status': 'ok'}
+    mock_auth_service.logout_user.assert_called_once_with(fake_user)
