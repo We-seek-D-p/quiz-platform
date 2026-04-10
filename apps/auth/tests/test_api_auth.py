@@ -3,12 +3,13 @@ from uuid import uuid7
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from fastapi import HTTPException, Response, Request, status
 
 from quiz_auth.models.token import AccessToken, LoginResponse
 from quiz_auth.models.users import User, UserPublic, UserLogin
 
 
-class MockTockenPair:
+class MockTokenPair:
     def __init__(self):
         now_utc = datetime.now(timezone.utc)
         self.access_token = 'access_token-123'
@@ -16,8 +17,8 @@ class MockTockenPair:
         self.token_type = 'Bearer'
         self.access_expires_in = 900
         self.refresh_expires_in = 604800
-        self.access_token_expires_at = now_utc + timedelta(minutes=15)
-        self.refresh_token_expires_at = now_utc + timedelta(weeks=1)
+        self.access_expires_at = now_utc + timedelta(minutes=15)
+        self.refresh_expires_at = now_utc + timedelta(weeks=1)
         self.session_id = uuid7()
 
 
@@ -47,7 +48,7 @@ def fake_user() -> User:
 
 @pytest.fixture
 def fake_user_public(fake_user) -> UserPublic:
-    return User(
+    return UserPublic(
         id = fake_user.id,
         nickname = fake_user.nickname,
         email = fake_user.email,
@@ -57,7 +58,7 @@ def fake_user_public(fake_user) -> UserPublic:
 
 @pytest.fixture
 def token_pair():
-    return MockTockenPair()
+    return MockTokenPair()
 
 
 @pytest.fixture
@@ -77,3 +78,46 @@ def test_register_success(mock_auth_service, user_create_factory, fake_user_publ
 
     assert result == fake_user_public
     mock_auth_service.registry_user.assert_called_once_with(user_data)
+
+
+def test_duplicate_email(mock_auth_service, user_create_factory, run_async):
+    """Test registration with existing email raises conflict"""
+    user_data = user_create_factory()
+    mock_auth_service.registry_user = AsyncMock(
+        side_effect=HTTPException(status_code=status.HTTP_409_CONFLICT, detail='User with this email already exists')
+    )
+
+    from quiz_auth.api.auth import register
+    with pytest.raises(HTTPException) as e:
+        run_async(register(user_data, AsyncMock()))
+
+    assert e.value.status_code == 409
+    assert 'email already exists' in e.value.detail.lower()
+
+
+def test_login_success(mock_auth_service, user_login_factory, token_pair, fake_user_public, run_async):
+    """Test successful user login sets refresh cookie"""
+    user_data = user_login_factory()
+    mock_auth_service.login_user = AsyncMock(return_value=(token_pair, fake_user_public))
+
+    from quiz_auth.api.auth import login
+    response = Response()
+    result = run_async(login(user_data, response, AsyncMock()))
+
+    assert isinstance(result, LoginResponse)
+    assert result.access_token == token_pair.access_token
+    assert result.user == fake_user_public
+
+
+def test_login_invalid_credentials(mock_auth_service, user_login_factory, run_async):
+    """Test login with invalid credentials return 401"""
+    user_data = user_login_factory()
+    mock_auth_service.login_user = AsyncMock(
+        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Incorrect email or password')
+    )
+
+    from quiz_auth.api.auth import login
+    with pytest.raises(HTTPException) as e:
+        run_async(login(user_data, Response(), AsyncMock()))
+
+    assert e.value.status_code == 401
