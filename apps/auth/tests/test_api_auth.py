@@ -121,3 +121,57 @@ def test_login_invalid_credentials(mock_auth_service, user_login_factory, run_as
         run_async(login(user_data, Response(), AsyncMock()))
 
     assert e.value.status_code == 401
+
+
+def test_login_user_deactivated(mock_auth_service, user_login_factory, run_async):
+    """Test login with deactivated user returns 403"""
+    user_data = user_login_factory()
+    mock_auth_service.login_user = AsyncMock(
+        side_effect=HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='User is deactivated')
+    )
+
+    from quiz_auth.api.auth import login
+    with pytest.raises(HTTPException) as e:
+        run_async(login(user_data, Response(), AsyncMock()))
+
+    assert e.value.status_code == 403
+    assert e.value.detail == 'User is deactivated'
+
+
+def _create_request_with_cookies(cookies: dict) -> Request:
+    """Helper to create Request with cookies"""
+    scope = {
+        'type': 'http',
+        'method': 'POST',
+        'headers': [(b"cookie", b"; ".join([f'{k}={v}'.encode() for k, v in cookies.items()]))]
+    }
+    request = Request(scope)
+    return request
+
+
+def test_refresh_token_success(mock_auth_service, token_pair, run_async):
+    """Test successful token refresh with valid cookies"""
+    mock_auth_service.refresh_tokens = AsyncMock(return_value=token_pair)
+
+    from quiz_auth.api.auth import refresh_token
+
+    request = _create_request_with_cookies({'refresh_token': 'valid_token'})
+    response = Response()
+    result = run_async(refresh_token(request, response, AsyncMock()))
+
+    assert isinstance(result, AccessToken)
+    assert result.access_token == token_pair.access_token
+    mock_auth_service.refresh_tokens.assert_called_once_with('valid_token')
+
+
+def test_refresh_token_missing_cookie(run_async):
+    """Test refresh token without cookies returns 401"""
+    from quiz_auth.api.auth import refresh_token
+
+    request = _create_request_with_cookies({})
+
+    with pytest.raises(HTTPException) as e:
+        run_async(refresh_token(request, Response(), AsyncMock()))
+
+    assert e.value.status_code == 401
+    assert e.value.detail == 'Missing refresh token'
