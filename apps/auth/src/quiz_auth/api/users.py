@@ -8,7 +8,7 @@ from quiz_auth.core.dependencies import get_current_user
 from quiz_auth.models.users import User, UserPublic, UserUpdate
 from quiz_auth.services.user_service import UserService
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(prefix="/auth/users", tags=["users"])
 
 
 @router.patch("/me", response_model=UserPublic)

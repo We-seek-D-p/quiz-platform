@@ -6,7 +6,7 @@
 
 - Регистрация и вход пользователей
 - Выпуск access/refresh токенов
-- Валидация access-токена через GET `/validate` (возвращает `X-User-Id` и `X-User-Role` в заголовках)
+- Валидация access-токена через GET `/api/v1/auth/validate` (возвращает `X-User-Id` и `X-User-Role` в заголовках)
 
 ## Локальный запуск
 
