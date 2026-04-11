@@ -12,7 +12,7 @@ from quiz_auth.repositories.refresh_token_repository import RefreshTokenReposito
 from quiz_auth.repositories.user_repository import UserRepository
 from quiz_auth.utils.security import decode_token
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
 async def _resolve_current_session(token: str, db: AsyncSession) -> tuple[User, UUID]:

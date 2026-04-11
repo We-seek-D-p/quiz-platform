@@ -13,7 +13,7 @@ from quiz_auth.services.auth_service import AuthService
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 REFRESH_COOKIE_NAME = "refresh_token"
-REFRESH_COOKIE_PATH = "/auth/refresh"
+REFRESH_COOKIE_PATH = "/api/v1/auth/refresh"
 
 
 def _set_refresh_cookie(response: Response, token: str, max_age: int, expires_at: datetime) -> None:
