@@ -1,93 +1,152 @@
 set dotenv-load := true
-set windows-shell := ["powershell.exe", "/c"]
+set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 
+# Maybe be useful in the future
+# set dotenv-required := true
+
+py_apps := "apps/auth apps/management"
+auth_tests := if path_exists("apps/auth/tests") == "true" { "apps/auth/tests" } else { "" }
+management_tests := if path_exists("apps/management/tests") == "true" { "apps/management/tests" } else { "" }
+py_tests := trim(auth_tests + " " + management_tests)
+
+# List recipes
+[default]
 default:
-    @just --list
+    @just --list --unsorted
 
-# Install
-install-py:
+# Install Python deps
+py-install:
     uv sync --all-packages
 
-install-front:
-    cd apps/frontend && bun install
+# Fix Python issues
+py-fix:
+    uv run ruff check {{ py_apps }} --fix
 
-install-hooks:
-    uv run pre-commit install
+# Format Python code
+py-fmt:
+    uv run ruff format {{ py_apps }}
 
-install:
-    just install-py
-    just install-front
-    just install-hooks
+# Check Python format
+py-fmt-check:
+    uv run ruff format {{ py_apps }} --check
 
-# Python
-fix-py service="":
-    if [ -n "{{service}}" ]; then uv run ruff check apps/{{service}} --fix; else uv run ruff check apps/auth apps/management --fix; fi
+# Lint Python code
+py-lint:
+    uv run ruff check {{ py_apps }}
 
-fmt-py service="":
-    if [ -n "{{service}}" ]; then uv run ruff format apps/{{service}}; else uv run ruff format apps/auth apps/management; fi
+# Run Python tests
+py-test:
+    uv run pytest {{ py_tests }}
 
-lint-py service="":
-    if [ -n "{{service}}" ]; then uv run ruff check apps/{{service}}; else uv run ruff check apps/auth apps/management; fi
+# Check Python code
+py-check: py-fmt-check py-lint py-test
 
-test-py service="":
-    if [ -n "{{service}}" ]; then if [ -d "apps/{{service}}/tests" ]; then uv run pytest apps/{{service}}/tests; else echo "No tests for apps/{{service}}"; fi; else if [ -d "apps/auth/tests" ]; then uv run pytest apps/auth/tests; else echo "No tests for apps/auth"; fi; if [ -d "apps/management/tests" ]; then uv run pytest apps/management/tests; else echo "No tests for apps/management"; fi; fi
+# Run all Python tasks
+py-all: py-fix py-fmt py-lint py-test
 
-check-py service="":
-    just fix-py {{service}}
-    just fmt-py {{service}}
-    just lint-py {{service}}
-    just test-py {{service}}
+# Fix one Python service
+py-fix-one service:
+    uv run ruff check apps/{{ service }} --fix
 
-openapi-auth:
+# Format one Python service
+py-fmt-one service:
+    uv run ruff format apps/{{ service }}
+
+# Check format for one Python service
+py-fmt-check-one service:
+    uv run ruff format apps/{{ service }} --check
+
+# Lint one Python service
+py-lint-one service:
+    uv run ruff check apps/{{ service }}
+
+# Test one Python service
+py-test-one service:
+    uv run pytest apps/{{ service }}/tests
+
+# Check one Python service
+py-check-one service: (py-fmt-check-one service) (py-lint-one service) (py-test-one service)
+
+# Run all tasks for one Python service
+py-all-one service: (py-fix-one service) (py-fmt-one service) (py-lint-one service) (py-test-one service)
+
+# Export auth OpenAPI
+auth-openapi:
     uv run --package quiz-auth python -m quiz_auth.openapi.export
 
-#openapi-management:
-#    uv run --package quiz-management python -m quiz_management.openapi.export
-#
-#openapi:
-#    just openapi-auth
-#    just openapi-management
+# Export management OpenAPI
+management-openapi:
+    uv run --package quiz-management python -m quiz_management.openapi.export
 
-# Frontend
-fmt-front:
-    cd apps/frontend && bun run format
+# Install frontend deps
+[working-directory("apps/frontend")]
+front-install:
+    bun install
 
-lint-front:
-    cd apps/frontend && bun run lint
+# Fix frontend issues
+[working-directory("apps/frontend")]
+front-fix:
+    bun run lint:fix
 
-fix-front:
-    cd apps/frontend && bun run lint:fix
+# Format frontend code
+[working-directory("apps/frontend")]
+front-fmt:
+    bun run format
 
-test-front:
-    cd apps/frontend && bun run test
+# Lint frontend code
+[working-directory("apps/frontend")]
+front-lint:
+    bun run lint
 
-check-front:
-    just fmt-front
-    just lint-front
-    just test-front
+# Run frontend tests
+front-test:
+    @echo "Frontend tests are not added yet"
 
-# Go
-fmt-go:
+# Check frontend code
+front-check: front-fmt front-lint front-test
+
+# Run all frontend tasks
+front-all: front-fix front-fmt front-lint front-test
+
+# Install Go deps
+go-install:
     @echo "Go service is not added yet"
 
-lint-go:
+# Fix Go issues
+go-fix:
     @echo "Go service is not added yet"
 
-test-go:
+# Format Go code
+go-fmt:
     @echo "Go service is not added yet"
 
-# Combined
-fmt:
-    just fmt-py
-    just fmt-front
+# Lint Go code
+go-lint:
+    @echo "Go service is not added yet"
 
-lint:
-    just lint-py
-    just lint-front
+# Run Go tests
+go-test:
+    @echo "Go service is not added yet"
 
-check:
-    just check-py
-    just check-front
+# Check Go code
+go-check: go-fmt go-lint go-test
 
-pc:
+# Run all Go tasks
+go-all: go-fix go-fmt go-lint go-test
+
+# Install git hooks
+hooks-install:
+    uv run pre-commit install
+
+# Install all deps
+install: py-install front-install go-install hooks-install
+
+# Run all tests
+test: py-test front-test go-test
+
+# Run all checks
+check: py-check front-check go-check
+
+# Run pre-commit
+precommit:
     uv run pre-commit run --all-files
