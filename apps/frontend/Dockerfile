@@ -11,7 +11,7 @@ COPY apps/frontend/ ./
 
 RUN bun run build
 
-FROM nginxinc/nginx-unprivileged:1.27.4-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.29.5-alpine AS runtime
 
 COPY apps/frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder --chown=101:101 /workspace/apps/frontend/dist /usr/share/nginx/html

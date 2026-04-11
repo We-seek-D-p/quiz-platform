@@ -12,12 +12,14 @@ members = ["apps/auth", "apps/management"]
 
 [dependency-groups]
 dev = [
-    "pytest>=9.0",
-    "ruff>=0.15",
+    "pre-commit>=4.5",
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1",
+    "ruff>=0.15.8",
 ]
 
 [tool.ruff]
-src = ["apps/auth", "apps/management"]
+src = ["apps/auth/src", "apps/management/src"]
 line-length = 100
 target-version = "py314"
 force-exclude = true
@@ -31,9 +33,24 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "A", "S", "C90"]
 fixable = ["ALL"]
 
 [tool.ruff.lint.per-file-ignores]
-"apps/*/tests/*" = ["S101"]
+"apps/*/tests/**/*.py" = ["S101"]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
 exclude = ["apps/*/alembic/versions/*.py"]
+
+[tool.pytest]
+minversion = "9.0"
+addopts = [
+    "-ra",
+    "--import-mode=importlib",
+]
+testpaths = [
+    "apps/auth/tests",
+    "apps/management/tests",
+]
+pythonpath = [
+    "apps/auth/src",
+    "apps/management/src",
+]
