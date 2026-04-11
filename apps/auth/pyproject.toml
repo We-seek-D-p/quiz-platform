@@ -17,17 +17,7 @@ dependencies = [
     "asyncpg>=0.31.0",
     "greenlet>=3.3.2",
     "bcrypt>=5.0.0",
-    "pwdlib>=0.3.0",
-    "pwdlib[argon2]",
-]
-
-[dependency-groups]
-dev = [
-    "pytest>=9.0",
-    "pytest-cov>=7.1",
-    "ruff>=0.15.7",
-    "mypy>=1.19",
-    "pre-commit>=4.5",
+    "pwdlib[argon2]>=0.3.0",
 ]
 
 [build-system]
@@ -36,3 +26,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/quiz_auth"]
+
+[tool.pytest]
+testpaths = ["tests"]
+addopts = ["-ra"]
+pythonpath = ["src"]
