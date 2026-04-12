@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, status
 
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/quizzes/{quiz_id}/questions", tags=["Questions"])
 
 @router.post("/", response_model=QuestionPublic, status_code=status.HTTP_201_CREATED)
 async def create_question(
-    quiz: Annotated[Quiz, Depends(get_valid_quiz)],
+    quiz: Annotated[Any, Depends(get_valid_quiz)],
     data: QuestionCreate,
     service: Annotated[QuestionService, Depends(get_question_service)],
 ):

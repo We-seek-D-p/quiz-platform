@@ -1,7 +1,7 @@
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
-from sqlalchemy.sql.annotation import Annotated
 
 from quiz_management.core.dependencies import (
     get_current_user_id,
