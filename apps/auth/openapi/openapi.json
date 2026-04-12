@@ -5,13 +5,13 @@
     "version": "0.1.0"
   },
   "paths": {
-    "/auth/register": {
+    "/api/v1/auth/register": {
       "post": {
         "tags": [
           "auth"
         ],
         "summary": "Register",
-        "operationId": "register_auth_register_post",
+        "operationId": "register_api_v1_auth_register_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -46,13 +46,13 @@
         }
       }
     },
-    "/auth/login": {
+    "/api/v1/auth/login": {
       "post": {
         "tags": [
           "auth"
         ],
         "summary": "Login",
-        "operationId": "login_auth_login_post",
+        "operationId": "login_api_v1_auth_login_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -87,13 +87,13 @@
         }
       }
     },
-    "/auth/refresh": {
+    "/api/v1/auth/refresh": {
       "post": {
         "tags": [
           "auth"
         ],
         "summary": "Refresh Token",
-        "operationId": "refresh_token_auth_refresh_post",
+        "operationId": "refresh_token_api_v1_auth_refresh_post",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -108,13 +108,13 @@
         }
       }
     },
-    "/auth/me": {
+    "/api/v1/auth/me": {
       "get": {
         "tags": [
           "auth"
         ],
         "summary": "Get Current Profile",
-        "operationId": "get_current_profile_auth_me_get",
+        "operationId": "get_current_profile_api_v1_auth_me_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -134,13 +134,13 @@
         ]
       }
     },
-    "/auth/logout": {
+    "/api/v1/auth/logout": {
       "post": {
         "tags": [
           "auth"
         ],
         "summary": "Logout",
-        "operationId": "logout_auth_logout_post",
+        "operationId": "logout_api_v1_auth_logout_post",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -158,13 +158,13 @@
         ]
       }
     },
-    "/users/me": {
+    "/api/v1/auth/users/me": {
       "delete": {
         "tags": [
           "users"
         ],
         "summary": "Delete My Account",
-        "operationId": "delete_my_account_users_me_delete",
+        "operationId": "delete_my_account_api_v1_auth_users_me_delete",
         "responses": {
           "204": {
             "description": "Successful Response"
@@ -181,7 +181,7 @@
           "users"
         ],
         "summary": "Update Me",
-        "operationId": "update_me_users_me_patch",
+        "operationId": "update_me_api_v1_auth_users_me_patch",
         "requestBody": {
           "content": {
             "application/json": {
@@ -221,18 +221,18 @@
         ]
       }
     },
-    "/users/me/change-password": {
+    "/api/v1/auth/users/me/change-password": {
       "post": {
         "tags": [
           "users"
         ],
         "summary": "Change My Password",
-        "operationId": "change_my_password_users_me_change_password_post",
+        "operationId": "change_my_password_api_v1_auth_users_me_change_password_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Body_change_my_password_users_me_change_password_post"
+                "$ref": "#/components/schemas/Body_change_my_password_api_v1_auth_users_me_change_password_post"
               }
             }
           },
@@ -260,13 +260,13 @@
         ]
       }
     },
-    "/validate": {
+    "/api/v1/auth/validate": {
       "get": {
         "tags": [
           "internal"
         ],
         "summary": "Validate",
-        "operationId": "validate_validate_get",
+        "operationId": "validate_api_v1_auth_validate_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -310,7 +310,7 @@
         ],
         "title": "AccessToken"
       },
-      "Body_change_my_password_users_me_change_password_post": {
+      "Body_change_my_password_api_v1_auth_users_me_change_password_post": {
         "properties": {
           "current_password": {
             "type": "string",
@@ -326,7 +326,7 @@
           "current_password",
           "new_password"
         ],
-        "title": "Body_change_my_password_users_me_change_password_post"
+        "title": "Body_change_my_password_api_v1_auth_users_me_change_password_post"
       },
       "HTTPValidationError": {
         "properties": {
@@ -539,7 +539,7 @@
         "flows": {
           "password": {
             "scopes": {},
-            "tokenUrl": "/auth/login"
+            "tokenUrl": "/api/v1/auth/login"
           }
         }
       }
