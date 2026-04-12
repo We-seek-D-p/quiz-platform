@@ -1,4 +1,5 @@
 import { createApp } from 'vue'
+import { createPinia } from 'pinia'
 import PrimeVue from 'primevue/config'
 import router from './router'
 import Aura from '@primevue/themes/aura'
@@ -7,6 +8,7 @@ import 'primeicons/primeicons.css'
 import './style.css'
 import App from './App.vue'
 import { initThemeMode } from './theme'
+import { useAuthStore } from './stores/auth'
 
 const AuraIndigoPreset = definePreset(Aura, {
   semantic: {
@@ -61,6 +63,7 @@ const AuraIndigoPreset = definePreset(Aura, {
 })
 
 const app = createApp(App)
+const pinia = createPinia()
 
 initThemeMode()
 
@@ -73,5 +76,10 @@ app.use(PrimeVue, {
   },
 })
 
+app.use(pinia)
 app.use(router)
+
+const authStore = useAuthStore(pinia)
+void authStore.initializeSession()
+
 app.mount('#app')

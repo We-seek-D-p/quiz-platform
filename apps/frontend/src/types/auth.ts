@@ -2,16 +2,13 @@ export interface HostUser {
   id: string
   email: string
   nickname: string
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
-  lastLoginAt: string | null
+  role: string
 }
 
-export interface AuthTokens {
+export interface AccessTokenPayload {
   accessToken: string
-  refreshToken: string
   tokenType: 'Bearer'
+  expiresIn: number
 }
 
 export interface LoginRequest {
@@ -23,5 +20,8 @@ export interface RegisterRequest {
   email: string
   nickname: string
   password: string
-  confirmPassword: string
+}
+
+export interface LoginResponse extends AccessTokenPayload {
+  user: HostUser
 }
