@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import Drawer from 'primevue/drawer'
 import AppLogo from '@/components/layout/AppLogo.vue'
 import AppSidebarContent from '@/components/layout/AppSidebarContent.vue'
-import AppTopbar from '@/components/layout/AppTopbar.vue'
+import DashboardTopbar from '@/components/layout/DashboardTopbar.vue'
 import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
@@ -23,7 +23,9 @@ const pageTitle = computed(() => {
 let desktopQuery: MediaQueryList | null = null
 
 const syncDesktopState = () => {
-  if (!desktopQuery) return
+  if (!desktopQuery) {
+    return
+  }
 
   isDesktop.value = desktopQuery.matches
 
@@ -111,7 +113,7 @@ const toggleSidebar = () => {
     </Drawer>
 
     <div class="layout-main flex min-w-0 flex-col">
-      <AppTopbar :title="pageTitle" show-menu-button @menu-click="toggleSidebar" />
+      <DashboardTopbar :title="pageTitle" @menu-click="toggleSidebar" />
 
       <main class="flex-1 overflow-y-auto p-5 md:p-8">
         <slot />
