@@ -114,15 +114,15 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach(async to => {
+router.beforeEach(async (to) => {
   const authStore = useAuthStore()
 
   if (!authStore.isSessionReady) {
     await authStore.initializeSession()
   }
 
-  const requiresAuth = to.matched.some(record => Boolean(record.meta.requiresAuth))
-  const guestOnly = to.matched.some(record => Boolean(record.meta.guestOnly))
+  const requiresAuth = to.matched.some((record) => Boolean(record.meta.requiresAuth))
+  const guestOnly = to.matched.some((record) => Boolean(record.meta.guestOnly))
 
   if (requiresAuth && !authStore.isAuthenticated) {
     const redirectTarget = to.fullPath || '/host'

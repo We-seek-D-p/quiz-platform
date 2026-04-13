@@ -1,6 +1,12 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import type { AccessTokenPayload, HostUser, LoginRequest, LoginResponse, RegisterRequest } from '../types'
+import type {
+  AccessTokenPayload,
+  HostUser,
+  LoginRequest,
+  LoginResponse,
+  RegisterRequest,
+} from '../types'
 import {
   type ApiAccessToken,
   type ApiLoginResponse,
@@ -17,6 +23,8 @@ import {
 type RequestWithRetryOptions = {
   skipRefresh?: boolean
 }
+
+type StoreHttpError = Error & { status?: number }
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<HostUser | null>(null)
@@ -125,7 +133,9 @@ export const useAuthStore = defineStore('auth', () => {
     const response = await loginRequest(payload)
 
     if (!response.ok) {
-      throw new Error(await parseErrorMessage(response))
+      const error = new Error(await parseErrorMessage(response)) as StoreHttpError
+      error.status = response.status
+      throw error
     }
 
     const data = toLoginResponse((await response.json()) as ApiLoginResponse)
@@ -138,7 +148,9 @@ export const useAuthStore = defineStore('auth', () => {
     const response = await registerRequest(payload)
 
     if (!response.ok) {
-      throw new Error(await parseErrorMessage(response))
+      const error = new Error(await parseErrorMessage(response)) as StoreHttpError
+      error.status = response.status
+      throw error
     }
 
     return (await response.json()) as HostUser
