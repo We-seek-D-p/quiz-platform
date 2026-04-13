@@ -1,6 +1,3 @@
-from dotenv import load_dotenv
-load_dotenv()
-
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -8,9 +5,13 @@ from unittest.mock import AsyncMock
 from uuid import uuid7
 
 import pytest
+from dotenv import load_dotenv
+
 from quiz_auth.models.users import UserCreate, UserUpdate
 from quiz_auth.repositories.user_repository import UserRepository
 from quiz_auth.services.user_service import UserService
+
+load_dotenv()
 
 
 @pytest.fixture

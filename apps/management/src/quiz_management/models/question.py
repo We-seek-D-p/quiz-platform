@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID, uuid7
 
+from pydantic import BaseModel
 from sqlmodel import Field, Relationship, SQLModel
 
 from quiz_management.models.quiz import Quiz
@@ -52,22 +53,36 @@ class QuestionOption(OptionBase, TimestampMixin, table=True):
     question: Question = Relationship(back_populates="options")
 
 
-class OptionPublic(OptionBase):
+class OptionPublic(BaseModel):
     id: UUID
+    text: str
+    order_index: int
+    is_correct: bool
 
 
-class QuestionCreate(QuestionBase):
-    options: list[OptionBase]
+class OptionCreate(BaseModel):
+    text: str
+    order_index: int
+    is_correct: bool = False
 
 
-class OptionUpdate(SQLModel):
+class QuestionCreate(BaseModel):
+    quiz_id: UUID
+    text: str
+    selection_type: str = "single"
+    time_limit_seconds: int = 15
+    order_index: int
+    options: list[OptionCreate]
+
+
+class OptionUpdate(BaseModel):
     id: UUID | None = None
     text: str | None = None
     order_index: int | None = None
     is_correct: bool | None = None
 
 
-class QuestionUpdate(SQLModel):
+class QuestionUpdate(BaseModel):
     text: str | None = None
     selection_type: str | None = None
     time_limit_seconds: int | None = None
@@ -75,6 +90,11 @@ class QuestionUpdate(SQLModel):
     options: list[OptionUpdate] | None = None
 
 
-class QuestionPublic(QuestionBase):
+class QuestionPublic(BaseModel):
     id: UUID
+    quiz_id: UUID
+    text: str
+    selection_type: str
+    time_limit_seconds: int
+    order_index: int
     options: list[OptionPublic]

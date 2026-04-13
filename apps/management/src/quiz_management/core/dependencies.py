@@ -1,16 +1,16 @@
+from typing import Annotated
 from uuid import UUID
 
-from core.database import get_session
 from fastapi import Depends, Header, HTTPException
-from models.question import Question
-from repositories.question_repository import QuestionRepository
-from services.quiestion import QuestionService
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql.annotation import Annotated
 from starlette import status
 
+from quiz_auth.core.database import get_session
+from quiz_management.models.question import Question
 from quiz_management.models.quiz import Quiz
+from quiz_management.repositories.question_repository import QuestionRepository
 from quiz_management.repositories.quiz_repository import QuizRepository
+from quiz_management.services.question import QuestionService
 from quiz_management.services.quiz import QuizService
 from quiz_management.services.session import SessionService
 

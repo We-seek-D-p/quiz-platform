@@ -1,8 +1,6 @@
 from datetime import UTC, datetime
 from uuid import UUID, uuid7
 
-from question import Question
-from session import GameSession
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -26,8 +24,8 @@ class Quiz(QuizBase, table=True):
     )
     deleted_at: datetime | None = Field(default=None)
 
-    questions: list[Question] = Relationship(back_populates="quiz")
-    sessions: list[GameSession] = Relationship(back_populates="quiz")
+    questions: list[Question] = Relationship(back_populates="quiz")  # noqa: F821
+    sessions: list[GameSession] = Relationship(back_populates="quiz")  # noqa: F821
 
 
 class QuizCreate(QuizBase):

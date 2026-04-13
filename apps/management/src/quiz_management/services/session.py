@@ -1,5 +1,6 @@
-from repositories.session_repositories import SessionRepository, TSession
 from sqlmodel.ext.asyncio.session import AsyncSession
+
+from quiz_management.repositories.session_repositories import SessionRepository, TSession
 
 
 class SessionService:

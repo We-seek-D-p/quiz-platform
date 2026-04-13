@@ -1,12 +1,11 @@
 from collections.abc import Sequence
 from uuid import UUID
 
-from models.question import QuestionOption
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from quiz_management.models.question import Question
+from quiz_management.models.question import Question, QuestionOption
 
 
 class QuestionRepository:
