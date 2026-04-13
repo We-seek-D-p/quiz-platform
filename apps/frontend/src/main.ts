@@ -2,15 +2,15 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import PrimeVue from 'primevue/config'
 import ToastService from 'primevue/toastservice'
-import router from './router'
 
-import 'primeicons/primeicons.css'
-import './style.css'
 import App from './App.vue'
+import router from './router'
+import { AuraIndigoPreset } from './theme/preset'
 import { initThemeMode } from './theme'
 import { useAuthStore } from './stores/auth'
 
-
+import 'primeicons/primeicons.css'
+import './styles/index.css'
 
 const app = createApp(App)
 const pinia = createPinia()
