@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -111,6 +112,38 @@ const routes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes,
+})
+
+router.beforeEach(async (to) => {
+  const authStore = useAuthStore()
+
+  if (!authStore.isSessionReady) {
+    await authStore.initializeSession()
+  }
+
+  const requiresAuth = to.matched.some((record) => Boolean(record.meta.requiresAuth))
+  const guestOnly = to.matched.some((record) => Boolean(record.meta.guestOnly))
+
+  if (requiresAuth && !authStore.isAuthenticated) {
+    const redirectTarget = to.fullPath || '/host'
+
+    if (to.path === '/login') {
+      return true
+    }
+
+    return {
+      path: '/login',
+      query: {
+        redirect: redirectTarget,
+      },
+    }
+  }
+
+  if (guestOnly && authStore.isAuthenticated) {
+    return { path: '/host' }
+  }
+
+  return true
 })
 
 export default router

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import Toast from 'primevue/toast'
 import DefaultLayout from './layouts/DefaultLayout.vue'
 import DashboardLayout from './layouts/DashboardLayout.vue'
 import GameLayout from './layouts/GameLayout.vue'
@@ -20,6 +21,7 @@ const layout = computed(() => {
 </script>
 
 <template>
+  <Toast position="top-right" />
   <component :is="layout">
     <router-view />
   </component>

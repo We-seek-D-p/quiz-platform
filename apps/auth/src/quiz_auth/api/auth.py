@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from quiz_auth.core.config import settings
 from quiz_auth.core.database import get_session
 from quiz_auth.core.dependencies import get_current_user
 from quiz_auth.models.token import AccessToken, LoginResponse
@@ -23,7 +24,7 @@ def _set_refresh_cookie(response: Response, token: str, max_age: int, expires_at
         max_age=max_age,
         expires=expires_at,
         path=REFRESH_COOKIE_PATH,
-        secure=True,
+        secure=settings.refresh_cookie_secure,
         httponly=True,
         samesite="strict",
     )
@@ -36,7 +37,7 @@ def _clear_refresh_cookie(response: Response) -> None:
         max_age=0,
         expires=0,
         path=REFRESH_COOKIE_PATH,
-        secure=True,
+        secure=settings.refresh_cookie_secure,
         httponly=True,
         samesite="strict",
     )

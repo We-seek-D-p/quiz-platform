@@ -31,4 +31,7 @@ AUTH_JWT_SECRET_KEY=replace-with-at-least-32-characters
 AUTH_JWT_ALGORITHM=HS256
 AUTH_ACCESS_TOKEN_TTL_MINUTES=10
 AUTH_REFRESH_TOKEN_TTL_DAYS=30
+AUTH_REFRESH_COOKIE_SECURE=true
 ```
+
+`AUTH_REFRESH_COOKIE_SECURE=false` можно использовать только для локальной разработки по HTTP.

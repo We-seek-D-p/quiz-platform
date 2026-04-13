@@ -1,16 +1,20 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import Drawer from 'primevue/drawer'
 import AppLogo from '@/components/layout/AppLogo.vue'
 import AppSidebarContent from '@/components/layout/AppSidebarContent.vue'
 import AppTopbar from '@/components/layout/AppTopbar.vue'
+import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
 
 const isMobileMenuOpen = ref(false)
 const isDesktop = ref(false)
 const isDesktopSidebarVisible = ref(true)
+const isLoggingOut = ref(false)
 
 const pageTitle = computed(() => {
   return typeof route.meta.title === 'string' ? route.meta.title : ''
@@ -53,8 +57,20 @@ const handleMenuClick = () => {
   }
 }
 
-const handleLogoutClick = () => {
-  handleMenuClick()
+const handleLogoutClick = async () => {
+  if (isLoggingOut.value) {
+    return
+  }
+
+  isLoggingOut.value = true
+
+  try {
+    await authStore.logout()
+    await router.replace('/login')
+  } finally {
+    isLoggingOut.value = false
+    handleMenuClick()
+  }
 }
 
 const toggleSidebar = () => {

@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_ttl_minutes: int = 5
     refresh_token_ttl_days: int = 30
+    refresh_cookie_secure: bool = True
 
     model_config = SettingsConfigDict(
         env_prefix="AUTH_",
