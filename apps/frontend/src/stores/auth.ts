@@ -6,7 +6,7 @@ import type {
   LoginRequest,
   LoginResponse,
   RegisterRequest,
-} from '../types'
+} from '@/types'
 import {
   type ApiAccessToken,
   type ApiLoginResponse,
@@ -156,6 +156,14 @@ export const useAuthStore = defineStore('auth', () => {
     return (await response.json()) as HostUser
   }
 
+  const authFetch = async (
+    path: string,
+    init: RequestInit = {},
+    options: RequestWithRetryOptions = {},
+  ): Promise<Response> => {
+    return requestWithRetry(path, init, options)
+  }
+
   const logout = async (): Promise<void> => {
     try {
       await logoutRequest(accessToken.value)
@@ -171,6 +179,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     initializeSession,
     refreshAccessToken,
+    authFetch,
     login,
     register,
     logout,
