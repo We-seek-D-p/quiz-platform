@@ -7,7 +7,7 @@ import FloatLabel from 'primevue/floatlabel'
 import InputText from 'primevue/inputtext'
 import Password from 'primevue/password'
 import { useToast } from 'primevue/usetoast'
-import { useAuthStore } from '@/stores/auth.ts'
+import { useAuthStore } from '../../stores/auth'
 
 const email = ref('')
 const nickname = ref('')
