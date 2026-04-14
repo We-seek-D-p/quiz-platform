@@ -6,19 +6,34 @@ import AppLogo from '@/components/layout/AppLogo.vue'
 </script>
 
 <template>
-  <header
-    class="flex h-14 items-center justify-between gap-4 border-b border-[var(--app-color-border)] bg-[var(--app-color-surface)] px-4 md:px-6"
-  >
-    <div class="flex min-w-0 items-center">
-      <AppLogo />
-    </div>
+  <header class="public-topbar">
+    <AppLogo />
 
-    <div class="flex items-center gap-3 lg:gap-4">
+    <div class="flex items-center gap-3">
       <ThemeSwitcher />
 
-      <RouterLink to="/host" class="inline-flex">
-        <Button label="ЛК хоста" icon="pi pi-user" variant="outlined" />
+      <RouterLink to="/host" class="inline-flex" aria-label="Личный кабинет хоста">
+        <Button icon="pi pi-user" variant="outlined" />
       </RouterLink>
     </div>
   </header>
 </template>
+
+<style scoped>
+.public-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  height: var(--app-topbar-height);
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--app-color-border);
+  background-color: var(--app-color-surface);
+}
+
+@media (min-width: 768px) {
+  .public-topbar {
+    padding: 0 1.5rem;
+  }
+}
+</style>

@@ -17,21 +17,59 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <header
-    class="flex h-14 items-center justify-between gap-4 border-b border-[var(--app-color-border)] bg-[var(--app-color-surface)] px-4 md:px-6"
-  >
-    <div class="flex min-w-0 items-center gap-3">
-      <Button icon="pi pi-bars" text class="inline-flex" @click="emit('menuClick')" />
+  <header class="dashboard-topbar">
+    <div class="dashboard-topbar__left">
+      <Button icon="pi pi-bars" text @click="emit('menuClick')" />
     </div>
 
-    <div class="flex min-w-0 flex-1 justify-center">
-      <p v-if="title" class="truncate text-sm font-semibold text-[var(--app-color-text-muted)]">
+    <div class="dashboard-topbar__center">
+      <p v-if="title" class="dashboard-topbar__title">
         {{ title }}
       </p>
     </div>
 
-    <div class="flex items-center justify-end gap-3">
+    <div class="dashboard-topbar__right">
       <ThemeSwitcher />
     </div>
   </header>
 </template>
+
+<style scoped>
+.dashboard-topbar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  height: var(--app-topbar-height);
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--app-color-border);
+  background-color: var(--app-color-surface);
+}
+
+.dashboard-topbar__left,
+.dashboard-topbar__right {
+  display: flex;
+  align-items: center;
+}
+
+.dashboard-topbar__center {
+  min-width: 0;
+}
+
+.dashboard-topbar__title {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  color: var(--app-color-text-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+@media (min-width: 768px) {
+  .dashboard-topbar {
+    padding: 0 1.5rem;
+  }
+}
+</style>

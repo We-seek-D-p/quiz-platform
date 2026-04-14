@@ -6,7 +6,9 @@ import AppLogo from '@/components/layout/AppLogo.vue'
 import AppSidebarContent from '@/components/layout/AppSidebarContent.vue'
 import DashboardTopbar from '@/components/layout/DashboardTopbar.vue'
 import { dashboardNavigationItems } from '@/layouts/dashboardNavigation'
-import { useAuthStore } from '../stores/auth'
+import { useAuthStore } from '@/stores/auth'
+
+const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)'
 
 const route = useRoute()
 const router = useRouter()
@@ -32,22 +34,10 @@ const syncDesktopState = () => {
 
   if (isDesktop.value) {
     isMobileMenuOpen.value = false
-    isDesktopSidebarVisible.value = true
   }
 }
 
-onMounted(() => {
-  desktopQuery = window.matchMedia('(min-width: 1024px)')
-  syncDesktopState()
-  desktopQuery.addEventListener('change', syncDesktopState)
-})
-
-onBeforeUnmount(() => {
-  desktopQuery?.removeEventListener('change', syncDesktopState)
-  desktopQuery = null
-})
-
-const handleMenuClick = () => {
+const closeMobileMenu = () => {
   if (!isDesktop.value) {
     isMobileMenuOpen.value = false
   }
@@ -65,7 +55,7 @@ const handleLogoutClick = async () => {
     await router.replace('/login')
   } finally {
     isLoggingOut.value = false
-    handleMenuClick()
+    closeMobileMenu()
   }
 }
 
@@ -77,6 +67,17 @@ const toggleSidebar = () => {
 
   isMobileMenuOpen.value = true
 }
+
+onMounted(() => {
+  desktopQuery = window.matchMedia(DESKTOP_MEDIA_QUERY)
+  syncDesktopState()
+  desktopQuery.addEventListener('change', syncDesktopState)
+})
+
+onBeforeUnmount(() => {
+  desktopQuery?.removeEventListener('change', syncDesktopState)
+  desktopQuery = null
+})
 </script>
 
 <template>
@@ -89,29 +90,54 @@ const toggleSidebar = () => {
       <AppSidebarContent
         show-logo
         :menu-items="dashboardNavigationItems"
-        @item-click="handleMenuClick"
+        @item-click="closeMobileMenu"
         @logout-click="handleLogoutClick"
       />
     </aside>
 
-    <Drawer v-else v-model:visible="isMobileMenuOpen" class="w-64">
+    <Drawer v-else v-model:visible="isMobileMenuOpen" class="dashboard-layout__drawer">
       <template #header>
         <AppLogo />
       </template>
 
       <AppSidebarContent
         :menu-items="dashboardNavigationItems"
-        @item-click="handleMenuClick"
+        @item-click="closeMobileMenu"
         @logout-click="handleLogoutClick"
       />
     </Drawer>
 
-    <div class="layout-main flex min-w-0 flex-col">
+    <div class="dashboard-layout__content">
       <DashboardTopbar :title="pageTitle" @menu-click="toggleSidebar" />
 
-      <main class="flex-1 overflow-y-auto p-5 md:p-8">
+      <main class="dashboard-layout__main">
         <slot />
       </main>
     </div>
   </div>
 </template>
+
+<style scoped>
+.dashboard-layout__drawer {
+  width: var(--app-sidebar-width);
+}
+
+.dashboard-layout__content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.dashboard-layout__main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem;
+}
+
+@media (min-width: 768px) {
+  .dashboard-layout__main {
+    padding: 2rem;
+  }
+}
+</style>

@@ -21,7 +21,7 @@ const layout = computed(() => {
 </script>
 
 <template>
-  <Toast position="top-right" />
+  <Toast group="global" position="top-right" />
   <component :is="layout">
     <router-view />
   </component>

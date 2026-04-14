@@ -12,6 +12,8 @@
 
   --app-bg-color: var(--p-surface-0, #ffffff);
 
+  --app-topbar-height: 3.5rem;
+  --app-control-radius: var(--p-border-radius, 0.5rem);
   --app-sidebar-width: 16rem;
   --app-sidebar-collapse-offset: 0.75rem;
   --app-transition-fast: 200ms ease;
