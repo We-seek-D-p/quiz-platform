@@ -7,7 +7,7 @@ import FloatLabel from 'primevue/floatlabel'
 import InputText from 'primevue/inputtext'
 import Password from 'primevue/password'
 import { useToast } from 'primevue/usetoast'
-import { useAuthStore } from '../../stores/auth'
+import { useAuthStore } from '@/stores/auth'
 
 const email = ref('')
 const nickname = ref('')
@@ -96,11 +96,11 @@ const handleRegister = async (): Promise<void> => {
 </script>
 
 <template>
-  <Card>
+  <Card class="auth-card">
     <template #title>Registration</template>
 
     <template #content>
-      <div class="space-y-2">
+      <div class="auth-form">
         <FloatLabel variant="in" class="w-full">
           <InputText id="register_email" v-model="email" autocomplete="off" class="w-full" />
           <label for="register_email">Email</label>
@@ -122,7 +122,7 @@ const handleRegister = async (): Promise<void> => {
           <label for="register_password">Password</label>
         </FloatLabel>
 
-        <div class="flex justify-center pt-2">
+        <div class="auth-form__actions">
           <Button
             label="Register"
             :loading="isSubmitting"
@@ -134,13 +134,51 @@ const handleRegister = async (): Promise<void> => {
     </template>
 
     <template #footer>
-      <span class="text-xs">Have an account already? </span>
-      <router-link
-        to="/login"
-        class="text-xs font-bold text-[var(--app-color-primary)] transition-colors hover:text-[var(--app-color-primary-hover)]"
-      >
-        Login
-      </router-link>
+      <div class="auth-card__footer">
+        <span class="auth-card__footer-text">Have an account already?</span>
+        <router-link to="/login" class="auth-card__footer-link"> Login </router-link>
+      </div>
     </template>
   </Card>
 </template>
+
+<style scoped>
+.auth-card {
+  width: min(100%, 24rem);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.auth-form__actions {
+  display: flex;
+  justify-content: center;
+  padding-top: 0.5rem;
+}
+
+.auth-card__footer {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.auth-card__footer-text {
+  font-size: 0.75rem;
+}
+
+.auth-card__footer-link {
+  color: var(--app-color-primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: color var(--app-transition-fast);
+}
+
+.auth-card__footer-link:hover {
+  color: var(--app-color-primary-hover);
+}
+</style>
