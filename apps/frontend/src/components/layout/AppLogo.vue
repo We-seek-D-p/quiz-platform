@@ -1,29 +1,21 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
-
-const props = withDefaults(
-  defineProps<{
-    size?: 'md' | 'lg'
-  }>(),
-  {
-    size: 'md',
-  },
-)
-
-const router = useRouter()
-
-const goHome = () => {
-  router.push('/')
-}
+import { RouterLink } from 'vue-router'
 </script>
 
 <template>
-  <button
-    type="button"
-    class="bg-transparent p-0 border-none text-left font-semibold text-[var(--app-color-primary)] transition-colors cursor-pointer select-none hover:text-[var(--app-color-primary-hover)]"
-    :class="props.size === 'lg' ? 'text-xl' : 'text-lg'"
-    @click="goHome"
-  >
-    Quiz Platform
-  </button>
+  <RouterLink to="/" class="app-logo"> Quiz Platform </RouterLink>
 </template>
+
+<style scoped>
+.app-logo {
+  color: var(--app-color-primary);
+  font-size: 1.25rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color var(--app-transition-fast);
+}
+
+.app-logo:hover {
+  color: var(--app-color-primary-hover);
+}
+</style>

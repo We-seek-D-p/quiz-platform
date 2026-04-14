@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { useRoute } from 'vue-router'
 import AppLogo from '@/components/layout/AppLogo.vue'
 import AppMenuItem from '@/components/layout/AppMenuItem.vue'
+import type { DashboardNavigationItem } from '@/layouts/dashboardNavigation'
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
-    menuItems: Array<{ label: string; icon: string }>
+    menuItems: DashboardNavigationItem[]
     showLogo?: boolean
   }>(),
   {
@@ -16,6 +18,16 @@ const emit = defineEmits<{
   itemClick: []
   logoutClick: []
 }>()
+
+const route = useRoute()
+
+const isItemActive = (item: DashboardNavigationItem): boolean => {
+  if (!item.routeName) {
+    return false
+  }
+
+  return route.matched.some((record) => record.name === item.routeName)
+}
 </script>
 
 <template>
@@ -27,16 +39,19 @@ const emit = defineEmits<{
     <div class="flex flex-1 flex-col px-3 pb-6">
       <nav class="mt-2 flex flex-1 flex-col gap-1">
         <AppMenuItem
-          v-for="item in menuItems"
-          :key="item.label"
+          v-for="item in props.menuItems"
+          :key="item.key"
           :label="item.label"
           :icon="item.icon"
-          @click="emit('itemClick')"
+          :to="item.routeName ? { name: item.routeName } : undefined"
+          :active="isItemActive(item)"
+          :disabled="item.disabled"
+          @select="emit('itemClick')"
         />
       </nav>
 
       <div class="mt-auto pt-4">
-        <AppMenuItem label="Выйти" icon="pi pi-sign-out" @click="emit('logoutClick')" />
+        <AppMenuItem label="Выйти" icon="pi pi-sign-out" @select="emit('logoutClick')" />
       </div>
     </div>
   </div>

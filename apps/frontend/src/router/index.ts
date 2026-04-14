@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
+import { useAuthStore } from '@/stores/auth'
+
+const APP_TITLE = 'Quiz Platform'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -8,15 +10,9 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/public/Home.vue'),
     meta: {
       layout: 'DefaultLayout',
-      title: '',
+      title: 'Главная',
     },
   },
-  // {
-  //   path: '/join/:code',
-  //   name: 'join',
-  //   component: () => import('@/views/public/JoinRoom.vue'),
-  //   meta: { layout: 'DefaultLayout' }
-  // },
   {
     path: '/login',
     name: 'login',
@@ -37,7 +33,6 @@ const routes: RouteRecordRaw[] = [
       guestOnly: true,
     },
   },
-
   {
     path: '/host',
     name: 'dashboard',
@@ -48,65 +43,6 @@ const routes: RouteRecordRaw[] = [
       requiresAuth: true,
     },
   },
-
-  // {
-  //   path: '/host/quizzes',
-  //   name: 'host-quizzes',
-  //   component: () => import('@/views/host/Quizzes.vue'),
-  //   meta: {
-  //     layout: 'DashboardLayout',
-  //     title: 'Мои квизы',
-  //     requiresAuth: true,
-  //   },
-  // },
-  // {
-  //   path: '/host/quiz/new',
-  //   name: 'create-quiz',
-  //   component: () => import('@/views/host/QuizEditor.vue'),
-  //   meta: {
-  //     layout: 'DashboardLayout',
-  //     title: 'Создать квиз',
-  //     requiresAuth: true,
-  //   },
-  // },
-  // {
-  //   path: '/host/quiz/:id/edit',
-  //   name: 'edit-quiz',
-  //   component: () => import('@/views/host/QuizEditor.vue'),
-  //   meta: {
-  //     layout: 'DashboardLayout',
-  //     title: 'Редактирование квиза',
-  //     requiresAuth: true,
-  //   },
-  // },
-
-  // {
-  //   path: '/game/:code/lobby',
-  //   name: 'lobby',
-  //   component: () => import('@/views/game/Lobby.vue'),
-  //   meta: {
-  //     layout: 'GameLayout',
-  //     title: 'Лобби',
-  //   },
-  // },
-  // {
-  //   path: '/game/:code/play',
-  //   name: 'play',
-  //   component: () => import('@/views/game/Play.vue'),
-  //   meta: {
-  //     layout: 'GameLayout',
-  //     title: 'Игра',
-  //   },
-  // },
-  // {
-  //   path: '/game/:code/results',
-  //   name: 'results',
-  //   component: () => import('@/views/game/Results.vue'),
-  //   meta: {
-  //     layout: 'GameLayout',
-  //     title: 'Результаты',
-  //   },
-  // },
 ]
 
 const router = createRouter({
@@ -121,29 +57,30 @@ router.beforeEach(async (to) => {
     await authStore.initializeSession()
   }
 
-  const requiresAuth = to.matched.some((record) => Boolean(record.meta.requiresAuth))
-  const guestOnly = to.matched.some((record) => Boolean(record.meta.guestOnly))
+  const requiresAuth = to.matched.some((record) => record.meta.requiresAuth === true)
+  const guestOnly = to.matched.some((record) => record.meta.guestOnly === true)
 
   if (requiresAuth && !authStore.isAuthenticated) {
-    const redirectTarget = to.fullPath || '/host'
-
-    if (to.path === '/login') {
-      return true
-    }
-
     return {
-      path: '/login',
+      name: 'login',
       query: {
-        redirect: redirectTarget,
+        redirect: to.fullPath || '/host',
       },
     }
   }
 
   if (guestOnly && authStore.isAuthenticated) {
-    return { path: '/host' }
+    return { name: 'dashboard' }
   }
 
   return true
+})
+
+router.afterEach((to) => {
+  if (typeof document !== 'undefined') {
+    const pageTitle = typeof to.meta.title === 'string' ? to.meta.title : undefined
+    document.title = pageTitle ? `${pageTitle} · ${APP_TITLE}` : APP_TITLE
+  }
 })
 
 export default router
