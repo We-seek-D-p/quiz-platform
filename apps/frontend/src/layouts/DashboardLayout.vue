@@ -5,6 +5,7 @@ import Drawer from 'primevue/drawer'
 import AppLogo from '@/components/layout/AppLogo.vue'
 import AppSidebarContent from '@/components/layout/AppSidebarContent.vue'
 import DashboardTopbar from '@/components/layout/DashboardTopbar.vue'
+import { dashboardNavigationItems } from '@/layouts/dashboardNavigation'
 import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
@@ -45,13 +46,6 @@ onBeforeUnmount(() => {
   desktopQuery?.removeEventListener('change', syncDesktopState)
   desktopQuery = null
 })
-
-const menuItems = [
-  { label: 'Дашборд', icon: 'pi pi-home' },
-  { label: 'Создать квиз', icon: 'pi pi-plus' },
-  { label: 'Мои квизы', icon: 'pi pi-list' },
-  { label: 'Запуск квиза', icon: 'pi pi-send' },
-]
 
 const handleMenuClick = () => {
   if (!isDesktop.value) {
@@ -94,7 +88,7 @@ const toggleSidebar = () => {
     >
       <AppSidebarContent
         show-logo
-        :menu-items="menuItems"
+        :menu-items="dashboardNavigationItems"
         @item-click="handleMenuClick"
         @logout-click="handleLogoutClick"
       />
@@ -106,7 +100,7 @@ const toggleSidebar = () => {
       </template>
 
       <AppSidebarContent
-        :menu-items="menuItems"
+        :menu-items="dashboardNavigationItems"
         @item-click="handleMenuClick"
         @logout-click="handleLogoutClick"
       />
