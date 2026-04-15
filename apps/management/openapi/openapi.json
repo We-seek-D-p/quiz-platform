@@ -5,13 +5,13 @@
     "version": "0.1.0"
   },
   "paths": {
-    "/quizzes/": {
+    "/api/v1/quizzes/": {
       "post": {
         "tags": [
           "Quizzes"
         ],
         "summary": "Create Quiz",
-        "operationId": "create_quiz_quizzes__post",
+        "operationId": "create_quiz_api_v1_quizzes__post",
         "parameters": [
           {
             "name": "X-User-Id",
@@ -57,13 +57,13 @@
         }
       }
     },
-    "/quizzes/{quiz_id}": {
+    "/api/v1/quizzes/{quiz_id}": {
       "get": {
         "tags": [
           "Quizzes"
         ],
         "summary": "Get Quiz",
-        "operationId": "get_quiz_quizzes__quiz_id__get",
+        "operationId": "get_quiz_api_v1_quizzes__quiz_id__get",
         "parameters": [
           {
             "name": "quiz_id",
@@ -113,7 +113,7 @@
           "Quizzes"
         ],
         "summary": "Update Quiz",
-        "operationId": "update_quiz_quizzes__quiz_id__patch",
+        "operationId": "update_quiz_api_v1_quizzes__quiz_id__patch",
         "parameters": [
           {
             "name": "quiz_id",
@@ -173,7 +173,7 @@
           "Quizzes"
         ],
         "summary": "Delete Quiz",
-        "operationId": "delete_quiz_quizzes__quiz_id__delete",
+        "operationId": "delete_quiz_api_v1_quizzes__quiz_id__delete",
         "parameters": [
           {
             "name": "quiz_id",
@@ -212,13 +212,13 @@
         }
       }
     },
-    "/quizzes/{quiz_id}/questions/": {
+    "/api/v1/quizzes/{quiz_id}/questions/": {
       "post": {
         "tags": [
           "Questions"
         ],
         "summary": "Create Question",
-        "operationId": "create_question_quizzes__quiz_id__questions__post",
+        "operationId": "create_question_api_v1_quizzes__quiz_id__questions__post",
         "parameters": [
           {
             "name": "quiz_id",
@@ -278,7 +278,7 @@
           "Questions"
         ],
         "summary": "Get Questions",
-        "operationId": "get_questions_quizzes__quiz_id__questions__get",
+        "operationId": "get_questions_api_v1_quizzes__quiz_id__questions__get",
         "parameters": [
           {
             "name": "quiz_id",
@@ -310,7 +310,7 @@
                   "items": {
                     "$ref": "#/components/schemas/QuestionPublic"
                   },
-                  "title": "Response Get Questions Quizzes  Quiz Id  Questions  Get"
+                  "title": "Response Get Questions Api V1 Quizzes  Quiz Id  Questions  Get"
                 }
               }
             }
@@ -328,13 +328,13 @@
         }
       }
     },
-    "/quizzes/{quiz_id}/questions/{question_id}": {
+    "/api/v1/quizzes/{quiz_id}/questions/{question_id}": {
       "get": {
         "tags": [
           "Questions"
         ],
         "summary": "Get Question",
-        "operationId": "get_question_quizzes__quiz_id__questions__question_id__get",
+        "operationId": "get_question_api_v1_quizzes__quiz_id__questions__question_id__get",
         "parameters": [
           {
             "name": "question_id",
@@ -373,7 +373,7 @@
           "Questions"
         ],
         "summary": "Update Question",
-        "operationId": "update_question_quizzes__quiz_id__questions__question_id__patch",
+        "operationId": "update_question_api_v1_quizzes__quiz_id__questions__question_id__patch",
         "parameters": [
           {
             "name": "question_id",
@@ -422,7 +422,7 @@
           "Questions"
         ],
         "summary": "Delete Question",
-        "operationId": "delete_question_quizzes__quiz_id__questions__question_id__delete",
+        "operationId": "delete_question_api_v1_quizzes__quiz_id__questions__question_id__delete",
         "parameters": [
           {
             "name": "question_id",
@@ -450,13 +450,13 @@
         }
       }
     },
-    "/sessions": {
+    "/api/v1/sessions": {
       "post": {
         "tags": [
           "Sessions"
         ],
         "summary": "Create Session",
-        "operationId": "create_session_sessions_post",
+        "operationId": "create_session_api_v1_sessions_post",
         "parameters": [
           {
             "name": "data",
@@ -683,11 +683,6 @@
       },
       "QuestionCreate": {
         "properties": {
-          "quiz_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Quiz Id"
-          },
           "text": {
             "type": "string",
             "title": "Text"
@@ -716,7 +711,6 @@
         },
         "type": "object",
         "required": [
-          "quiz_id",
           "text",
           "order_index",
           "options"
