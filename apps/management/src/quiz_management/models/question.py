@@ -67,7 +67,6 @@ class OptionCreate(BaseModel):
 
 
 class QuestionCreate(BaseModel):
-    quiz_id: UUID
     text: str
     selection_type: str = "single"
     time_limit_seconds: int = 15

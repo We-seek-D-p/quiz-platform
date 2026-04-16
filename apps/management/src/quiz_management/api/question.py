@@ -20,8 +20,7 @@ async def create_question(
     data: QuestionCreate,
     service: Annotated[QuestionService, Depends(get_question_service)],
 ):
-    data.quiz_id = quiz.id
-    return await service.create_question(data)
+    return await service.create_question(data, quiz.id)
 
 
 @router.get("/{question_id}", response_model=QuestionPublic, status_code=status.HTTP_200_OK)

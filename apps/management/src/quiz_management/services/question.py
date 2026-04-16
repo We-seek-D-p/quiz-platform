@@ -15,9 +15,9 @@ class QuestionService:
     async def get_quiz_questions(self, quiz_id: UUID) -> Sequence[Question]:
         return await self.repository.get_by_quiz_id(quiz_id)
 
-    async def create_question(self, data: QuestionCreate) -> Question:
+    async def create_question(self, data: QuestionCreate, quiz_id: UUID) -> Question:
         options_data = sorted(data.options, key=lambda x: x.order_index)
-        question = Question(**data.model_dump(exclude={"options"}))
+        question = Question(**data.model_dump(exclude={"options"}), quiz_id=quiz_id)
         question.options = [
             QuestionOption(**opt.model_dump(exclude={"order_index"}), order_index=idx)
             for idx, opt in enumerate(options_data)
@@ -28,7 +28,6 @@ class QuestionService:
         data_to_update = data.model_dump(exclude_unset=True, exclude={"options"})
         for key, value in data_to_update.items():
             setattr(question, key, value)
-
         if data.options is not None:
             data.options = sorted(data.options, key=lambda x: x.order_index)
 
