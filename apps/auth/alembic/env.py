@@ -30,6 +30,12 @@ config.set_main_option("sqlalchemy.url", settings.database_url)
 target_metadata = SQLModel.metadata
 
 
+def include_name(name: str | None, type_: str, _parent_names: dict[str, str]) -> bool:
+    if type_ == "schema":
+        return name == "auth"
+    return True
+
+
 # add your model's MetaData object here
 # for 'autogenerate' support
 # from myapp import mymodel
@@ -64,7 +70,8 @@ def do_run_migrations(connection: Connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         include_schemas=True,
-        version_table_schema=target_metadata.schema,
+        include_name=include_name,
+        version_table_schema="auth",
     )
 
     with context.begin_transaction():
