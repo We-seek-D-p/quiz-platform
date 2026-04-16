@@ -25,6 +25,21 @@ services:
         condition: service_healthy
     env_file:
       - .env
+    ports:
+      - "${AUTH_APP_PORT:-8001}:8000"
+    restart: unless-stopped
+
+  management:
+    build:
+      context: ./apps/management
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    ports:
+      - "${MANAGEMENT_APP_PORT:-8002}:8000"
     restart: unless-stopped
 
   frontend:
@@ -38,6 +53,7 @@ services:
     depends_on:
       - frontend
       - auth
+      - management
     ports:
       - "${NGINX_APP_PORT:-8080}:8080"
     volumes:
