@@ -1,0 +1,39 @@
+services:
+  auth:
+    image: ghcr.io/${GHCR_OWNER}/quiz-auth:main
+    environment:
+      AUTH_APP_NAME: ${AUTH_APP_NAME}
+      AUTH_APP_PORT: ${AUTH_APP_PORT}
+      AUTH_DEBUG: ${AUTH_DEBUG}
+      AUTH_DATABASE_URL: ${AUTH_DATABASE_URL}
+      AUTH_JWT_SECRET_KEY: ${AUTH_JWT_SECRET_KEY}
+      AUTH_JWT_ALGORITHM: ${AUTH_JWT_ALGORITHM}
+      AUTH_ACCESS_TOKEN_TTL_MINUTES: ${AUTH_ACCESS_TOKEN_TTL_MINUTES}
+      AUTH_REFRESH_TOKEN_TTL_DAYS: ${AUTH_REFRESH_TOKEN_TTL_DAYS}
+      AUTH_REFRESH_COOKIE_SECURE: ${AUTH_REFRESH_COOKIE_SECURE}
+    expose:
+      - "8000"
+
+  management:
+    image: ghcr.io/${GHCR_OWNER}/quiz-management:main
+    environment:
+      MANAGEMENT_APP_NAME: ${MANAGEMENT_APP_NAME}
+      MANAGEMENT_APP_PORT: ${MANAGEMENT_APP_PORT}
+      MANAGEMENT_DEBUG: ${MANAGEMENT_DEBUG}
+      MANAGEMENT_DATABASE_URL: ${MANAGEMENT_DATABASE_URL}
+    expose:
+      - "8000"
+
+  frontend:
+    image: ghcr.io/${GHCR_OWNER}/quiz-frontend:main
+    expose:
+      - "8080"
+
+  nginx:
+    image: ghcr.io/${GHCR_OWNER}/quiz-nginx:main
+    depends_on:
+      - auth
+      - management
+      - frontend
+    ports:
+      - "8080:8080"
