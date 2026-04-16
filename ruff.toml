@@ -1,0 +1,20 @@
+src = ["apps/auth/src", "apps/management/src"]
+line-length = 100
+target-version = "py314"
+force-exclude = true
+extend-exclude = [
+    "apps/frontend",
+    "apps/*/alembic/versions/*.py",
+]
+
+[lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "S", "C90"]
+fixable = ["ALL"]
+
+[lint.per-file-ignores]
+"apps/*/tests/**/*.py" = ["S101"]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+exclude = ["apps/*/alembic/versions/*.py"]
