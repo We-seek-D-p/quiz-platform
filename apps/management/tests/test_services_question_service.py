@@ -1,10 +1,11 @@
 from datetime import UTC, datetime
+from optparse import Option
 from unittest.mock import MagicMock, AsyncMock
 from uuid import uuid4
 
 import pytest
 
-from quiz_management.models.question import Question, QuestionCreate
+from quiz_management.models.question import Question, QuestionCreate, QuestionUpdate, QuestionOption
 from quiz_management.services.question import QuestionService
 
 pytestmark = pytest.mark.anyio
@@ -123,3 +124,67 @@ class TestQuestionService:
         question_service.repository.save = AsyncMock(side_effect=mock_save)
         await question_service.update_question(question, update_data)
         question_service.repository.save.assert_called_once_with(question)
+
+    async def test_update_question_adds_new_options(
+        self, question_service, mock_db, option_update_factory
+    ):
+        question = MagicMock(spec=Question)
+        question.options = []
+        question.updated_at = datetime.now(UTC)
+
+        new_option = option_update_factory(
+            option_id=None, text="New Option", order_index=0, is_correct=True
+        )
+        update_data = QuestionUpdate(options=[new_option])
+        question_service.repository.save = AsyncMock(return_value=question)
+        await question_service.update_question(question, update_data)
+
+        assert len(question.options) == 1
+        assert question.options[0].text == "New Option"
+        assert question.options[0].order_index == 0
+        assert question.options[0].is_correct is True
+
+    async def test_update_question_updates_existing_options(
+        self, question_service, mock_db, option_update_factory
+    ):
+        option_id = uuid4()
+        existing_option = MagicMock(spec=QuestionOption)
+        existing_option.id = option_id
+        existing_option.deleted_at = None
+        existing_option.text = "Original Text"
+        existing_option.order_index = 0
+        existing_option.is_correct = False
+
+        question = MagicMock(spec=Question)
+        question.options = [existing_option]
+        question.updated_at = datetime.now(UTC)
+
+        update_option = option_update_factory(
+            option_id=option_id, text="Updated Option", order_index=1, is_correct=True
+        )
+        update_data = QuestionUpdate(options=[update_option])
+        question_service.repository.save = AsyncMock(return_value=question)
+        await question_service.update_question(question, update_data)
+
+        assert existing_option.text == "Updated Option"
+        assert existing_option.order_index == 0
+        assert existing_option.is_correct is True
+
+    async def test_update_question_deletes_removed_options(
+        self, question_service, mock_db, option_update_factory
+    ):
+        option_id = uuid4()
+        existing_option = MagicMock(spec=QuestionOption)
+        existing_option.id = option_id
+        existing_option.deleted_at = None
+
+        question = MagicMock(spec=Question)
+        question.options = [existing_option]
+        question.updated_at = datetime.now(UTC)
+
+        update_data = QuestionUpdate(options=[])
+        question_service.repository.save = AsyncMock(return_value=question)
+        await question_service.update_question(question, update_data)
+
+        assert existing_option.deleted_at is not None
+        assert isinstance(existing_option.deleted_at, datetime)
