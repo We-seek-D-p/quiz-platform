@@ -1,5 +1,4 @@
 from datetime import UTC, datetime
-from optparse import Option
 from unittest.mock import MagicMock, AsyncMock
 from uuid import uuid4
 
@@ -188,3 +187,62 @@ class TestQuestionService:
 
         assert existing_option.deleted_at is not None
         assert isinstance(existing_option.deleted_at, datetime)
+
+    async def test_update_question_sorts_options_by_order_index(
+        self, question_service, mock_db, option_update_factory
+    ):
+        option_id1 = uuid4()
+        option_id2 = uuid4()
+
+        existing_option1 = MagicMock(spec=QuestionOption)
+        existing_option1.id = option_id1
+        existing_option1.deleted_at = None
+
+        existing_option2 = MagicMock(spec=QuestionOption)
+        existing_option2.id = option_id2
+        existing_option2.deleted_at = None
+
+        question = MagicMock(spec=Question)
+        question.options = [existing_option1, existing_option2]
+        question.updated_at = datetime.now(UTC)
+
+        update_option1 = option_update_factory(option_id=option_id1, order_index=5)
+        update_option2 = option_update_factory(option_id=option_id2, order_index=1)
+        update_data = QuestionUpdate(options=[update_option1, update_option2])
+        question_service.repository.save = AsyncMock(return_value=question)
+        await question_service.update_question(question, update_data)
+
+        assert existing_option2.order_index == 0
+        assert existing_option1.order_index == 1
+
+    async def test_delete_question_soft_deletes_question_and_options(
+        self, question_service, mock_db
+    ):
+        option1 = MagicMock(spec=QuestionOption)
+        option1.deleted_at = None
+        option2 = MagicMock(spec=QuestionOption)
+        option2.deleted_at = None
+
+        question = MagicMock(spec=Question)
+        question.deleted_at = None
+        question.options = [option1, option2]
+
+        question_service.repository.save = AsyncMock(return_value=question)
+        await question_service.delete_question(question)
+
+        assert question.deleted_at is not None
+        assert isinstance(question.deleted_at, datetime)
+        assert option1.deleted_at is not None
+        assert option2.deleted_at is not None
+        question_service.repository.save.assert_called_once_with(question)
+
+    async def test_delete_question_with_no_options(self, question_service, mock_db):
+        question = MagicMock(spec=Question)
+        question.deleted_at = None
+        question.options = []
+
+        question_service.repository.save = AsyncMock(return_value=question)
+        await question_service.delete_question(question)
+
+        assert question.deleted_at is not None
+        question_service.repository.save.assert_called_once_with(question)
