@@ -1,27 +1,20 @@
 export interface OptionTransport {
   id?: string;
   text: string;
-  isCorrect: boolean;
-  order: number;
+  is_correct: boolean;
+  order_index: number;
 }
 
 export interface QuestionTransport {
-  id?: string;
+  quiz_id: string;
   text: string;
-  type: 'single' | 'multiple';
-  order: number;
+  selection_type: 'single' | 'multiple';
+  time_limit_seconds: number;
+  order_index: number;
   options: OptionTransport[];
 }
 
-export interface QuizTransport {
+export interface QuizSummary {
   id: string;
   title: string;
-  description?: string;
-  questions: QuestionTransport[];
-  createdAt: string;
-  updatedAt: string;
 }
-
-
-export type CreateQuizDto = Omit<QuizTransport, 'id' | 'createdAt' | 'updatedAt'>;
-export type UpdateQuizDto = Partial<CreateQuizDto>;
