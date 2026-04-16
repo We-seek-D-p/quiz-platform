@@ -1,18 +1,24 @@
-import type { QuestionTransport, OptionTransport } from './management';
-
-export interface OptionDraft extends Omit<OptionTransport, 'order'> {
-  localId: string;
+export interface OptionDraft {
+  localId: string
+  id?: string
+  text: string
+  is_correct: boolean
+  order_index: number
 }
 
-export interface QuestionDraft extends Omit<QuestionTransport, 'options' | 'order'> {
-  localId: string;
-  options: OptionDraft[];
-  isExpanded?: boolean;
+export interface QuestionDraft {
+  localId: string
+  id?: string
+  text: string
+  selection_type: 'single' | 'multiple'
+  time_limit_seconds: number
+  order_index: number
+  options: OptionDraft[]
 }
 
 export interface QuizDraft {
-  id?: string;
-  title: string;
-  description: string;
-  questions: QuestionDraft[];
+  id?: string
+  title: string
+  description: string
+  questions: QuestionDraft[]
 }
