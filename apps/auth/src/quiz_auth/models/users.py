@@ -1,11 +1,30 @@
+import re
 from datetime import UTC, datetime
 from uuid import UUID, uuid7
 
-from pydantic import EmailStr
+from pydantic import EmailStr, field_validator
 from sqlalchemy import Column, DateTime, ForeignKey, Index, String, func
 from sqlmodel import Field, SQLModel
+from zxcvbn import zxcvbn
 
 AUTH_SCHEMA = "auth"
+RESERVED_USERNAMES = {
+    "admin",
+    "support",
+    "root",
+    "settings",
+    "api",
+    "auth",
+    "login",
+    "logout",
+    "signup",
+    "register",
+    "password",
+    "management",
+    "owner",
+    "superuser",
+}
+USERNAME_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 
 def utcnow() -> datetime:
@@ -122,6 +141,37 @@ class RefreshToken(SQLModel, table=True):
 
 class UserCreate(UserBase):
     password: str
+
+    @field_validator("nickname")
+    @classmethod
+    def validate_nickname(cls, v: str):
+        v = v.lower()
+        if v in RESERVED_USERNAMES:
+            raise ValueError("This nickname is reserved by the system")
+        if len(v) < 3:
+            raise ValueError("The nickname is too short")
+        if not re.match(USERNAME_RE, v):
+            raise ValueError("Only Latin characters, numbers, '-' and '_' are allowed")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, v: str, info):
+        user_inputs = []
+        if "nickname" in info.data:
+            user_inputs.append(info.data["nickname"])
+        if "email" in info.data:
+            user_inputs.append(info.data["email"])
+
+        results = zxcvbn(v, user_inputs=user_inputs)
+
+        if results["score"] < 3:
+            feedback = results["feedback"]["warning"]
+            suggestions = ". ".join(results["feedback"]["suggestions"])
+            error_msg = f"The password is too weak. {feedback}. {suggestions}"
+            raise ValueError(error_msg)
+
+        return v
 
 
 class UserLogin(SQLModel):
