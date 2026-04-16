@@ -29,7 +29,7 @@ onMounted(fetchQuizzes);
       <Button
         label="Новый квиз"
         icon="pi pi-plus"
-        @click="$router.push('/quizzes/new')"
+        @click="$router.push('/quizzes/editor?quiz=new')"
       />
     </div>
     
@@ -61,7 +61,7 @@ onMounted(fetchQuizzes);
               icon="pi pi-pencil" 
               text 
               severity="secondary" 
-              @click="$router.push(`/host/quizzes/${slotProps.data.id}/edit`)" 
+              @click="$router.push(`/quizzes/editor?quiz=${slotProps.data.id}`)" 
             />
             <Button 
               icon="pi pi-trash" 

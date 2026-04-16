@@ -40,7 +40,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       layout: 'DashboardLayout',
       title: 'Панель управления',
-      requiresAuth: false,
+      requiresAuth: true,
     },
   },
   {
@@ -50,7 +50,17 @@ const routes: RouteRecordRaw[] = [
     meta: {
       layout: 'DashboardLayout',
       title: 'Список квизов',
-      requiresAuth: false,
+      requiresAuth: true,
+    },
+  },
+  {
+    path: '/quizzes/editor',
+    name: 'quiz-editor',
+    component: () => import('@/views/host/QuizEditor.vue'),
+    meta: {
+      layout: 'DashboardLayout',
+      title: 'Редактор квиза',
+      requiresAuth: true,
     },
   },
 ]
