@@ -16,21 +16,15 @@ export const dashboardNavigationItems: DashboardNavigationItem[] = [
     routeName: 'dashboard',
   },
   {
-    key: 'create-quiz',
-    label: 'Создать квиз',
-    icon: 'pi pi-plus',
-    disabled: true,
-  },
-  {
     key: 'my-quizzes',
     label: 'Мои квизы',
     icon: 'pi pi-list',
-    disabled: true,
+    routeName: 'quiz-list',
   },
   {
-    key: 'launch-quiz',
-    label: 'Запуск квиза',
-    icon: 'pi pi-send',
+    key: 'find-quiz',
+    label: 'Найти квиз',
+    icon: 'pi pi-search',
     disabled: true,
   },
 ]
