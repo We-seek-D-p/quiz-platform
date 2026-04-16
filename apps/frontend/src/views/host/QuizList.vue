@@ -1,21 +1,20 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import Button from 'primevue/button'
+import Button from 'primevue/button';
+import DataTable from 'primevue/datatable';
+import Column from 'primevue/column';
 import type { QuizTransport } from '@/types';
-
 
 const quizzes = ref<QuizTransport[]>([]);
 
-
 const fetchQuizzes = async () => {
-quizzes.value = [
+  quizzes.value = [
     { id: '1', title: 'Тестовый квиз', createdAt: new Date().toISOString(), questions: [] }
-    ] as any;
+  ] as any;
 };
 
 const handleDelete = async (id: string) => {
   if (confirm('Вы уверены, что хотите удалить этот квиз?')) {
-    // await api.delete(`/quizzes/${id}`);
     quizzes.value = quizzes.value.filter(q => q.id !== id);
   }
 };
@@ -23,55 +22,64 @@ const handleDelete = async (id: string) => {
 onMounted(fetchQuizzes);
 </script>
 
-
 <template>
   <div class="p-6">
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-2xl font-bold">Мои квизы</h1>
       <Button
-            label="Новый квиз"
-            @click="$router.push('/host/quizzes/new')"
-          />
+        label="Новый квиз"
+        icon="pi pi-plus"
+        @click="$router.push('/quizzes/new')"
+      />
     </div>
+    
+    <DataTable :value="quizzes" class=" rounded-xl overflow-hidden">
+      <Column field="title" header="Название"></Column>
+      
+      <Column header="Вопросов">
+        <template #body="slotProps">
+          {{ slotProps.data.questions?.length || 0 }}
+        </template>
+      </Column>
 
-    <div class="bg-white border rounded-xl overflow-hidden">
-      <table class="w-full text-left">
-        <thead class="bg-gray-50 border-b">
-          <tr>
-            <th class="p-4 font-semibold">Название</th>
-            <th class="p-4 font-semibold">Вопросов</th>
-            <th class="p-4 font-semibold">Дата создания</th>
-            <th class="p-4 text-right">Действия</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="quiz in quizzes" :key="quiz.id" class="border-b last:border-0 hover:bg-gray-50">
-            <td class="p-4 font-medium">{{ quiz.title }}</td>
-            <td class="p-4 text-gray-600">{{ quiz.questions?.length || 0 }}</td>
-            <td class="p-4 text-gray-500 text-sm">
-              {{ new Date(quiz.createdAt).toLocaleDateString() }}
-            </td>
-            <td class="p-4 text-right space-x-2">
-              <button 
-                @click="$router.push(`/host/quizzes/${quiz.id}/edit`)"
-                class="text-blue-600 hover:underline"
-              >
-                Изменить
-              </button>
-              <button 
-                @click="handleDelete(quiz.id)"
-                class="text-red-600 hover:underline"
-              >
-                Удалить
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <Column header="Дата создания">
+        <template #body="slotProps">
+          {{ new Date(slotProps.data.createdAt).toLocaleDateString() }}
+        </template>
+      </Column>
 
-      <div v-if="quizzes.length === 0" class="p-10 text-center text-gray-500">
-        У вас пока нет квизов.
-      </div>
-    </div>
+      <Column headerStyle="text-align: right" bodyStyle="text-align: right">
+        <template #body="slotProps">
+          <div class="flex justify-end gap-2">
+            <Button
+              icon="pi pi-play" 
+              text 
+              style="color: green"
+              @click="$router.push('/lobby')"
+            />
+            <Button 
+              icon="pi pi-pencil" 
+              text 
+              severity="secondary" 
+              @click="$router.push(`/host/quizzes/${slotProps.data.id}/edit`)" 
+            />
+            <Button 
+              icon="pi pi-trash" 
+              text 
+              severity="danger" 
+              @click="handleDelete(slotProps.data.id)" 
+            />
+          </div>
+        </template>
+      </Column>
+
+      <template #empty>
+        <div class="p-4 text-center">У вас пока нет квизов.</div>
+      </template>
+    </DataTable>
   </div>
 </template>
+
+<style scoped>
+/* Дополнительные стили не требуются, так как DataTable берет их из темы */
+</style>
