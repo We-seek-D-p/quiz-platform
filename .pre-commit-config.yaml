@@ -15,6 +15,7 @@ repos:
     hooks:
       - id: ruff-check
         files: ^apps/(auth|management)/
-        args: [ --fix ]
+        args: [--config=ruff.toml, --fix]
       - id: ruff-format
         files: ^apps/(auth|management)/
+        args: [--config=ruff.toml]
