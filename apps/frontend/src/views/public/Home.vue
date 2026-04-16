@@ -13,13 +13,6 @@ const handleJoin = () => {
   // TODO: implement join flow
 }
 
-const goToDashboard = () => {
-  router.push('/host')
-}
-
-const goToRegister = () => {
-  router.push('/register')
-}
 </script>
 
 <template>
@@ -42,9 +35,6 @@ const goToRegister = () => {
         </div>
       </template>
     </Card>
-
-    <Button class="w-full" label="Host dashboard" @click="goToDashboard" />
-    <Button class="w-full" label="Register page" @click="goToRegister" />
   </section>
 </template>
 
