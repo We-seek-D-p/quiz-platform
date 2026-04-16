@@ -21,9 +21,30 @@ dependencies = [
     "uvicorn[standard]>=0.44.0",
 ]
 
+[dependency-groups]
+dev = [
+    "pre-commit>=4.5",
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1",
+    "ruff>=0.15.8",
+]
+
 [build-system]
 requires = ["hatchling>=1.26"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/quiz_management"]
+
+[tool.pytest]
+minversion = "9.0"
+addopts = [
+    "-ra",
+    "--import-mode=importlib",
+]
+testpaths = [
+    "tests",
+]
+pythonpath = [
+    "src",
+]
