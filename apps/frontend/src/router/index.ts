@@ -50,7 +50,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       layout: 'DashboardLayout',
       title: 'Список квизов',
-      requiresAuth: false,
+      requiresAuth: true,
     },
   },
   {
@@ -60,7 +60,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       layout: 'DashboardLayout',
       title: 'Редактор квиза',
-      requiresAuth: false,
+      requiresAuth: true,
     },
   },
 ]
