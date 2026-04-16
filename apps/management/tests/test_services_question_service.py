@@ -82,3 +82,44 @@ class TestQuestionService:
         assert call_args.options[1].text == "Option 3"
         assert call_args.options[2].order_index == 2
         assert call_args.options[2].text == "Option 1"
+
+    async def test_question_updates_fields(
+        self, question_service, mock_db, question_update_factory
+    ):
+        question = MagicMock(spec=Question)
+        question.options = []
+        question.updated_at = datetime.now(UTC)
+
+        update_data = question_update_factory(
+            text="Updated Question",
+            selection_type="multiple",
+            time_limit_seconds=45,
+            order_index=1,
+        )
+
+        saved_question = MagicMock(spec=Question)
+        question_service.repository.save = AsyncMock(return_value=saved_question)
+        res = await question_service.update_question(question, update_data)
+
+        assert question.text == "Updated Question"
+        assert question.selection_type == "multiple"
+        assert question.time_limit_seconds == 45
+        assert question.order_index == 1
+        question_service.repository.save.assert_called_once_with(question)
+        assert res == saved_question
+
+    async def test_update_question_without_changes_still_updates_timestamp(
+        self, question_service, mock_db, question_update_factory
+    ):
+        question = MagicMock(spec=Question)
+        question.options = []
+        initial_updated_at = datetime.now(UTC)
+        question.updated_at = initial_updated_at
+        update_data = question_update_factory()
+
+        async def mock_save(q):
+            return q
+
+        question_service.repository.save = AsyncMock(side_effect=mock_save)
+        await question_service.update_question(question, update_data)
+        question_service.repository.save.assert_called_once_with(question)
