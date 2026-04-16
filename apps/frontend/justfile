@@ -1,0 +1,38 @@
+set dotenv-load := true
+set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
+
+# List recipes
+[private]
+[default]
+default:
+    @just --list --unsorted
+
+# Install service dependencies
+install:
+    bun install
+
+# Fix frontend issues
+fix:
+    bun run lint:fix
+
+# Format frontend code
+fmt:
+    bun run format
+
+# Check frontend format
+fmt-check:
+    bun run format:check
+
+# Lint frontend code
+lint:
+    bun run lint
+
+# Run frontend tests
+test:
+    @echo "Frontend tests are not added yet"
+
+# Check frontend code
+check: fmt-check lint test
+
+# Run all frontend tasks
+all: fix fmt lint test

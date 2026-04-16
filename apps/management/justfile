@@ -1,0 +1,42 @@
+set dotenv-load := true
+set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
+
+# List recipes
+[private]
+[default]
+default:
+    @just --list --unsorted
+
+# Install service dependencies
+install:
+    uv sync --all-groups
+
+# Fix Python issues
+fix:
+    uv run ruff check . --fix
+
+# Format Python code
+fmt:
+    uv run ruff format .
+
+# Check Python format
+fmt-check:
+    uv run ruff format . --check
+
+# Lint Python code
+lint:
+    uv run ruff check .
+
+# Run Python tests
+test:
+    uv run pytest tests
+
+# Check Python code
+check: fmt-check lint test
+
+# Run all Python tasks
+all: fix fmt lint test
+
+# Export OpenAPI spec
+openapi:
+    uv run python -m quiz_management.openapi.export
