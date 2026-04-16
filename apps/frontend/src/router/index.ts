@@ -43,6 +43,26 @@ const routes: RouteRecordRaw[] = [
       requiresAuth: true,
     },
   },
+  {
+    path: '/quizzes',
+    name: 'quiz-list',
+    component: () => import('@/views/host/QuizList.vue'),
+    meta: {
+      layout: 'DashboardLayout',
+      title: 'Список квизов',
+      requiresAuth: true,
+    },
+  },
+  {
+    path: '/quizzes/editor',
+    name: 'quiz-editor',
+    component: () => import('@/views/host/QuizEditor.vue'),
+    meta: {
+      layout: 'DashboardLayout',
+      title: 'Редактор квиза',
+      requiresAuth: true,
+    },
+  },
 ]
 
 const router = createRouter({
