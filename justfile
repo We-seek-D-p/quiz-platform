@@ -4,10 +4,7 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 # Maybe be useful in the future
 # set dotenv-required := true
 
-py_apps := "apps/auth apps/management"
-auth_tests := if path_exists("apps/auth/tests") == "true" { "apps/auth/tests" } else { "" }
-management_tests := if path_exists("apps/management/tests") == "true" { "apps/management/tests" } else { "" }
-py_tests := trim(auth_tests + " " + management_tests)
+py_services := "auth management"
 
 # List recipes
 [default]
@@ -16,27 +13,55 @@ default:
 
 # Install Python deps
 py-install:
-    uv sync --all-packages
+    for service in {{ py_services }}; do \
+        if [ -f "apps/$service/pyproject.toml" ]; then \
+            uv sync --project apps/$service --all-groups; \
+        fi; \
+    done
 
 # Fix Python issues
 py-fix:
-    uv run ruff check {{ py_apps }} --fix
+    for service in {{ py_services }}; do \
+        if [ -d "apps/$service" ]; then \
+            uv run --project apps/$service \
+                ruff check apps/$service --config ruff.toml --fix; \
+        fi; \
+    done
 
 # Format Python code
 py-fmt:
-    uv run ruff format {{ py_apps }}
+    for service in {{ py_services }}; do \
+        if [ -d "apps/$service" ]; then \
+            uv run --project apps/$service \
+                ruff format apps/$service --config ruff.toml; \
+        fi; \
+    done
 
 # Check Python format
 py-fmt-check:
-    uv run ruff format {{ py_apps }} --check
+    for service in {{ py_services }}; do \
+        if [ -d "apps/$service" ]; then \
+            uv run --project apps/$service \
+                ruff format apps/$service --config ruff.toml --check; \
+        fi; \
+    done
 
 # Lint Python code
 py-lint:
-    uv run ruff check {{ py_apps }}
+    for service in {{ py_services }}; do \
+        if [ -d "apps/$service" ]; then \
+            uv run --project apps/$service \
+                ruff check apps/$service --config ruff.toml; \
+        fi; \
+    done
 
 # Run Python tests
 py-test:
-    uv run pytest {{ py_tests }}
+    for service in {{ py_services }}; do \
+        if [ -f "apps/$service/pyproject.toml" ] && [ -d "apps/$service/tests" ]; then \
+            uv run --project apps/$service pytest apps/$service/tests; \
+        fi; \
+    done
 
 # Check Python code
 py-check: py-fmt-check py-lint py-test
@@ -46,23 +71,29 @@ py-all: py-fix py-fmt py-lint py-test
 
 # Fix one Python service
 py-fix-one service:
-    uv run ruff check apps/{{ service }} --fix
+    uv run --project apps/{{ service }} \
+        ruff check apps/{{ service }} --config ruff.toml --fix
 
 # Format one Python service
 py-fmt-one service:
-    uv run ruff format apps/{{ service }}
+    uv run --project apps/{{ service }} \
+        ruff format apps/{{ service }} --config ruff.toml
 
 # Check format for one Python service
 py-fmt-check-one service:
-    uv run ruff format apps/{{ service }} --check
+    uv run --project apps/{{ service }} \
+        ruff format apps/{{ service }} --config ruff.toml --check
 
 # Lint one Python service
 py-lint-one service:
-    uv run ruff check apps/{{ service }}
+    uv run --project apps/{{ service }} \
+        ruff check apps/{{ service }} --config ruff.toml
 
 # Test one Python service
 py-test-one service:
-    uv run pytest apps/{{ service }}/tests
+    if [ -d "apps/{{ service }}/tests" ]; then \
+        uv run --project apps/{{ service }} pytest apps/{{ service }}/tests; \
+    fi
 
 # Check one Python service
 py-check-one service: (py-fmt-check-one service) (py-lint-one service) (py-test-one service)
@@ -72,11 +103,11 @@ py-all-one service: (py-fix-one service) (py-fmt-one service) (py-lint-one servi
 
 # Export auth OpenAPI
 auth-openapi:
-    uv run --package quiz-auth python -m quiz_auth.openapi.export
+    uv run --project apps/auth python -m quiz_auth.openapi.export
 
 # Export management OpenAPI
 management-openapi:
-    uv run --package quiz-management python -m quiz_management.openapi.export
+    uv run --project apps/management python -m quiz_management.openapi.export
 
 # Install frontend deps
 [working-directory("apps/frontend")]
@@ -136,7 +167,7 @@ go-all: go-fix go-fmt go-lint go-test
 
 # Install git hooks
 hooks-install:
-    uv run pre-commit install
+    uvx pre-commit install
 
 # Install all deps
 install: py-install front-install go-install hooks-install
@@ -149,4 +180,4 @@ check: py-check front-check go-check
 
 # Run pre-commit
 precommit:
-    uv run pre-commit run --all-files
+    uvx pre-commit run --all-files
