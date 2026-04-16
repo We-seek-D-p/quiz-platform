@@ -97,18 +97,18 @@ const handleRegister = async (): Promise<void> => {
 
 <template>
   <Card class="auth-card">
-    <template #title>Registration</template>
+    <template #title>Создать аккаунт</template>
 
     <template #content>
       <div class="auth-form">
         <FloatLabel variant="in" class="w-full">
           <InputText id="register_email" v-model="email" autocomplete="off" class="w-full" />
-          <label for="register_email">Email</label>
+          <label for="register_email">Почта</label>
         </FloatLabel>
 
         <FloatLabel variant="in" class="w-full">
           <InputText id="register_nickname" v-model="nickname" autocomplete="off" class="w-full" />
-          <label for="register_nickname">Nickname</label>
+          <label for="register_nickname">Логин</label>
         </FloatLabel>
 
         <FloatLabel variant="in" class="w-full">
@@ -119,12 +119,12 @@ const handleRegister = async (): Promise<void> => {
             input-class="w-full"
             input-id="register_password"
           />
-          <label for="register_password">Password</label>
+          <label for="register_password">Пароль</label>
         </FloatLabel>
 
         <div class="auth-form__actions">
           <Button
-            label="Register"
+            label="Зарегистрироваться"
             :loading="isSubmitting"
             :disabled="isSubmitting"
             @click="handleRegister"
@@ -134,9 +134,9 @@ const handleRegister = async (): Promise<void> => {
     </template>
 
     <template #footer>
-      <div class="auth-card__footer">
-        <span class="auth-card__footer-text">Have an account already?</span>
-        <router-link to="/login" class="auth-card__footer-link"> Login </router-link>
+      <div class="auth-card__footer mt-2">
+        <span class="auth-card__footer-text">Уже есть аккаунт?</span>
+        <router-link to="/login" class="auth-card__footer-link">Войти</router-link>
       </div>
     </template>
   </Card>

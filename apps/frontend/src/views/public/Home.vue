@@ -26,19 +26,19 @@ const goToRegister = () => {
   <section class="home-entry">
     <Card class="w-full">
       <template #title>
-        <div class="home-entry__title">Join a game</div>
+        <div class="home-entry__title">Войти в игру</div>
       </template>
 
       <template #content>
         <FloatLabel variant="in">
-          <InputMask id="digits" v-model="gameCode" mask="999999" />
-          <label for="digits">Code</label>
+          <InputMask id="digits" v-model="gameCode" mask="999999" slotChar="" class="w-full" />
+          <label for="digits">Код</label>
         </FloatLabel>
       </template>
 
       <template #footer>
         <div class="home-entry__actions">
-          <Button label="Join" @click="handleJoin" />
+          <Button label="Подключиться" @click="handleJoin" />
         </div>
       </template>
     </Card>
