@@ -5,7 +5,7 @@ from fastapi import Depends, Header, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 
-from quiz_auth.core.database import get_session
+from quiz_management.core.database import get_session
 from quiz_management.models.question import Question
 from quiz_management.models.quiz import Quiz
 from quiz_management.repositories.question_repository import QuestionRepository

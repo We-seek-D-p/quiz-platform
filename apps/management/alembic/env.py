@@ -14,8 +14,8 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "src")))
 load_dotenv()
 
-from quiz_auth.core.config import settings
-from quiz_auth.models import token, users  # noqa: F401
+from quiz_management.core.config import settings
+from quiz_management.models import question, quiz, session  # noqa: F401
 from sqlmodel import SQLModel
 
 # this is the Alembic Config object, which provides
@@ -32,7 +32,7 @@ target_metadata = SQLModel.metadata
 
 def include_name(name: str | None, type_: str, _parent_names: dict[str, str]) -> bool:
     if type_ == "schema":
-        return name == "auth"
+        return name == "management"
     return True
 
 
@@ -64,14 +64,14 @@ def run_migrations_offline() -> None:
 def do_run_migrations(connection: Connection) -> None:
     """Run migrations with a connection."""
     with connection.begin():
-        print("===> Ensuring auth schema exists")
-        connection.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS auth")
+        print("===> Ensuring management schema exists")
+        connection.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS management")
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
         include_schemas=True,
         include_name=include_name,
-        version_table_schema="auth",
+        version_table_schema="management",
     )
 
     with context.begin_transaction():
