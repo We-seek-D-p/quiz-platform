@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from uuid import UUID
 
 from sqlmodel import select
@@ -14,6 +15,11 @@ class QuizRepository:
         statement = select(Quiz).where(Quiz.id == quiz_id, Quiz.deleted_at == None)  # noqa: E711
         result = await self.db.exec(statement)
         return result.first()
+
+    async def get_by_owner_id(self, owner_id: UUID) -> Sequence[Quiz]:
+        statement = select(Quiz).where(Quiz.owner_id == owner_id).order_by(Quiz.created_at.desc())
+        result = await self.db.exec(statement)
+        return result.all()
 
     async def save(self, quiz: Quiz) -> Quiz:
         self.db.add(quiz)

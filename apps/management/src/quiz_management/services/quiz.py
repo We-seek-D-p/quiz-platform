@@ -15,6 +15,9 @@ class QuizService:
         quiz = Quiz(**data.model_dump(), owner_id=user_id)
         return await self.repository.save(quiz)
 
+    async def get_quizzes(self, user_id: UUID) -> list[Quiz]:
+        return await self.repository.get_by_owner_id(user_id)
+
     async def update_quiz(self, quiz: Quiz, data: QuizUpdate) -> Quiz:
         update_dict = data.model_dump(exclude_unset=True)
 
