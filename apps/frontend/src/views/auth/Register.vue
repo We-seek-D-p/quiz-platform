@@ -1,75 +1,184 @@
 <script setup lang="ts">
-import {ref} from 'vue'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
-import Password from 'primevue/password'
-import InputText from 'primevue/inputtext'
 import FloatLabel from 'primevue/floatlabel'
-import {getStoredThemeMode, toggleThemeMode, type ThemeMode} from '../../theme.ts'
+import InputText from 'primevue/inputtext'
+import Password from 'primevue/password'
+import { useToast } from 'primevue/usetoast'
+import { useAuthStore } from '@/stores/auth'
 
-const themeMode = ref<ThemeMode>(getStoredThemeMode())
+const email = ref('')
+const nickname = ref('')
+const password = ref('')
+const isSubmitting = ref(false)
 
-const SendRegister = (): void => {}
+const authStore = useAuthStore()
+const router = useRouter()
+const toast = useToast()
 
+type UiHttpError = Error & { status?: number }
+
+const getRegisterErrorMessage = (error: unknown): string => {
+  const status = (error as UiHttpError)?.status
+
+  if (status === 409) {
+    return 'Пользователь с таким email уже существует.'
+  }
+
+  if (status === 422) {
+    return 'Проверьте введённые данные регистрации.'
+  }
+
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message
+  }
+
+  return 'Не удалось зарегистрироваться. Попробуйте снова.'
+}
+
+const handleRegister = async (): Promise<void> => {
+  if (isSubmitting.value) {
+    return
+  }
+
+  const normalizedEmail = email.value.trim()
+  const normalizedNickname = nickname.value.trim()
+  const normalizedPassword = password.value.trim()
+
+  if (!normalizedEmail || !normalizedNickname || !normalizedPassword) {
+    toast.add({
+      group: 'global',
+      severity: 'warn',
+      summary: 'Не все поля заполнены',
+      detail: 'Укажите email, nickname и пароль.',
+      life: 3000,
+    })
+    return
+  }
+
+  isSubmitting.value = true
+
+  try {
+    await authStore.register({
+      email: normalizedEmail,
+      nickname: normalizedNickname,
+      password: normalizedPassword,
+    })
+
+    await authStore.login({
+      email: normalizedEmail,
+      password: normalizedPassword,
+    })
+
+    toast.add({
+      group: 'global',
+      severity: 'success',
+      summary: 'Аккаунт создан',
+      detail: 'Вы успешно зарегистрированы и вошли в систему.',
+      life: 3000,
+    })
+
+    await router.replace('/host')
+  } catch (error: unknown) {
+    toast.add({
+      group: 'global',
+      severity: 'error',
+      summary: 'Ошибка регистрации',
+      detail: getRegisterErrorMessage(error),
+      life: 3500,
+    })
+  } finally {
+    isSubmitting.value = false
+  }
+}
 </script>
 
 <template>
-  <main class="app-root">
-    <Card class="demo-card p-anchored-overlay-enter-active">
-      <template #title>Registration</template>
-      <template #content>
-        <FloatLabel variant="in" class="m-3">
-          <InputText id="email" v-model="value" autocomplete="off" />
-          <label for="email">Email</label>
+  <Card class="auth-card">
+    <template #title>Создать аккаунт</template>
+
+    <template #content>
+      <div class="auth-form">
+        <FloatLabel variant="in" class="w-full">
+          <InputText id="register_email" v-model="email" autocomplete="off" class="w-full" />
+          <label for="register_email">Почта</label>
         </FloatLabel>
 
-        <FloatLabel variant="in" class="m-3">
-          <InputText id="username" v-model="value" autocomplete="off" />
-          <label for="username">Username</label>
+        <FloatLabel variant="in" class="w-full">
+          <InputText id="register_nickname" v-model="nickname" autocomplete="off" class="w-full" />
+          <label for="register_nickname">Логин</label>
         </FloatLabel>
 
-        <FloatLabel variant="in" class="m-3">
-        <Password v-model="value" :feedback="false" />
-        <label>Password</label>
+        <FloatLabel variant="in" class="w-full">
+          <Password
+            v-model="password"
+            :feedback="false"
+            class="w-full"
+            input-class="w-full"
+            input-id="register_password"
+          />
+          <label for="register_password">Пароль</label>
         </FloatLabel>
 
-        <FloatLabel variant="in" class="m-3">
-        <Password v-model="value" :feedback="false" />
-        <label>Confirm password</label>
-        </FloatLabel>
-
-        <div class="flex justify-center w-full mt-4 mb-1">
-          <Button label="Register"  @click="SendRegister"/>
+        <div class="auth-form__actions">
+          <Button
+            label="Зарегистрироваться"
+            :loading="isSubmitting"
+            :disabled="isSubmitting"
+            @click="handleRegister"
+          />
         </div>
+      </div>
+    </template>
 
-      </template>
-      <template #footer>
-        <span class="text-xs">Have an account already? </span>
-        <router-link to="/login"><span class="text-xs font-bold text-primary cursor-pointer select-none">Login</span></router-link>
-      </template>
-    </Card>
-  </main>
+    <template #footer>
+      <div class="auth-card__footer mt-2">
+        <span class="auth-card__footer-text">Уже есть аккаунт?</span>
+        <router-link to="/login" class="auth-card__footer-link">Войти</router-link>
+      </div>
+    </template>
+  </Card>
 </template>
 
 <style scoped>
-.app-root {
+.auth-card {
+  width: min(100%, 24rem);
+}
+
+.auth-form {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
   gap: 0.75rem;
-  padding: 1rem;
 }
 
-.demo-card {
-  width: min(28rem, 100%);
+.auth-form__actions {
+  display: flex;
+  justify-content: center;
+  padding-top: 0.5rem;
 }
 
-.count-text {
-  margin: 0;
+.auth-card__footer {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
 }
 
-.theme-button {
-  width: min(28rem, 100%);
+.auth-card__footer-text {
+  font-size: 0.75rem;
+}
+
+.auth-card__footer-link {
+  color: var(--app-color-primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: color var(--app-transition-fast);
+}
+
+.auth-card__footer-link:hover {
+  color: var(--app-color-primary-hover);
 }
 </style>

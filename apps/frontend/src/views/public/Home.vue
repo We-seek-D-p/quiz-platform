@@ -1,87 +1,59 @@
 <script setup lang="ts">
-import {ref} from 'vue'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
-import FloatLabel from 'primevue/floatlabel';
-import InputNumber from 'primevue/inputnumber'
-import { useRouter } from 'vue-router'
-import {getStoredThemeMode, toggleThemeMode, type ThemeMode} from '../../theme.ts'
+import FloatLabel from 'primevue/floatlabel'
+import InputMask from 'primevue/inputmask'
 
-const count = ref(0)
-const themeMode = ref<ThemeMode>(getStoredThemeMode())
 const router = useRouter()
+const gameCode = ref('')
 
-const increment = () => {
-  count.value += 1
+const handleJoin = () => {
+  // TODO: implement join flow
 }
 
-const goToDashboard = () => {
-  router.push('/host')
-}
-
-const switchTheme = () => {
-  themeMode.value = toggleThemeMode()
-}
 </script>
 
 <template>
-  <main class="app-root">
-    <Card class="demo-card p-anchored-overlay-enter-active">
-      <template #title >
-        <div class="text-center mb-2">Join a game</div>
+  <section class="home-entry">
+    <Card class="w-full">
+      <template #title>
+        <div class="home-entry__title">Войти в игру</div>
       </template>
+
       <template #content>
         <FloatLabel variant="in">
-          <InputNumber :useGrouping="false" fluid />
-          <label>Code</label>
-
+          <InputMask id="digits" v-model="gameCode" mask="999999" slotChar="" class="w-full" />
+          <label for="digits">Код</label>
         </FloatLabel>
       </template>
+
       <template #footer>
-        <div class="flex justify-center w-full mt-3">
-          <Button label="Join"  @click="increment"/>
+        <div class="home-entry__actions">
+          <Button label="Подключиться" @click="handleJoin" />
         </div>
       </template>
     </Card>
-
-    <Button
-        class="theme-button"
-        :label="`Theme: ${themeMode}`"
-        icon="pi pi-palette"
-        @click="switchTheme"
-    />
-    <Button
-         class="theme-button"
-         :label="`Host dashboard`"
-         @click="goToDashboard"
-    />
-    <Button
-        class="theme-button"
-        :label="`Register page`"
-        @click="router.push('/register')"
-    />
-  </main>
+  </section>
 </template>
 
 <style scoped>
-.app-root {
+.home-entry {
   display: flex;
+  width: min(100%, 24rem);
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
   gap: 0.75rem;
-  padding: 1rem;
 }
 
-.demo-card {
-  width: min(28rem, 100%);
+.home-entry__title {
+  margin-bottom: 0.5rem;
+  text-align: center;
 }
 
-.count-text {
-  margin: 0;
-}
-
-.theme-button {
-  width: min(28rem, 100%);
+.home-entry__actions {
+  display: flex;
+  justify-content: center;
+  padding-top: 0.75rem;
 }
 </style>

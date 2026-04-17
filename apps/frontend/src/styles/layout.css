@@ -1,0 +1,36 @@
+.layout-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-shell--row {
+  flex-direction: row;
+}
+
+.layout-main {
+  flex: 1;
+  min-height: 0;
+}
+
+.dashboard-sidebar {
+  width: var(--app-sidebar-width);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--app-color-border);
+  background-color: var(--app-color-surface);
+  transition:
+    width var(--app-transition-fast),
+    opacity var(--app-transition-fast),
+    transform var(--app-transition-fast),
+    border-color var(--app-transition-fast);
+}
+
+.dashboard-sidebar--collapsed {
+  width: 0;
+  opacity: 0;
+  transform: translateX(calc(-1 * var(--app-sidebar-collapse-offset)));
+  pointer-events: none;
+  border-right-color: transparent;
+}

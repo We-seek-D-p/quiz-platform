@@ -1,5 +1,7 @@
-export * from './auth';
+export * from './auth'
 // export * from './player';
-export * from './quiz';
+export * from './quiz'
 // export * from './session';
-export * from './theme';
+
+export * from './management';
+export * from './quiz-editor';

@@ -1,69 +1,175 @@
 <script setup lang="ts">
-import {ref} from 'vue'
+import { ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
-import Password from 'primevue/password'
-import InputText from 'primevue/inputtext'
 import FloatLabel from 'primevue/floatlabel'
-import {getStoredThemeMode, toggleThemeMode, type ThemeMode} from '../../theme.ts'
+import InputText from 'primevue/inputtext'
+import Password from 'primevue/password'
+import { useToast } from 'primevue/usetoast'
+import { useAuthStore } from '@/stores/auth'
 
-const themeMode = ref<ThemeMode>(getStoredThemeMode())
+const email = ref('')
+const password = ref('')
+const isSubmitting = ref(false)
 
-const SendLogin = (): void => {}
+const authStore = useAuthStore()
+const router = useRouter()
+const route = useRoute()
+const toast = useToast()
 
+type UiHttpError = Error & { status?: number }
+
+const getLoginErrorMessage = (error: unknown): string => {
+  const status = (error as UiHttpError)?.status
+
+  if (status === 401) {
+    return 'Неверный email или пароль.'
+  }
+
+  if (status === 422) {
+    return 'Проверьте корректность email и пароля.'
+  }
+
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message
+  }
+
+  return 'Не удалось выполнить вход. Попробуйте снова.'
+}
+
+const handleLogin = async (): Promise<void> => {
+  if (isSubmitting.value) {
+    return
+  }
+
+  const normalizedEmail = email.value.trim()
+  const normalizedPassword = password.value.trim()
+
+  if (!normalizedEmail || !normalizedPassword) {
+    toast.add({
+      group: 'global',
+      severity: 'warn',
+      summary: 'Не все поля заполнены',
+      detail: 'Укажите email и пароль.',
+      life: 3000,
+    })
+    return
+  }
+
+  isSubmitting.value = true
+
+  try {
+    await authStore.login({
+      email: normalizedEmail,
+      password: normalizedPassword,
+    })
+
+    const redirect = route.query.redirect
+    const redirectTarget = typeof redirect === 'string' && redirect.length > 0 ? redirect : '/host'
+
+    toast.add({
+      group: 'global',
+      severity: 'success',
+      summary: 'Вход выполнен',
+      detail: 'Добро пожаловать в панель управления!',
+      life: 2500,
+    })
+
+    await router.replace(redirectTarget)
+  } catch (error: unknown) {
+    toast.add({
+      group: 'global',
+      severity: 'error',
+      summary: 'Не удалось войти',
+      detail: getLoginErrorMessage(error),
+      life: 3500,
+    })
+  } finally {
+    isSubmitting.value = false
+  }
+}
 </script>
 
 <template>
-  <main class="app-root">
-    <Card class="demo-card p-anchored-overlay-enter-active">
-      <template #title>Login</template>
-      <template #content>
+  <Card class="auth-card">
+    <template #title>Вход</template>
 
-        <FloatLabel variant="in" class="m-2">
-          <InputText id="on_label" v-model="value" autocomplete="off" />
-          <label for="on_label">Email</label>
+    <template #content>
+      <div class="auth-form">
+        <FloatLabel variant="in" class="w-full">
+          <InputText id="login_email" v-model="email" autocomplete="off" class="w-full" />
+          <label for="login_email">Почта</label>
         </FloatLabel>
 
-        <FloatLabel variant="in" class="m-2">
-        <Password v-model="value" :feedback="false" />
-        <label for="on_label">Password</label>
+        <FloatLabel variant="in" class="w-full">
+          <Password
+            v-model="password"
+            :feedback="false"
+            class="w-full"
+            input-class="w-full"
+            input-id="login_password"
+          />
+          <label for="login_password">Пароль</label>
         </FloatLabel>
 
-        <div class="flex justify-center w-full mt-3">
-          <Button label="Login"  @click="SendLogin"/>
+        <div class="auth-form__actions">
+          <Button
+            label="Войти"
+            :loading="isSubmitting"
+            :disabled="isSubmitting"
+            @click="handleLogin"
+          />
         </div>
+      </div>
+    </template>
 
-        
-      </template>
-
-      <template #footer>
-        <span class="text-xs">Doesn't have an account yet? </span>
-        <router-link to="/register"><span class="text-xs font-bold text-primary cursor-pointer select-none">Register</span></router-link>
-      </template>
-
-    </Card>
-  </main>
+    <template #footer>
+      <div class="auth-card__footer mt-2">
+        <span class="auth-card__footer-text">Ещё нет аккаунта?</span>
+        <router-link to="/register" class="auth-card__footer-link">Зарегистрироваться</router-link>
+      </div>
+    </template>
+  </Card>
 </template>
 
 <style scoped>
-.app-root {
+.auth-card {
+  width: min(100%, 24rem);
+}
+
+.auth-form {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
   gap: 0.75rem;
-  padding: 1rem;
 }
 
-.demo-card {
-  width: min(28rem, 100%);
+.auth-form__actions {
+  display: flex;
+  justify-content: center;
+  padding-top: 0.5rem;
 }
 
-.count-text {
-  margin: 0;
+.auth-card__footer {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
 }
 
-.theme-button {
-  width: min(28rem, 100%);
+.auth-card__footer-text {
+  font-size: 0.75rem;
+}
+
+.auth-card__footer-link {
+  color: var(--app-color-primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: color var(--app-transition-fast);
+}
+
+.auth-card__footer-link:hover {
+  color: var(--app-color-primary-hover);
 }
 </style>
