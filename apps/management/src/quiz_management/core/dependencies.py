@@ -15,7 +15,9 @@ from quiz_management.services.quiz import QuizService
 from quiz_management.services.session import SessionService
 
 
-async def get_current_user_id(user_id: str = Header(None, alias="X-User-Id")) -> str:
+async def get_current_user_id(
+    user_id: Annotated[UUID | None, Header(alias="X-User-Id")] = None,
+) -> UUID:
     if not user_id:
         raise HTTPException(status_code=401, detail="X-User-Id header missing")
     return user_id
@@ -38,8 +40,8 @@ async def get_quiz_service(db: Annotated[AsyncSession, Depends(get_session)]) ->
 
 
 async def get_valid_question(
-    question_id,
-    quiz: Annotated[Quiz, Depends(get_quiz_service)],
+    question_id: UUID,
+    quiz: Annotated[Quiz, Depends(get_valid_quiz)],
     db: Annotated[AsyncSession, Depends(get_session)],
 ) -> Question:
     repo = QuestionRepository(db)

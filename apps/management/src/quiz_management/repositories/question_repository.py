@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, with_loader_criteria
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -16,7 +16,14 @@ class QuestionRepository:
         statement = (
             select(Question)
             .where(Question.id == question_id, Question.deleted_at == None)  # noqa: E711
-            .options(selectinload(Question.options).where(QuestionOption.deleted_at == None))  # noqa: E711
+            .options(
+                selectinload(Question.options),
+                with_loader_criteria(
+                    QuestionOption,
+                    QuestionOption.deleted_at == None,  # noqa: E711
+                    include_aliases=True,
+                ),
+            )
         )
         result = await self.db.exec(statement)
         return result.first()
@@ -25,7 +32,14 @@ class QuestionRepository:
         statement = (
             select(Question)
             .where(Question.quiz_id == quiz_id, Question.deleted_at == None)  # noqa: E711
-            .options(selectinload(Question.options).where(QuestionOption.deleted_at == None))  # noqa: E711
+            .options(
+                selectinload(Question.options),
+                with_loader_criteria(
+                    QuestionOption,
+                    QuestionOption.deleted_at == None,  # noqa: E711
+                    include_aliases=True,
+                ),
+            )
             .order_by(Question.order_index)
         )
         result = await self.db.exec(statement)
@@ -34,5 +48,4 @@ class QuestionRepository:
     async def save(self, question: Question) -> Question:
         self.db.add(question)
         await self.db.commit()
-        await self.db.refresh(question)
         return question

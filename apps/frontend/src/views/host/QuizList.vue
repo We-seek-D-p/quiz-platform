@@ -1,25 +1,94 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import Button from 'primevue/button';
-import DataTable from 'primevue/datatable';
-import Column from 'primevue/column';
-import type { QuizTransport } from '@/types';
+import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import Button from 'primevue/button'
+import Column from 'primevue/column'
+import DataTable from 'primevue/datatable'
+import type { QuizPublic } from '@/types'
+import { useAuthStore } from '@/stores/auth'
+import {
+  deleteQuizRequest,
+  getQuizQuestionsRequest,
+  getQuizzesRequest,
+  parseManagementErrorMessage,
+  parseQuestionPublicList,
+  parseQuizPublicList,
+} from '@/api/quiz'
 
-const quizzes = ref<QuizTransport[]>([]);
+type QuizTableRow = QuizPublic & {
+  questionCount: number
+}
+
+const router = useRouter()
+const authStore = useAuthStore()
+const managementRequestOptions = {
+  getAccessToken: () => authStore.accessToken,
+  refreshAccessToken: authStore.refreshAccessToken,
+}
+
+const quizzes = ref<QuizTableRow[]>([])
+const isLoading = ref(false)
 
 const fetchQuizzes = async () => {
-  quizzes.value = [
-    { id: '1', title: 'Тестовый квиз', createdAt: new Date().toISOString(), questions: [] }
-  ] as any;
-};
+  isLoading.value = true
+
+  try {
+    const response = await getQuizzesRequest(managementRequestOptions)
+    if (!response.ok) {
+      throw new Error(await parseManagementErrorMessage(response))
+    }
+
+    const quizList = await parseQuizPublicList(response)
+    const questionCounts = await Promise.all(
+      quizList.map(async (quiz) => {
+        const questionsResponse = await getQuizQuestionsRequest(quiz.id, {
+          ...managementRequestOptions,
+        })
+
+        if (!questionsResponse.ok) {
+          return 0
+        }
+
+        const questions = await parseQuestionPublicList(questionsResponse)
+        return questions.length
+      }),
+    )
+
+    quizzes.value = quizList.map((quiz, index) => ({
+      ...quiz,
+      questionCount: questionCounts[index] ?? 0,
+    }))
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Не удалось загрузить квизы'
+    alert(message)
+  } finally {
+    isLoading.value = false
+  }
+}
 
 const handleDelete = async (id: string) => {
-  if (confirm('Вы уверены, что хотите удалить этот квиз?')) {
-    quizzes.value = quizzes.value.filter(q => q.id !== id);
+  if (!confirm('Вы уверены, что хотите удалить этот квиз?')) {
+    return
   }
-};
 
-onMounted(fetchQuizzes);
+  try {
+    const response = await deleteQuizRequest(id, managementRequestOptions)
+    if (!response.ok) {
+      throw new Error(await parseManagementErrorMessage(response))
+    }
+
+    quizzes.value = quizzes.value.filter((quiz) => quiz.id !== id)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Не удалось удалить квиз'
+    alert(message)
+  }
+}
+
+const handleEdit = (quizId: string) => {
+  router.push(`/quizzes/editor?quiz=${quizId}`)
+}
+
+onMounted(fetchQuizzes)
 </script>
 
 <template>
@@ -29,40 +98,40 @@ onMounted(fetchQuizzes);
       <Button
         label="Новый квиз"
         icon="pi pi-plus"
-        @click="$router.push('/quizzes/editor?quiz=new')"
+        @click="$router.push('/quizzes/editor')"
       />
     </div>
     
-    <DataTable :value="quizzes" class=" rounded-xl overflow-hidden">
+    <DataTable :value="quizzes" class=" rounded-xl overflow-hidden" :loading="isLoading">
       <Column field="title" header="Название"></Column>
       
       <Column header="Вопросов">
         <template #body="slotProps">
-          {{ slotProps.data.questions?.length || 0 }}
+          {{ slotProps.data.questionCount }}
         </template>
       </Column>
 
       <Column header="Дата создания">
         <template #body="slotProps">
-          {{ new Date(slotProps.data.createdAt).toLocaleDateString() }}
+          {{ new Date(slotProps.data.created_at).toLocaleDateString() }}
         </template>
       </Column>
 
-      <Column headerStyle="text-align: right" bodyStyle="text-align: right">
+      <Column header-style="text-align: right" body-style="text-align: right">
         <template #body="slotProps">
           <div class="flex justify-end gap-2">
             <Button
               icon="pi pi-play" 
               text 
               style="color: green"
-              @click="$router.push('/lobby')"
-            />
-            <Button 
-              icon="pi pi-pencil" 
-              text 
-              severity="secondary" 
-              @click="$router.push(`/quizzes/editor?quiz=${slotProps.data.id}`)" 
-            />
+              disabled
+              />
+             <Button 
+               icon="pi pi-pencil" 
+               text 
+               severity="secondary" 
+               @click="handleEdit(slotProps.data.id)" 
+             />
             <Button 
               icon="pi pi-trash" 
               text 
@@ -74,12 +143,8 @@ onMounted(fetchQuizzes);
       </Column>
 
       <template #empty>
-        <div class="p-4 text-center">У вас пока нет квизов.</div>
+        <div class="p-4 text-center">У вас еще нет квизов.</div>
       </template>
     </DataTable>
   </div>
 </template>
-
-<style scoped>
-/* Дополнительные стили не требуются, так как DataTable берет их из темы */
-</style>

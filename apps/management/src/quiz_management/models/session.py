@@ -7,7 +7,7 @@ from quiz_management.models.quiz import Quiz
 
 
 def get_utc_now():
-    return datetime.now(UTC)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class GameSession(SQLModel, table=True):
