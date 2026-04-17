@@ -56,11 +56,9 @@ export interface QuestionUpdate {
 }
 
 export interface QuestionPublic {
-  id: string
-  quiz_id: string
   text: string
   selection_type: QuestionSelectionType
   time_limit_seconds: number
   order_index: number
-  options: OptionPublic[]
+  options: OptionCreate[]
 }
