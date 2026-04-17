@@ -5,7 +5,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 
 def get_utc_now():
-    return datetime.now(UTC)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class QuizBase(SQLModel):
@@ -20,7 +20,7 @@ class Quiz(QuizBase, table=True):
     owner_id: UUID
     created_at: datetime = Field(default_factory=get_utc_now)
     updated_at: datetime = Field(
-        default_factory=get_utc_now, sa_column_kwargs={"onupdate": get_utc_now()}
+        default_factory=get_utc_now, sa_column_kwargs={"onupdate": get_utc_now}
     )
     deleted_at: datetime | None = Field(default=None)
 

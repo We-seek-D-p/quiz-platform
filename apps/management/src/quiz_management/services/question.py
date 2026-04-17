@@ -8,6 +8,10 @@ from quiz_management.models.question import Question, QuestionCreate, QuestionOp
 from quiz_management.repositories.question_repository import QuestionRepository
 
 
+def get_utc_now_naive():
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
 class QuestionService:
     def __init__(self, db: AsyncSession):
         self.repository = QuestionRepository(db)
@@ -36,7 +40,7 @@ class QuestionService:
 
             for option_id, option in current_options.items():
                 if option_id not in incoming_ids:
-                    option.deleted_at = datetime.now(UTC)
+                    option.deleted_at = get_utc_now_naive()
 
             for order, option in enumerate(data.options):
                 if option.id and option.id in current_options:
@@ -46,7 +50,7 @@ class QuestionService:
                     ).items():
                         setattr(curr_option, key, value)
                     curr_option.order_index = order
-                    curr_option.updated_at = datetime.now(UTC)
+                    curr_option.updated_at = get_utc_now_naive()
                 else:
                     new_option = QuestionOption(
                         **option.model_dump(exclude={"id", "order_index"}), order_index=order
@@ -54,14 +58,14 @@ class QuestionService:
                     question.options.append(new_option)
 
         if data_to_update or data.options is not None:
-            question.updated_at = datetime.now(UTC)
+            question.updated_at = get_utc_now_naive()
 
         return await self.repository.save(question)
 
     async def delete_question(self, question: Question) -> None:
-        question.deleted_at = datetime.now(UTC)
+        question.deleted_at = get_utc_now_naive()
 
         for option in question.options:
-            option.deleted_at = datetime.now(UTC)
+            option.deleted_at = get_utc_now_naive()
 
         await self.repository.save(question)

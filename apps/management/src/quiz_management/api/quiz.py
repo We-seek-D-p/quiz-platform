@@ -23,6 +23,14 @@ async def create_quiz(
     return await service.create_quiz(user_id, data)
 
 
+@router.get("/", response_model=list[QuizPublic], status_code=status.HTTP_200_OK)
+async def get_quizzes(
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
+    service: Annotated[QuizService, Depends(get_quiz_service)],
+):
+    return await service.get_quizzes(user_id)
+
+
 @router.get("/{quiz_id}", response_model=QuizPublic)
 async def get_quiz(quiz: Annotated[Quiz, Depends(get_valid_quiz)]):
     return quiz
