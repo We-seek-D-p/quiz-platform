@@ -7,6 +7,7 @@ import InputNumber from 'primevue/inputnumber';
 import Card from 'primevue/card';
 import Divider from 'primevue/divider';
 import RadioButton from 'primevue/radiobutton';
+import { VueDraggable } from 'vue-draggable-plus'
 import Checkbox from 'primevue/checkbox';
 import SelectButton from 'primevue/selectbutton';
 import type { QuizDraft, QuestionDraft, OptionDraft } from '@/types/quiz-editor';
@@ -87,7 +88,7 @@ const toggleCorrect = (question: QuestionDraft, option: OptionDraft) => {
 const handleSave = () => {
   router.push('/quizzes');
 };
-// TODO: increase answers pool button | vue-drag | functionality...
+// TODO: increase answers pool button | functionality...
 </script>
 
 <template>
@@ -114,12 +115,18 @@ const handleSave = () => {
       </template>
     </Card>
 
-    <div class="space-y-6">
+        <VueDraggable
+      v-model="quiz.questions"
+      :animation="150"
+      handle=".drag-handle"
+      class="space-y-6"
+    >
       <Card v-for="(question, qIndex) in quiz.questions" :key="question.localId" class="border-none shadow-sm">
         <template #content>
           <div class="flex flex-col gap-4">
             <div class="flex justify-between items-center">
               <div class="flex items-center gap-3">
+                <i class="pi pi-bars drag-handle cursor-grab opacity-30 hover:opacity-100 transition-opacity p-2" />
                 <span class="text-sm font-bold opacity-30 uppercase">#{{ qIndex + 1 }}</span>
                 <SelectButton 
                   v-model="question.selection_type" 
@@ -136,8 +143,7 @@ const handleSave = () => {
                     suffix=" сек" 
                     :min="5" 
                     :max="60"
-                    inputClass="text-sm font-bold focus:ring-0"
-                    :inputProps="{ size: 1 }"
+                    inputClass="text-sm font-bold focus:ring-0 bg-transparent border-none w-20"
                   />
                 </div>
               </div>
@@ -175,16 +181,12 @@ const handleSave = () => {
           </div>
         </template>
       </Card>
-
       <Button label="Добавить вопрос" icon="pi pi-plus" outlined class="w-full py-4 border-dashed bg-transparent" @click="addQuestion" />
-    </div>
+    </VueDraggable>
   </div>
 </template>
 
 <style scoped>
-:deep(.p-card) { border: none; }
-:deep(.p-card-body) { padding: 1.5rem; }
-
 .option-box {
   border-color: var(--p-content-border-color);
   background: var(--p-content-background);
