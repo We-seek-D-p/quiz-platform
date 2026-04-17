@@ -12,6 +12,8 @@ const MANAGEMENT_API_PREFIX = '/api/v1'
 export type ManagementRequestOptions = {
   accessToken?: string | null
   userId?: string | null
+  getAccessToken?: () => string | null
+  refreshAccessToken?: () => Promise<boolean>
 }
 
 export type ApiErrorPayload = {
@@ -21,6 +23,7 @@ export type ApiErrorPayload = {
 const buildRequestInit = (
   init: RequestInit = {},
   options: ManagementRequestOptions = {},
+  accessToken?: string | null,
 ): RequestInit => {
   const headers = new Headers(init.headers)
 
@@ -28,8 +31,8 @@ const buildRequestInit = (
     headers.set('Content-Type', 'application/json')
   }
 
-  if (options.accessToken) {
-    headers.set('Authorization', `Bearer ${options.accessToken}`)
+  if (accessToken) {
+    headers.set('Authorization', `Bearer ${accessToken}`)
   }
 
   if (options.userId) {
@@ -54,7 +57,32 @@ const request = async (
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   }
 
-  return fetch(`${MANAGEMENT_API_PREFIX}${path}`, buildRequestInit(init, options))
+  const resolveAccessToken = (): string | null | undefined => {
+    if (options.getAccessToken) {
+      return options.getAccessToken()
+    }
+
+    return options.accessToken
+  }
+
+  const send = async (): Promise<Response> => {
+    return fetch(
+      `${MANAGEMENT_API_PREFIX}${path}`,
+      buildRequestInit(init, options, resolveAccessToken()),
+    )
+  }
+
+  const response = await send()
+  if (response.status !== 401 || !options.refreshAccessToken) {
+    return response
+  }
+
+  const refreshed = await options.refreshAccessToken()
+  if (!refreshed) {
+    return response
+  }
+
+  return send()
 }
 
 export const parseManagementErrorMessage = async (response: Response): Promise<string> => {
@@ -75,6 +103,12 @@ export const createQuizRequest = async (
   options: ManagementRequestOptions,
 ): Promise<Response> => {
   return request('/quizzes/', 'POST', options, payload)
+}
+
+export const getQuizzesRequest = async (
+  options: ManagementRequestOptions,
+): Promise<Response> => {
+  return request('/quizzes/', 'GET', options)
 }
 
 export const getQuizRequest = async (
@@ -141,6 +175,10 @@ export const deleteQuestionRequest = async (
 
 export const parseQuizPublic = async (response: Response): Promise<QuizPublic> => {
   return (await response.json()) as QuizPublic
+}
+
+export const parseQuizPublicList = async (response: Response): Promise<QuizPublic[]> => {
+  return (await response.json()) as QuizPublic[]
 }
 
 export const parseQuestionPublic = async (
