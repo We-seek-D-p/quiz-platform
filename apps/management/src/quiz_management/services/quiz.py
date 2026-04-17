@@ -7,6 +7,10 @@ from quiz_management.models.quiz import Quiz, QuizCreate, QuizUpdate
 from quiz_management.repositories.quiz_repository import QuizRepository
 
 
+def get_utc_now_naive():
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
 class QuizService:
     def __init__(self, db: AsyncSession):
         self.repository = QuizRepository(db)
@@ -25,10 +29,10 @@ class QuizService:
             setattr(quiz, key, value)
 
         if update_dict:
-            quiz.updated_at = datetime.now(UTC)
+            quiz.updated_at = get_utc_now_naive()
 
         return await self.repository.save(quiz)
 
     async def delete_quiz(self, quiz: Quiz) -> None:
-        quiz.deleted_at = datetime.now(UTC)
+        quiz.deleted_at = get_utc_now_naive()
         await self.repository.save(quiz)
