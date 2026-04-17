@@ -1,6 +1,7 @@
 from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from quiz_management.services.session import SessionService
+
 from quiz_management.models.session import GameSession, SessionParticipant
 
 pytestmark = pytest.mark.anyio

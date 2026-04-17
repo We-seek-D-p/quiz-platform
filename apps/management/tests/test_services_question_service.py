@@ -1,11 +1,10 @@
 from datetime import UTC, datetime
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
 
-from quiz_management.models.question import Question, QuestionCreate, QuestionUpdate, QuestionOption
-from quiz_management.services.question import QuestionService
+from quiz_management.models.question import Question, QuestionCreate, QuestionOption, QuestionUpdate
 
 pytestmark = pytest.mark.anyio
 
