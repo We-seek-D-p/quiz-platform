@@ -42,13 +42,12 @@ onMounted(() => {
           selection_type: 'single',
           time_limit_seconds: 30,
           order_index: 0,
-          options: [
-            { localId: generateLocalId(), text: 'True option', is_correct: true, order_index: 0 },
-            { localId: generateLocalId(), text: 'Option 2', is_correct: false, order_index: 1 },
-            { localId: generateLocalId(), text: 'option 3', is_correct: false, order_index: 2 },
-            { localId: generateLocalId(), text: 'option 4', is_correct: false, order_index: 3 },
-            { localId: generateLocalId(), text: 'option 5', is_correct: false, order_index: 4 }
-          ]
+          options: Array.from({ length: 4 }, (_, i) => ({
+            localId: generateLocalId(),
+            text: `Option ${i + 1}`,
+            is_correct: i === 0,
+            order_index: i
+          }))
         }
       ]
     };
@@ -77,6 +76,21 @@ const removeQuestion = (localId: string) => {
   quiz.value.questions = quiz.value.questions.filter(q => q.localId !== localId);
 };
 
+const addOption = (question: QuestionDraft) => {
+  question.options.push({
+    localId: generateLocalId(),
+    text: '',
+    is_correct: false,
+    order_index: question.options.length
+  });
+};
+
+const removeOption = (question: QuestionDraft, optionId: string) => {
+  if (question.options.length > 2) {
+    question.options = question.options.filter(o => o.localId !== optionId);
+  }
+};
+
 const toggleCorrect = (question: QuestionDraft, option: OptionDraft) => {
   if (question.selection_type === 'single') {
     question.options.forEach(opt => opt.is_correct = opt.localId === option.localId);
@@ -85,17 +99,25 @@ const toggleCorrect = (question: QuestionDraft, option: OptionDraft) => {
   }
 };
 
+const handleCancel = async () => {
+  if (confirm('У вас есть несохраненные изменения. Вы уверены, что хотите выйти?')) {
+    router.push('/quizzes');
+  } else {
+    console.log("Stays on page")
+  }
+};
+
 const handleSave = () => {
   router.push('/quizzes');
 };
-// TODO: increase answers pool button | functionality...
+// todo: functionality
 </script>
 
 <template>
   <div class="max-w-4xl mx-auto p-4">
     <div class="flex justify-between items-center mb-8">
       <div class="flex items-center gap-4">
-        <Button icon="pi pi-arrow-left" text rounded @click="router.push('/quizzes')" />
+        <Button icon="pi pi-arrow-left" text rounded @click="handleCancel()" />
         <h1 class="text-2xl font-bold tracking-tight">Редактор квиза</h1>
       </div>
       <Button label="Сохранить" icon="pi pi-check" severity="success" @click="handleSave" />
@@ -115,7 +137,7 @@ const handleSave = () => {
       </template>
     </Card>
 
-        <VueDraggable
+    <VueDraggable
       v-model="quiz.questions"
       :animation="150"
       handle=".drag-handle"
@@ -159,7 +181,7 @@ const handleSave = () => {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div 
                 v-for="option in question.options" :key="option.localId" 
-                class="flex items-center gap-3 p-3 border rounded-xl transition-all duration-200 option-box"
+                class="flex items-center gap-3 p-3 border rounded-xl transition-all duration-200 option-box group"
                 :class="{ 'correct-option': option.is_correct }"
               >
                 <RadioButton 
@@ -176,7 +198,23 @@ const handleSave = () => {
                   severity="success"
                 />
                 <InputText v-model="option.text" placeholder="Ответ" class="w-full border-none bg-transparent shadow-none p-0 focus:ring-0" />
+                <Button 
+                  icon="pi pi-times" 
+                  severity="danger" 
+                  text 
+                  rounded 
+                  class="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 p-0"
+                  @click="removeOption(question, option.localId)"
+                  v-if="question.options.length > 2"
+                />
               </div>
+              <button 
+                @click="addOption(question)"
+                class="flex items-center justify-center gap-2 p-3 border border-dashed rounded-xl opacity-50 hover:opacity-100 transition-all text-sm font-medium"
+              >
+                <i class="pi pi-plus text-xs" />
+                Добавить вариант
+              </button>
             </div>
           </div>
         </template>
