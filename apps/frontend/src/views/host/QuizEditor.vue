@@ -178,39 +178,48 @@ const handleSave = () => {
               <span class="text-[10px] opacity-40 font-bold uppercase tracking-widest">Варианты ответов</span>
             </Divider>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div 
-                v-for="option in question.options" :key="option.localId" 
-                class="flex items-center gap-3 p-3 border rounded-xl transition-all duration-200 option-box group"
-                :class="{ 'correct-option': option.is_correct }"
+            <div class="flex flex-col gap-3">
+              <VueDraggable 
+                v-model="question.options" 
+                handle=".option-handle" 
+                :animation="150"
+                class="flex flex-col gap-3"
               >
-                <RadioButton 
-                  v-if="question.selection_type === 'single'"
-                  :modelValue="question.options.find(o => o.is_correct)" 
-                  :value="option" 
-                  @update:modelValue="toggleCorrect(question, option)"
-                  severity="success"
-                />
-                <Checkbox 
-                  v-else
-                  v-model="option.is_correct" 
-                  binary
-                  severity="success"
-                />
-                <InputText v-model="option.text" placeholder="Ответ" class="w-full border-none bg-transparent shadow-none p-0 focus:ring-0" />
-                <Button 
-                  icon="pi pi-times" 
-                  severity="danger" 
-                  text 
-                  rounded 
-                  class="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 p-0"
-                  @click="removeOption(question, option.localId)"
-                  v-if="question.options.length > 2"
-                />
-              </div>
+                <div 
+                  v-for="option in question.options" :key="option.localId" 
+                  class="flex items-center gap-3 p-3 border rounded-xl transition-all duration-200 option-box group"
+                  :class="{ 'correct-option': option.is_correct }"
+                >
+                  <i class="pi pi-ellipsis-v option-handle cursor-grab opacity-30 hover:opacity-100 p-1" />
+                  <RadioButton 
+                    v-if="question.selection_type === 'single'"
+                    :modelValue="question.options.find(o => o.is_correct)" 
+                    :value="option" 
+                    @update:modelValue="toggleCorrect(question, option)"
+                    severity="success"
+                  />
+                  <Checkbox 
+                    v-else
+                    v-model="option.is_correct" 
+                    binary
+                    severity="success"
+                  />
+                  <InputText v-model="option.text" placeholder="Ответ" class="w-full border-none bg-transparent shadow-none p-0 focus:ring-0" />
+                  
+                  <Button 
+                    icon="pi pi-times" 
+                    severity="danger" 
+                    text 
+                    rounded 
+                    class="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 p-0"
+                    @click="removeOption(question, option.localId)"
+                    v-if="question.options.length > 2"
+                  />
+                </div>
+              </VueDraggable>
               <button 
                 @click="addOption(question)"
-                class="flex items-center justify-center gap-2 p-3 border border-dashed rounded-xl opacity-50 hover:opacity-100 transition-all text-sm font-medium"
+                class="mt-2 flex items-center justify-center gap-2 p-3 border border-dashed rounded-xl opacity-50 hover:opacity-100 transition-all text-sm font-medium w-full"
               >
                 <i class="pi pi-plus text-xs" />
                 Добавить вариант
