@@ -509,8 +509,14 @@ onMounted(loadQuiz)
           </div>
         </template>
       </Card>
-      <Button label="Добавить вопрос" icon="pi pi-plus" outlined class="w-full py-4 border-dashed bg-transparent" @click="addQuestion" />
     </VueDraggable>
+    <Button
+      label="Добавить вопрос"
+      icon="pi pi-plus"
+      outlined
+      class="w-full py-4 border-dashed bg-transparent mt-6"
+      @click="addQuestion"
+    />
   </div>
 </template>
 
