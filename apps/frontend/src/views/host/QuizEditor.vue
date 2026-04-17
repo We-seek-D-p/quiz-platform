@@ -190,7 +190,7 @@ const handleSave = () => {
                   class="flex items-center gap-3 p-3 border rounded-xl transition-all duration-200 option-box group"
                   :class="{ 'correct-option': option.is_correct }"
                 >
-                  <i class="pi pi-ellipsis-v option-handle cursor-grab opacity-30 hover:opacity-100 p-1" />
+                  <i class="pi pi-bars option-handle cursor-grab opacity-30 hover:opacity-100 p-1" />
                   <RadioButton 
                     v-if="question.selection_type === 'single'"
                     :modelValue="question.options.find(o => o.is_correct)" 
