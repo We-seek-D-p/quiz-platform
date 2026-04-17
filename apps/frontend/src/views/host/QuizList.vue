@@ -9,7 +9,7 @@ const quizzes = ref<QuizTransport[]>([]);
 
 const fetchQuizzes = async () => {
   quizzes.value = [
-    { id: '1', title: 'Тестовый квиз', createdAt: new Date().toISOString(), questions: [] }
+    { id: '0', title: 'Test quiz', createdAt: new Date().toISOString(), questions: [] }
   ] as any;
 };
 
@@ -29,7 +29,7 @@ onMounted(fetchQuizzes);
       <Button
         label="Новый квиз"
         icon="pi pi-plus"
-        @click="$router.push('/quizzes/editor?quiz=new')"
+        @click="$router.push('/quizzes/editor')"
       />
     </div>
     
@@ -74,12 +74,8 @@ onMounted(fetchQuizzes);
       </Column>
 
       <template #empty>
-        <div class="p-4 text-center">У вас пока нет квизов.</div>
+        <div class="p-4 text-center">У вас еще нет квизов.</div>
       </template>
     </DataTable>
   </div>
 </template>
-
-<style scoped>
-/* Дополнительные стили не требуются, так как DataTable берет их из темы */
-</style>
