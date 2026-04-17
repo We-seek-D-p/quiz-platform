@@ -29,7 +29,7 @@ onMounted(fetchQuizzes);
       <Button
         label="Новый квиз"
         icon="pi pi-plus"
-        @click="$router.push('/quizzes/editor?quiz=new')"
+        @click="$router.push('/quizzes/editor')"
       />
     </div>
     
