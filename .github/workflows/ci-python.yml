@@ -59,4 +59,8 @@ jobs:
 
       - name: Test
         working-directory: ${{ matrix.path }}
+        env:
+          AUTH_DATABASE_URL: postgresql+asyncpg://ci:ci@localhost:5432/quiz_auth
+          AUTH_JWT_SECRET_KEY: ci-test-jwt-secret-key-with-32-chars
+          MANAGEMENT_DATABASE_URL: postgresql+asyncpg://ci:ci@localhost:5432/quiz_management
         run: uv run pytest tests
