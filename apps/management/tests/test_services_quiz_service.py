@@ -134,7 +134,7 @@ class TestQuizService:
         quiz_service.repository.save.assert_called_once_with(quiz)
 
     async def test_delete_already_deleted_quiz(self, quiz_service, mock_db):
-        previous_deleted = datetime.now(UTC)
+        previous_deleted = datetime.now(UTC).replace(tzinfo=None)
         quiz = Quiz(title="Test Quiz", description="Test Description", owner_id=uuid4())
 
         quiz.deleted_at = previous_deleted
