@@ -1,0 +1,66 @@
+name: Python CI
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: python-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: auth
+            path: apps/auth
+          - service: management
+            path: apps/management
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.path }}
+        run: uv sync --locked --all-groups
+
+      - name: Check formatting
+        working-directory: ${{ matrix.path }}
+        run: uv run ruff format . --check
+
+      - name: Lint
+        working-directory: ${{ matrix.path }}
+        run: uv run ruff check .
+
+      - name: Test
+        working-directory: ${{ matrix.path }}
+        env:
+          AUTH_DATABASE_URL: postgresql+asyncpg://ci:ci@localhost:5432/quiz_auth
+          AUTH_JWT_SECRET_KEY: ci-test-jwt-secret-key-with-32-chars
+          MANAGEMENT_DATABASE_URL: postgresql+asyncpg://ci:ci@localhost:5432/quiz_management
+        run: uv run pytest tests

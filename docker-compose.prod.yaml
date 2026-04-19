@@ -1,6 +1,7 @@
 services:
   auth:
     image: ghcr.io/${GHCR_OWNER}/quiz-auth:main
+    pull_policy: always
     environment:
       AUTH_APP_NAME: ${AUTH_APP_NAME}
       AUTH_APP_PORT: ${AUTH_APP_PORT}
@@ -13,9 +14,12 @@ services:
       AUTH_REFRESH_COOKIE_SECURE: ${AUTH_REFRESH_COOKIE_SECURE}
     expose:
       - "8000"
+    networks:
+      - dokploy-network
 
   management:
     image: ghcr.io/${GHCR_OWNER}/quiz-management:main
+    pull_policy: always
     environment:
       MANAGEMENT_APP_NAME: ${MANAGEMENT_APP_NAME}
       MANAGEMENT_APP_PORT: ${MANAGEMENT_APP_PORT}
@@ -23,17 +27,29 @@ services:
       MANAGEMENT_DATABASE_URL: ${MANAGEMENT_DATABASE_URL}
     expose:
       - "8000"
+    networks:
+      - dokploy-network
 
   frontend:
     image: ghcr.io/${GHCR_OWNER}/quiz-frontend:main
+    pull_policy: always
     expose:
       - "8080"
+    networks:
+      - dokploy-network
 
   nginx:
     image: ghcr.io/${GHCR_OWNER}/quiz-nginx:main
+    pull_policy: always
     depends_on:
       - auth
       - management
       - frontend
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
+    networks:
+      - dokploy-network
+
+networks:
+  dokploy-network:
+    external: true
