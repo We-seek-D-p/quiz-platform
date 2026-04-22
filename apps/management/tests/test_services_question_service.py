@@ -64,9 +64,10 @@ class TestQuestionService:
             time_limit_seconds=15,
             order_index=0,
             options=[
-                option_create_factory(text="Option 1", order_index=2),
+                option_create_factory(text="Option 1", order_index=2, is_correct=False),
                 option_create_factory(text="Option 2", order_index=0),
                 option_create_factory(text="Option 3", order_index=1),
+                option_create_factory(text="Option 4", order_index=3, is_correct=True),
             ],
         )
 
@@ -81,6 +82,8 @@ class TestQuestionService:
         assert call_args.options[1].text == "Option 3"
         assert call_args.options[2].order_index == 2
         assert call_args.options[2].text == "Option 1"
+        assert call_args.options[3].order_index == 3
+        assert call_args.options[3].text == "Option 4"
 
     async def test_question_updates_fields(
         self, question_service, mock_db, question_update_factory
@@ -133,11 +136,18 @@ class TestQuestionService:
         new_option = option_update_factory(
             option_id=None, text="New Option", order_index=0, is_correct=True
         )
-        update_data = QuestionUpdate(options=[new_option])
+        update_data = QuestionUpdate(
+            options=[
+                new_option,
+                option_update_factory(text="Option 2", order_index=1, is_correct=False),
+                option_update_factory(text="Option 3", order_index=2, is_correct=False),
+                option_update_factory(text="Option 4", order_index=3, is_correct=False),
+            ]
+        )
         question_service.repository.save = AsyncMock(return_value=question)
         await question_service.update_question(question, update_data)
 
-        assert len(question.options) == 1
+        assert len(question.options) == 4
         assert question.options[0].text == "New Option"
         assert question.options[0].order_index == 0
         assert question.options[0].is_correct is True
@@ -160,12 +170,19 @@ class TestQuestionService:
         update_option = option_update_factory(
             option_id=option_id, text="Updated Option", order_index=1, is_correct=True
         )
-        update_data = QuestionUpdate(options=[update_option])
+        update_data = QuestionUpdate(
+            options=[
+                update_option,
+                option_update_factory(text="Option 2", order_index=0, is_correct=False),
+                option_update_factory(text="Option 3", order_index=2, is_correct=False),
+                option_update_factory(text="Option 4", order_index=3, is_correct=False),
+            ]
+        )
         question_service.repository.save = AsyncMock(return_value=question)
         await question_service.update_question(question, update_data)
 
         assert existing_option.text == "Updated Option"
-        assert existing_option.order_index == 0
+        assert existing_option.order_index == 1
         assert existing_option.is_correct is True
 
     async def test_update_question_deletes_removed_options(
@@ -180,7 +197,14 @@ class TestQuestionService:
         question.options = [existing_option]
         question.updated_at = datetime.now(UTC)
 
-        update_data = QuestionUpdate(options=[])
+        update_data = QuestionUpdate(
+            options=[
+                option_update_factory(text="Option 1", order_index=0, is_correct=True),
+                option_update_factory(text="Option 2", order_index=1, is_correct=False),
+                option_update_factory(text="Option 3", order_index=2, is_correct=False),
+                option_update_factory(text="Option 4", order_index=3, is_correct=False),
+            ]
+        )
         question_service.repository.save = AsyncMock(return_value=question)
         await question_service.update_question(question, update_data)
 
@@ -205,14 +229,23 @@ class TestQuestionService:
         question.options = [existing_option1, existing_option2]
         question.updated_at = datetime.now(UTC)
 
-        update_option1 = option_update_factory(option_id=option_id1, order_index=5)
-        update_option2 = option_update_factory(option_id=option_id2, order_index=1)
-        update_data = QuestionUpdate(options=[update_option1, update_option2])
+        update_option1 = option_update_factory(option_id=option_id1, order_index=5, is_correct=True)
+        update_option2 = option_update_factory(
+            option_id=option_id2, order_index=1, is_correct=False
+        )
+        update_data = QuestionUpdate(
+            options=[
+                update_option1,
+                update_option2,
+                option_update_factory(text="Option 3", order_index=0, is_correct=False),
+                option_update_factory(text="Option 4", order_index=2, is_correct=False),
+            ]
+        )
         question_service.repository.save = AsyncMock(return_value=question)
         await question_service.update_question(question, update_data)
 
-        assert existing_option2.order_index == 0
-        assert existing_option1.order_index == 1
+        assert existing_option2.order_index == 1
+        assert existing_option1.order_index == 3
 
     async def test_delete_question_soft_deletes_question_and_options(
         self, question_service, mock_db
