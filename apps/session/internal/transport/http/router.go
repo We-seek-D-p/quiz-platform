@@ -4,11 +4,15 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/http/middleware"
 	"github.com/go-chi/chi/v5"
+
+	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/config"
+	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/http/handler"
+	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/http/middleware"
+	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/http/response"
 )
 
-func NewRouter(log *slog.Logger) http.Handler {
+func NewRouter(cfg *config.Config, log *slog.Logger) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
@@ -26,6 +30,16 @@ func NewRouter(log *slog.Logger) http.Handler {
 		_, _ = w.Write([]byte("ready"))
 	})
 
+	internalSessionHandler := handler.NewInternalSessionHandler()
+
+	r.Route("/internal/v1", func(r chi.Router) {
+		r.Use(middleware.InternalAuth(cfg.Internal))
+
+		r.Put("/sessions/{session_id}", internalSessionHandler.InitSession)
+		r.Get("/sessions/{session_id}", internalSessionHandler.GetSessionRuntime)
+		r.Delete("/sessions/{session_id}", internalSessionHandler.DeleteSessionRuntime)
+	})
+
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		log.Warn(
 			"route not found",
@@ -34,7 +48,7 @@ func NewRouter(log *slog.Logger) http.Handler {
 			"path", r.URL.Path,
 		)
 
-		http.Error(w, "not found", http.StatusNotFound)
+		response.Error(w, http.StatusNotFound, "not_found", "route not found")
 	})
 
 	return r
