@@ -19,7 +19,7 @@ type App struct {
 }
 
 func New(cfg *config.Config, log *slog.Logger) *App {
-	router := httptransport.NewRouter(log)
+	router := httptransport.NewRouter(cfg, log)
 	server := httptransport.NewServer(cfg.HTTP.Address(), router)
 
 	return &App{
