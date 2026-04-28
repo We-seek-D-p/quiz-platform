@@ -12,7 +12,7 @@ import (
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/http/response"
 )
 
-func NewRouter(cfg *config.Config, log *slog.Logger) http.Handler {
+func NewRouter(cfg *config.Config, log *slog.Logger, internalSessionHandler *handler.InternalSessionHandler) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
@@ -29,8 +29,6 @@ func NewRouter(cfg *config.Config, log *slog.Logger) http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ready"))
 	})
-
-	internalSessionHandler := handler.NewInternalSessionHandler()
 
 	r.Route("/internal/v1", func(r chi.Router) {
 		r.Use(middleware.InternalAuth(cfg.Internal))

@@ -8,8 +8,12 @@ import (
 	"net/http"
 	"time"
 
+	managementclient "github.com/We-seek-D-p/quiz-platform/apps/session/internal/client/management"
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/config"
+	redisrepo "github.com/We-seek-D-p/quiz-platform/apps/session/internal/repository/redis"
+	sessionservice "github.com/We-seek-D-p/quiz-platform/apps/session/internal/service/session"
 	httptransport "github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/http"
+	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/http/handler"
 )
 
 type App struct {
@@ -19,7 +23,14 @@ type App struct {
 }
 
 func New(cfg *config.Config, log *slog.Logger) *App {
-	router := httptransport.NewRouter(cfg, log)
+	redisClient := redisrepo.NewClient(cfg)
+	runtimeRepository := redisrepo.NewSessionRepository(redisClient)
+	roomCodeRepository := redisrepo.NewRoomCodeRepository(redisClient)
+	management := managementclient.NewClient(cfg)
+	svc := sessionservice.NewService(management, runtimeRepository, roomCodeRepository)
+	internalSessionHandler := handler.NewInternalSessionHandler(svc)
+
+	router := httptransport.NewRouter(cfg, log, internalSessionHandler)
 	server := httptransport.NewServer(cfg.HTTP.Address(), router)
 
 	return &App{

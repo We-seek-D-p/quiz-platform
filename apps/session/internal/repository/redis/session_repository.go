@@ -11,7 +11,7 @@ type SessionRepository struct {
 	client *goredis.Client
 }
 
-func newSessionRepository(client *goredis.Client) *SessionRepository {
+func NewSessionRepository(client *goredis.Client) *SessionRepository {
 	return &SessionRepository{
 		client: client,
 	}
