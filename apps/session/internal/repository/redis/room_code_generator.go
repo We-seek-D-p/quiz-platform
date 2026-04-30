@@ -1,22 +1,26 @@
 package redis
 
 import (
-    "math/rand"
-    "strconv"
-    "time"
+    "fmt"
+    "math"
+    "math/rand/v2"
 )
 
+const defaultCodeLength = 8
+
 type RandomRoomCodeGenerator struct {
-    rnd *rand.Rand
+    length int
+    limit  uint64
 }
 
 func NewRandomRoomCodeGenerator() *RandomRoomCodeGenerator {
     return &RandomRoomCodeGenerator{
-        rnd: rand.New(rand.NewSource(time.Now().UnixNano())),
+        length: defaultCodeLength,
+        limit:  uint64(math.Pow10(defaultCodeLength)),
     }
 }
 
 func (g *RandomRoomCodeGenerator) Generate() string {
-    code := g.rnd.Intn(99_999_999) + 1
-    return strconv.Itoa(code)
+    val := rand.Uint64N(g.limit)
+    return fmt.Sprintf("%0*d", g.length, val)
 }
