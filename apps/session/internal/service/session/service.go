@@ -17,13 +17,13 @@ func NewService(
 	managementClient ManagementClient,
 	runtimeRepository RuntimeRepository,
 	roomCodeRepository RoomCodeRepository,
-	// roomCodeGenerator RoomCodeGenerator,
+	roomCodeGenerator RoomCodeGenerator,
 ) *Service {
 	return &Service{
 		managementClient:   managementClient,
 		runtimeRepository:  runtimeRepository,
 		roomCodeRepository: roomCodeRepository,
-		// roomCodeGenerator:  roomCodeGenerator,
+		roomCodeGenerator:  roomCodeGenerator,
 	}
 }
 

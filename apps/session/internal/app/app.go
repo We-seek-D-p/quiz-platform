@@ -26,8 +26,9 @@ func New(cfg *config.Config, log *slog.Logger) *App {
 	redisClient := redisrepo.NewClient(cfg)
 	runtimeRepository := redisrepo.NewSessionRepository(redisClient)
 	roomCodeRepository := redisrepo.NewRoomCodeRepository(redisClient)
+	roomCodeGenerator := redisrepo.NewRandomRoomCodeGenerator()
 	management := managementclient.NewClient(cfg)
-	svc := sessionservice.NewService(management, runtimeRepository, roomCodeRepository)
+	svc := sessionservice.NewService(management, runtimeRepository, roomCodeRepository, roomCodeGenerator)
 	internalSessionHandler := handler.NewInternalSessionHandler(svc)
 
 	router := httptransport.NewRouter(cfg, log, internalSessionHandler)
