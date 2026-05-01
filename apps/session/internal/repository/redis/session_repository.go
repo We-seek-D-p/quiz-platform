@@ -3,7 +3,7 @@ package redis
 import (
 	"context"
 
-	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/models"
+	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/domain"
 	goredis "github.com/redis/go-redis/v9"
 )
 
@@ -17,12 +17,12 @@ func NewSessionRepository(client *goredis.Client) *SessionRepository {
 	}
 }
 
-func (r *SessionRepository) Create(ctx context.Context, runtime models.SessionRuntime, quiz models.QuizSnapshot) error {
+func (r *SessionRepository) Create(ctx context.Context, runtime domain.SessionRuntime, quiz domain.QuizSnapshot) error {
 	return ErrNotImplemented
 }
 
-func (r *SessionRepository) Get(ctx context.Context, sessionID string) (models.SessionRuntime, error) {
-	return models.SessionRuntime{}, ErrNotImplemented
+func (r *SessionRepository) Get(ctx context.Context, sessionID string) (domain.SessionRuntime, error) {
+	return domain.SessionRuntime{}, ErrNotImplemented
 }
 
 func (r *SessionRepository) Delete(ctx context.Context, sessionID string) error {
