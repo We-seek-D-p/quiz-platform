@@ -3,7 +3,6 @@ package redis
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -16,9 +15,7 @@ type SessionRepository struct {
 }
 
 func NewSessionRepository(client *goredis.Client) *SessionRepository {
-	return &SessionRepository{
-		client: client,
-	}
+	return &SessionRepository{client: client}
 }
 
 func (r *SessionRepository) Create(ctx context.Context, runtime domain.SessionRuntime, quiz domain.QuizSnapshot) error {
@@ -35,75 +32,50 @@ func (r *SessionRepository) Create(ctx context.Context, runtime domain.SessionRu
 
 	quizJSON, err := json.Marshal(quiz)
 	if err != nil {
-		return fmt.Errorf("marshal quiz error: %w", err)
+		return fmt.Errorf("marshal quiz: %w", err)
 	}
 
 	pipe := r.client.TxPipeline()
-
 	pipe.HSet(ctx, metaKey, map[string]any{
 		"session_id":     runtime.SessionID,
 		"quiz_id":        runtime.QuizID,
 		"host_id":        runtime.HostID,
 		"room_code":      runtime.RoomCode,
 		"status":         string(runtime.Status),
-		"initialized_at": runtime.InitializedAt.Format(time.RFC3339),
+		"initialized_at": runtime.InitializedAt.UTC().Format(time.RFC3339Nano),
 	})
-
 	pipe.Set(ctx, snapshotKey, quizJSON, 0)
 
-	_, err = pipe.Exec(ctx)
-	if err != nil {
+	if _, err := pipe.Exec(ctx); err != nil {
 		return fmt.Errorf("%w: %v", ErrRedisUnavailable, err)
 	}
 
 	return nil
 }
 
-func (r *SessionRepository) Get(ctx context.Context, sessionID string) (domain.SessionBootstrap, error) {
+func (r *SessionRepository) Get(ctx context.Context, sessionID string) (domain.SessionRuntime, error) {
 	metaKey := sessionMetaKey(sessionID)
-	snapshotKey := sessionQuizSnapshotKey(sessionID)
 
-	pipe := r.client.Pipeline()
-	metaCmd := pipe.HGetAll(ctx, metaKey)
-	snapshotCmd := pipe.Get(ctx, snapshotKey)
-
-	_, err := pipe.Exec(ctx)
-	if err != nil && !errors.Is(err, goredis.Nil) {
-		return domain.SessionBootstrap{}, fmt.Errorf("%w: %v", ErrRedisUnavailable, err)
-	}
-
-	res, err := metaCmd.Result()
-	if err != nil || len(res) == 0 {
-		return domain.SessionBootstrap{}, ErrSessionNotFound
-	}
-
-	initTime, _ := time.Parse(time.RFC3339, res["initialized_at"])
-
-	runtime := domain.SessionRuntime{
-		SessionID:     res["session_id"],
-		QuizID:        res["quiz_id"],
-		HostID:        res["host_id"],
-		RoomCode:      res["room_code"],
-		Status:        domain.RuntimeStatus(res["status"]),
-		InitializedAt: initTime,
-	}
-
-	snapshotData, err := snapshotCmd.Result()
+	meta, err := r.client.HGetAll(ctx, metaKey).Result()
 	if err != nil {
-		return domain.SessionBootstrap{}, fmt.Errorf("quiz snapshot integrity error: %w", err)
+		return domain.SessionRuntime{}, fmt.Errorf("%w: %v", ErrRedisUnavailable, err)
+	}
+	if len(meta) == 0 {
+		return domain.SessionRuntime{}, ErrSessionNotFound
 	}
 
-	var quiz domain.QuizSnapshot
-	if err := json.Unmarshal([]byte(snapshotData), &quiz); err != nil {
-		return domain.SessionBootstrap{}, fmt.Errorf("failed to unmarshal quiz: %w", err)
+	initializedAt, err := time.Parse(time.RFC3339, meta["initialized_at"])
+	if err != nil {
+		return domain.SessionRuntime{}, fmt.Errorf("parse initialized_at: %w", err)
 	}
 
-	return domain.SessionBootstrap{
-		SessionID: runtime.SessionID,
-		QuizID:    runtime.QuizID,
-		HostID:    runtime.HostID,
-		Status:    string(runtime.Status),
-		Quiz:      quiz,
+	return domain.SessionRuntime{
+		SessionID:     meta["session_id"],
+		QuizID:        meta["quiz_id"],
+		HostID:        meta["host_id"],
+		RoomCode:      meta["room_code"],
+		Status:        domain.RuntimeStatus(meta["status"]),
+		InitializedAt: initializedAt,
 	}, nil
 }
 
@@ -111,13 +83,21 @@ func (r *SessionRepository) Delete(ctx context.Context, sessionID string) error 
 	metaKey := sessionMetaKey(sessionID)
 	snapshotKey := sessionQuizSnapshotKey(sessionID)
 
-	pipe := r.client.TxPipeline()
+	meta, err := r.client.HGetAll(ctx, metaKey).Result()
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrRedisUnavailable, err)
+	}
 
+	roomCode := meta["room_code"]
+
+	pipe := r.client.TxPipeline()
 	pipe.Del(ctx, metaKey)
 	pipe.Del(ctx, snapshotKey)
+	if roomCode != "" {
+		pipe.Del(ctx, roomCodeKey(roomCode))
+	}
 
-	_, err := pipe.Exec(ctx)
-	if err != nil {
+	if _, err := pipe.Exec(ctx); err != nil {
 		return fmt.Errorf("%w: %v", ErrRedisUnavailable, err)
 	}
 
