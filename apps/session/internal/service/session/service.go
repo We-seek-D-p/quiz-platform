@@ -3,7 +3,7 @@ package session
 import (
 	"context"
 
-	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/models"
+	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/domain"
 )
 
 type Service struct {
@@ -27,12 +27,12 @@ func NewService(
 	}
 }
 
-func (s *Service) InitSession(ctx context.Context, cmd InitSessionParams) (models.SessionRuntime, error) {
-	return models.SessionRuntime{}, ErrNotImplemented
+func (s *Service) InitSession(ctx context.Context, cmd InitSessionParams) (domain.SessionRuntime, error) {
+	return domain.SessionRuntime{}, ErrNotImplemented
 }
 
-func (s *Service) GetSessionRuntime(ctx context.Context, cmd GetSessionRuntimeParams) (models.SessionRuntime, error) {
-	return models.SessionRuntime{}, ErrNotImplemented
+func (s *Service) GetSessionRuntime(ctx context.Context, cmd GetSessionRuntimeParams) (domain.SessionRuntime, error) {
+	return domain.SessionRuntime{}, ErrNotImplemented
 }
 
 func (s *Service) DeleteSessionRuntime(ctx context.Context, cmd DeleteSessionRuntimeParams) error {

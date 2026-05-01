@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/config"
-	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/models"
+	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/domain"
 )
 
 type Client struct {
@@ -24,6 +24,6 @@ func NewClient(cfg *config.Config) *Client {
 	}
 }
 
-func (c *Client) GetBootstrap(ctx context.Context, sessionID string) (models.SessionBootstrap, error) {
-	return models.SessionBootstrap{}, ErrNotImplemented
+func (c *Client) GetBootstrap(ctx context.Context, sessionID string) (domain.SessionBootstrap, error) {
+	return domain.SessionBootstrap{}, ErrNotImplemented
 }
