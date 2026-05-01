@@ -7,23 +7,23 @@ import (
 )
 
 type Service struct {
-	managementClient   ManagementClient
-	runtimeRepository  RuntimeRepository
-	roomCodeRepository RoomCodeRepository
-	roomCodeGenerator  RoomCodeGenerator
+	managementRepository ManagementRepository
+	runtimeRepository    RuntimeRepository
+	roomCodeRepository   RoomCodeRepository
+	roomCodeGenerator    RoomCodeGenerator
 }
 
 func NewService(
-	managementClient ManagementClient,
+	managementRepository ManagementRepository,
 	runtimeRepository RuntimeRepository,
 	roomCodeRepository RoomCodeRepository,
 	roomCodeGenerator RoomCodeGenerator,
 ) *Service {
 	return &Service{
-		managementClient:   managementClient,
-		runtimeRepository:  runtimeRepository,
-		roomCodeRepository: roomCodeRepository,
-		roomCodeGenerator:  roomCodeGenerator,
+		managementRepository: managementRepository,
+		runtimeRepository:    runtimeRepository,
+		roomCodeRepository:   roomCodeRepository,
+		roomCodeGenerator:    roomCodeGenerator,
 	}
 }
 
