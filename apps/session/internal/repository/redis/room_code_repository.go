@@ -1,25 +1,34 @@
 package redis
 
 import (
-	"context"
+    "context"
+    "fmt"
 
-	goredis "github.com/redis/go-redis/v9"
+    goredis "github.com/redis/go-redis/v9"
 )
 
 type RoomCodeRepository struct {
-	client *goredis.Client
+    client *goredis.Client
 }
 
 func NewRoomCodeRepository(client *goredis.Client) *RoomCodeRepository {
-	return &RoomCodeRepository{
-		client: client,
-	}
+    return &RoomCodeRepository{
+        client: client,
+    }
 }
 
 func (r *RoomCodeRepository) Reserve(ctx context.Context, roomCode string, sessionID string) (bool, error) {
-	return false, ErrNotImplemented
+    key := roomCodeKey(roomCode)
+
+    ok, err := r.client.SetNX(ctx, key, sessionID, 0).Result()
+    if err != nil {
+        return false, fmt.Errorf("%w: %v", ErrRedisUnavailable, err)
+    }
+
+    return ok, nil
 }
 
 func (r *RoomCodeRepository) Release(ctx context.Context, roomCode string) error {
-	return ErrNotImplemented
+    key := roomCodeKey(roomCode)
+    return r.client.Del(ctx, key).Err()
 }
