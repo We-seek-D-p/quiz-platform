@@ -38,16 +38,101 @@ func NewRepository(cfg *config.Config) *Repository {
 	}
 }
 
-func (r *Repository) GetSessionBootstrap(ctx context.Context, sessionID string) (domain.SessionBootstrap, error) {
-	return domain.SessionBootstrap{}, ErrNotImplemented
+func (r *Repository) GetSessionBootstrap(ctx context.Context, sessionID string) (result domain.SessionBootstrap, err error) {
+	req, err := r.newRequest(ctx, http.MethodGet, r.bootstrapPath(sessionID), nil)
+	if err != nil {
+		return domain.SessionBootstrap{}, err
+	}
+
+	resp, err := r.do(req)
+	if err != nil {
+		return domain.SessionBootstrap{}, err
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close response body: %w", closeErr)
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return domain.SessionBootstrap{}, r.handleError(resp)
+	}
+
+	var dto BootstrapResponse
+	if err := json.NewDecoder(resp.Body).Decode(&dto); err != nil {
+		return domain.SessionBootstrap{}, fmt.Errorf("%w: %v", ErrInvalidResponse, err)
+	}
+
+	return r.mapBootstrapToDomain(dto), nil
 }
 
-func (r *Repository) ReportSessionStatus(ctx context.Context, sessionID string, update domain.SessionStatusUpdate) error {
-	return ErrNotImplemented
+func (r *Repository) ReportSessionStatus(ctx context.Context, sessionID string, update domain.SessionStatusUpdate) (err error) {
+	payload := ReportSessionStatusRequest{
+		Status:    string(update.Status),
+		StartedAt: update.StartedAt,
+		EventID:   update.EventID,
+	}
+
+	req, err := r.newRequest(ctx, http.MethodPatch, r.statusPath(sessionID), payload)
+	if err != nil {
+		return err
+	}
+
+	resp, err := r.do(req)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close response body: %w", closeErr)
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		return r.handleError(resp)
+	}
+
+	return nil
 }
 
-func (r *Repository) ReportSessionResults(ctx context.Context, sessionID string, results domain.SessionResults) error {
-	return ErrNotImplemented
+func (r *Repository) ReportSessionResults(ctx context.Context, sessionID string, results domain.SessionResults) (err error) {
+	participants := make([]ReportSessionResultParticipant, len(results.Participants))
+	for i, p := range results.Participants {
+		participants[i] = ReportSessionResultParticipant{
+			ParticipantID: p.ParticipantID,
+			Nickname:      p.Nickname,
+			Score:         p.Score,
+			Rank:          p.Rank,
+		}
+	}
+
+	payload := ReportSessionResultsRequest{
+		EventID:      results.EventID,
+		FinishReason: results.FinishReason,
+		FinishedAt:   results.FinishedAt,
+		Participants: participants,
+	}
+
+	req, err := r.newRequest(ctx, http.MethodPut, r.resultsPath(sessionID), payload)
+	if err != nil {
+		return err
+	}
+
+	resp, err := r.do(req)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close response body: %w", closeErr)
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		return r.handleError(resp)
+	}
+
+	return nil
 }
 
 func (r *Repository) bootstrapPath(sessionID string) string {
@@ -85,4 +170,76 @@ func (r *Repository) newRequest(ctx context.Context, method string, path string,
 	}
 
 	return req, nil
+}
+
+func (r *Repository) do(req *http.Request) (*http.Response, error) {
+	resp, err := r.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrUpstreamUnavailable, err)
+	}
+
+	return resp, nil
+}
+
+func (r *Repository) mapBootstrapToDomain(dto BootstrapResponse) domain.SessionBootstrap {
+	questions := make([]domain.QuestionSnapshot, len(dto.QuizSnapshot.Questions))
+	for i, q := range dto.QuizSnapshot.Questions {
+		options := make([]domain.OptionSnapshot, len(q.Options))
+		for j, o := range q.Options {
+			options[j] = domain.OptionSnapshot{
+				ID:         o.ID,
+				Text:       o.Text,
+				OrderIndex: o.OrderIndex,
+				IsCorrect:  o.IsCorrect,
+			}
+		}
+		questions[i] = domain.QuestionSnapshot{
+			ID:               q.ID,
+			Text:             q.Text,
+			SelectionType:    domain.SelectionType(q.SelectionType),
+			TimeLimitSeconds: q.TimeLimitSeconds,
+			OrderIndex:       q.OrderIndex,
+			Options:          options,
+		}
+	}
+
+	return domain.SessionBootstrap{
+		SessionID: dto.Session.SessionID,
+		QuizID:    dto.Session.QuizID,
+		HostID:    dto.Session.HostID,
+		Status:    dto.Session.Status,
+		Quiz: domain.QuizSnapshot{
+			Title:     dto.QuizSnapshot.Title,
+			Questions: questions,
+		},
+	}
+}
+
+func (r *Repository) handleError(resp *http.Response) error {
+	var errResp ErrorResponse
+	if err := json.NewDecoder(resp.Body).Decode(&errResp); err == nil {
+		switch errResp.Code {
+		case "session_not_found":
+			return ErrSessionNotFound
+		case "already_finished":
+			return ErrAlreadyFinished
+		}
+	}
+
+	if resp.StatusCode >= http.StatusInternalServerError {
+		return ErrUpstreamUnavailable
+	}
+
+	switch resp.StatusCode {
+	case http.StatusConflict:
+		return ErrAlreadyFinished
+	case http.StatusNotFound:
+		return ErrSessionNotFound
+	case http.StatusForbidden:
+		return ErrForbidden
+	case http.StatusUnauthorized:
+		return ErrUnauthorized
+	default:
+		return fmt.Errorf("%w: status %d", ErrUnexpectedStatus, resp.StatusCode)
+	}
 }

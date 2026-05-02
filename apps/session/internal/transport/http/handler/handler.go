@@ -7,7 +7,7 @@ import (
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/http/response"
 )
 
-const idempotencyKeyHeader = "Idempotency-Key"
+// const idempotencyKeyHeader = "Idempotency-Key"
 
 type InternalSessionHandler struct {
 	service *session.Service
