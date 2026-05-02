@@ -4,6 +4,7 @@ import "errors"
 
 var (
 	ErrNotImplemented          = errors.New("not implemented")
+	ErrInvalidParams           = errors.New("invalid params")
 	ErrSessionNotFound         = errors.New("session not found in management")
 	ErrSessionRuntimeNotFound  = errors.New("session runtime not found")
 	ErrSessionRuntimeConflict  = errors.New("session runtime conflict")
