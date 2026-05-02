@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 
@@ -39,22 +38,21 @@ func NewRepository(cfg *config.Config) *Repository {
 	}
 }
 
-func (r *Repository) GetSessionBootstrap(ctx context.Context, sessionID string) (domain.SessionBootstrap, error) {
+func (r *Repository) GetSessionBootstrap(ctx context.Context, sessionID string) (result domain.SessionBootstrap, err error) {
 	req, err := r.newRequest(ctx, http.MethodGet, r.bootstrapPath(sessionID), nil)
 	if err != nil {
 		return domain.SessionBootstrap{}, err
 	}
 
-	resp, err := r.httpClient.Do(req)
+	resp, err := r.do(req)
 	if err != nil {
-		return domain.SessionBootstrap{}, fmt.Errorf("%w: %v", ErrUpstreamUnavailable, err)
+		return domain.SessionBootstrap{}, err
 	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			return
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close response body: %w", closeErr)
 		}
-	}(resp.Body)
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return domain.SessionBootstrap{}, r.handleError(resp)
@@ -68,7 +66,7 @@ func (r *Repository) GetSessionBootstrap(ctx context.Context, sessionID string) 
 	return r.mapBootstrapToDomain(dto), nil
 }
 
-func (r *Repository) ReportSessionStatus(ctx context.Context, sessionID string, update domain.SessionStatusUpdate) error {
+func (r *Repository) ReportSessionStatus(ctx context.Context, sessionID string, update domain.SessionStatusUpdate) (err error) {
 	payload := ReportSessionStatusRequest{
 		Status:    string(update.Status),
 		StartedAt: update.StartedAt,
@@ -80,16 +78,15 @@ func (r *Repository) ReportSessionStatus(ctx context.Context, sessionID string, 
 		return err
 	}
 
-	resp, err := r.httpClient.Do(req)
+	resp, err := r.do(req)
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrUpstreamUnavailable, err)
+		return err
 	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close response body: %w", closeErr)
 		}
-	}(resp.Body)
+	}()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		return r.handleError(resp)
@@ -98,7 +95,7 @@ func (r *Repository) ReportSessionStatus(ctx context.Context, sessionID string, 
 	return nil
 }
 
-func (r *Repository) ReportSessionResults(ctx context.Context, sessionID string, results domain.SessionResults) error {
+func (r *Repository) ReportSessionResults(ctx context.Context, sessionID string, results domain.SessionResults) (err error) {
 	participants := make([]ReportSessionResultParticipant, len(results.Participants))
 	for i, p := range results.Participants {
 		participants[i] = ReportSessionResultParticipant{
@@ -121,18 +118,17 @@ func (r *Repository) ReportSessionResults(ctx context.Context, sessionID string,
 		return err
 	}
 
-	resp, err := r.httpClient.Do(req)
+	resp, err := r.do(req)
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrUpstreamUnavailable, err)
+		return err
 	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			return
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close response body: %w", closeErr)
 		}
-	}(resp.Body)
+	}()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		return r.handleError(resp)
 	}
 
@@ -174,6 +170,15 @@ func (r *Repository) newRequest(ctx context.Context, method string, path string,
 	}
 
 	return req, nil
+}
+
+func (r *Repository) do(req *http.Request) (*http.Response, error) {
+	resp, err := r.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrUpstreamUnavailable, err)
+	}
+
+	return resp, nil
 }
 
 func (r *Repository) mapBootstrapToDomain(dto BootstrapResponse) domain.SessionBootstrap {
@@ -221,7 +226,13 @@ func (r *Repository) handleError(resp *http.Response) error {
 		}
 	}
 
+	if resp.StatusCode >= http.StatusInternalServerError {
+		return ErrUpstreamUnavailable
+	}
+
 	switch resp.StatusCode {
+	case http.StatusConflict:
+		return ErrAlreadyFinished
 	case http.StatusNotFound:
 		return ErrSessionNotFound
 	case http.StatusForbidden:
