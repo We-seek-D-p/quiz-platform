@@ -28,6 +28,16 @@ type SessionRuntime struct {
 	RoomCode      string
 	Status        RuntimeStatus
 	InitializedAt time.Time
+	Progress      RuntimeProgress
+}
+
+type RuntimeProgress struct {
+	CurrentQuestionIndex int
+	TotalQuestions       int
+	StartedAt            *time.Time
+	FinishedAt           *time.Time
+	DeadlineAt           *time.Time
+	RevealUntil          *time.Time
 }
 
 type SessionBootstrap struct {

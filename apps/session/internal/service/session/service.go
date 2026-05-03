@@ -80,6 +80,10 @@ func (s *Service) InitSession(ctx context.Context, cmd InitSessionParams) (InitS
 		RoomCode:      reservedCode,
 		Status:        domain.RuntimeStatusLobby,
 		InitializedAt: time.Now().UTC(),
+		Progress: domain.RuntimeProgress{
+			CurrentQuestionIndex: -1,
+			TotalQuestions:       len(bootstrap.Quiz.Questions),
+		},
 	}
 
 	err = s.runtimeRepository.Create(ctx, runtime, bootstrap.Quiz)
