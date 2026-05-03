@@ -173,7 +173,7 @@ func (r *Repository) newRequest(ctx context.Context, method, path string, payloa
 }
 
 func (r *Repository) do(req *http.Request) (*http.Response, error) {
-	resp, err := r.httpClient.Do(req)
+	resp, err := r.httpClient.Do(req) // #nosec G704 -- trusted internal service call to configured Management base URL
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrUpstreamUnavailable, err)
 	}
