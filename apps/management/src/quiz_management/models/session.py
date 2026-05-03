@@ -46,3 +46,15 @@ class SessionParticipant(SQLModel, table=True):
     rank: int | None = None
 
     session: GameSession = Relationship(back_populates="participants")
+
+
+class SessionCreate(SQLModel):
+    quiz_id: UUID
+
+
+class SessionPublic(SQLModel):
+    id: UUID
+    quiz_id: UUID
+    room_code: str | None
+    status: SessionStatus
+    host_id: UUID
