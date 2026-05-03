@@ -59,3 +59,17 @@ class SessionService:
                 code="session_provider_unavailable",
                 message="Go session service is not responding",
             ) from None
+
+    async def get_bootstrap_data(self, session_id: UUID) -> GameSession:
+        session = await self.repository.get_session_with_quiz(session_id)
+
+        if not session:
+            raise ServiceException(404, "session_not_found", "Session not found")
+
+        if session.status == SessionStatus.FINISHED:
+            raise ServiceException(409, "already_finished", "Session already finished")
+
+        if not session.quiz:
+            raise ServiceException(404, "quiz_not_found", "Linked quiz not found")
+
+        return session

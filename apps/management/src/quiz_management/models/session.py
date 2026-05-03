@@ -4,7 +4,7 @@ from uuid import UUID, uuid7
 
 from sqlmodel import Field, Relationship, SQLModel
 
-from quiz_management.models.quiz import Quiz
+from quiz_management.models.quiz import Quiz, QuizPublic
 
 
 def get_utc_now():
@@ -58,3 +58,8 @@ class SessionPublic(SQLModel):
     room_code: str | None
     status: SessionStatus
     host_id: UUID
+
+
+class SessionBootstrap(SQLModel):
+    session: SessionPublic
+    quiz_snapshot: QuizPublic
