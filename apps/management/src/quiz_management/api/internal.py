@@ -4,7 +4,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, status
 
 from quiz_management.core.dependencies import get_session_service, verify_internal_auth
-from quiz_management.models.session import SessionBootstrap, SessionStatusUpdate
+from quiz_management.models.session import (
+    SessionBootstrap,
+    SessionResultsUpdate,
+    SessionStatusUpdate,
+)
 from quiz_management.services.session import SessionService
 
 router = APIRouter(
@@ -29,3 +33,12 @@ async def update_session_status(
     service: Annotated[SessionService, Depends(get_session_service)],
 ):
     await service.update_session_status(session_id, data)
+
+
+@router.put("/{session_id}/results", status_code=status.HTTP_204_NO_CONTENT)
+async def report_results(
+    session_id: UUID,
+    data: SessionResultsUpdate,
+    service: Annotated[SessionService, Depends(get_session_service)],
+):
+    await service.finalize_session(session_id, data)

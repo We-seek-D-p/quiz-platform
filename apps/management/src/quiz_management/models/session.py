@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import UUID, uuid7
 
+from pydantic import BaseModel
 from sqlmodel import Field, Relationship, SQLModel
 
 from quiz_management.models.quiz import Quiz, QuizPublic
@@ -69,3 +70,17 @@ class SessionStatusUpdate(SQLModel):
     status: SessionStatus
     event_id: str
     started_at: datetime | None = None
+
+
+class ParticipantResult(BaseModel):
+    participant_id: UUID
+    nickname: str
+    score: int
+    rank: int
+
+
+class SessionResultsUpdate(BaseModel):
+    event_id: str
+    finish_reason: str
+    finished_at: datetime
+    participants: list[ParticipantResult]

@@ -4,7 +4,13 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from quiz_management.core.exceptions import ServiceException
 from quiz_management.models.quiz import Quiz
-from quiz_management.models.session import GameSession, SessionStatus, SessionStatusUpdate
+from quiz_management.models.session import (
+    GameSession,
+    SessionParticipant,
+    SessionResultsUpdate,
+    SessionStatus,
+    SessionStatusUpdate,
+)
 from quiz_management.repositories.session_repositories import SessionRepository
 from quiz_management.services.session_client import SessionServiceClient
 
@@ -92,3 +98,26 @@ class SessionService:
             session.started_at = data.started_at
 
         await self.repository.save_session(session)
+
+    async def finalize_session(self, session_id: UUID, data: SessionResultsUpdate) -> None:
+        session = await self.repository.get_session_with_quiz(session_id)
+        if not session:
+            raise ServiceException(404, "session_not_found", "Session not found")
+
+        if session.status == SessionStatus.FINISHED:
+            return
+
+        participants = []
+        for p_data in data.participants:
+            participant = SessionParticipant(
+                session_id=session_id,
+                player_nickname=p_data.nickname,
+                score=p_data.score,
+                rank=p_data.rank,
+            )
+            participants.append(participant)
+
+        session.status = SessionStatus.FINISHED
+        session.finished_at = data.finished_at
+
+        await self.repository.save_results(session, participants)

@@ -36,3 +36,12 @@ class SessionRepository:
         )
         result = await self.db.exec(statement)
         return result.first()
+
+    async def save_results(
+        self, session: GameSession, participants: list[SessionParticipant]
+    ) -> None:
+        for p in participants:
+            self.db.add(p)
+        self.db.add(session)
+        await self.db.commit()
+        await self.db.refresh(session)
