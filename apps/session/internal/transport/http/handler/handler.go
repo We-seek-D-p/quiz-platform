@@ -93,8 +93,20 @@ func (h *InternalSessionHandler) GetSessionRuntime(w http.ResponseWriter, r *htt
 	response.JSON(w, http.StatusOK, mapRuntimeToResponse(runtime))
 }
 
-func (h *InternalSessionHandler) DeleteSessionRuntime(w http.ResponseWriter, _ *http.Request) {
-	response.Error(w, http.StatusNotImplemented, "not_implemented", "delete session runtime is not implemented yet")
+func (h *InternalSessionHandler) DeleteSessionRuntime(w http.ResponseWriter, r *http.Request) {
+	sessionID := strings.TrimSpace(chi.URLParam(r, "session_id"))
+	if sessionID == "" {
+		response.Error(w, http.StatusBadRequest, "invalid_payload", "invalid payload")
+		return
+	}
+
+	err := h.service.DeleteSessionRuntime(r.Context(), session.DeleteSessionRuntimeParams{SessionID: sessionID})
+	if err != nil {
+		h.handleDeleteSessionRuntimeError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusNoContent, nil)
 }
 
 func mapRuntimeToResponse(runtime domain.SessionRuntime) dto.SessionRuntimeResponse {

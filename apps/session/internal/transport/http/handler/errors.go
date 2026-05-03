@@ -41,6 +41,16 @@ func (h *InternalSessionHandler) handleGetSessionRuntimeError(w http.ResponseWri
 	}
 }
 
+func (h *InternalSessionHandler) handleDeleteSessionRuntimeError(w http.ResponseWriter, err error) {
+	mappings := []errorMapping{
+		{err: session.ErrRuntimeStoreUnavailable, status: http.StatusServiceUnavailable, code: "redis_unavailable", message: "runtime store unavailable"},
+	}
+
+	if !writeMappedServiceError(w, err, mappings) {
+		response.Error(w, http.StatusInternalServerError, "internal_error", "internal error")
+	}
+}
+
 func writeMappedServiceError(w http.ResponseWriter, err error, mappings []errorMapping) bool {
 	for _, mapping := range mappings {
 		if errors.Is(err, mapping.err) {
