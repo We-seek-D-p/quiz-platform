@@ -20,7 +20,7 @@ func (r *RoomCodeRepository) Reserve(ctx context.Context, roomCode string, sessi
 
 	ok, err := r.client.SetNX(ctx, key, sessionID, 0).Result()
 	if err != nil {
-		return false, fmt.Errorf("%w: %v", ErrRedisUnavailable, err)
+		return false, fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
 	}
 
 	return ok, nil
@@ -30,7 +30,7 @@ func (r *RoomCodeRepository) Release(ctx context.Context, roomCode string) error
 	key := roomCodeKey(roomCode)
 
 	if err := r.client.Del(ctx, key).Err(); err != nil {
-		return fmt.Errorf("%w: %v", ErrRedisUnavailable, err)
+		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
 	}
 
 	return nil

@@ -60,7 +60,7 @@ func (r *Repository) GetSessionBootstrap(ctx context.Context, sessionID string) 
 
 	var dto BootstrapResponse
 	if err := json.NewDecoder(resp.Body).Decode(&dto); err != nil {
-		return domain.SessionBootstrap{}, fmt.Errorf("%w: %v", ErrInvalidResponse, err)
+		return domain.SessionBootstrap{}, fmt.Errorf("%w: %w", ErrInvalidResponse, err)
 	}
 
 	return r.mapBootstrapToDomain(dto), nil
@@ -175,7 +175,7 @@ func (r *Repository) newRequest(ctx context.Context, method string, path string,
 func (r *Repository) do(req *http.Request) (*http.Response, error) {
 	resp, err := r.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrUpstreamUnavailable, err)
+		return nil, fmt.Errorf("%w: %w", ErrUpstreamUnavailable, err)
 	}
 
 	return resp, nil
