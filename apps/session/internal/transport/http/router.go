@@ -39,7 +39,8 @@ func NewRouter(cfg *config.Config, log *slog.Logger, internalSessionHandler *han
 	})
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
-		log.Warn(
+		log.WarnContext(
+			r.Context(),
 			"route not found",
 			"request_id", middleware.RequestIDFromContext(r.Context()),
 			"method", r.Method,
