@@ -10,9 +10,9 @@ from quiz_management.services.session_client import SessionServiceClient
 
 
 class SessionService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, session_client: SessionServiceClient):
         self.repository = SessionRepository(db)
-        self.client = SessionServiceClient()
+        self.client = session_client
 
     async def create_session(self, quiz: Quiz, user_id: UUID, idempotency_key: str) -> GameSession:
         if not quiz.questions:

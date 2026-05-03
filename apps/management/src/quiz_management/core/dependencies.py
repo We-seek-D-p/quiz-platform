@@ -5,6 +5,7 @@ from fastapi import Depends, Header, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 
+from quiz_management.core.config import settings
 from quiz_management.core.database import get_session
 from quiz_management.models.question import Question
 from quiz_management.models.quiz import Quiz
@@ -60,9 +61,22 @@ async def get_question_service(
 
 async def get_session_service(
     db: Annotated[AsyncSession, Depends(get_session)],
+    client: Annotated[SessionServiceClient, Depends(get_session_client)],
 ) -> SessionService:
-    return SessionService(db)
+    return SessionService(db, client)
 
 
 def get_session_client() -> SessionServiceClient:
     return SessionServiceClient()
+
+
+async def verify_internal_auth(
+    x_internal_service: Annotated[str, Header(alias="X-Internal-Service")],
+    x_internal_token: Annotated[str, Header(alias="X-Internal-Token")],
+) -> None:
+    if x_internal_token != settings.internal_token:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid internal token")
+
+    allowed = settings.internal_allowed_services.split(",")
+    if x_internal_service not in allowed:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Service not allowed")
