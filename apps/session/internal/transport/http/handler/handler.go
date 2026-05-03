@@ -77,8 +77,20 @@ func (h *InternalSessionHandler) InitSession(w http.ResponseWriter, r *http.Requ
 	response.JSON(w, status, mapRuntimeToResponse(result.Runtime))
 }
 
-func (h *InternalSessionHandler) GetSessionRuntime(w http.ResponseWriter, _ *http.Request) {
-	response.Error(w, http.StatusNotImplemented, "not_implemented", "get session runtime is not implemented yet")
+func (h *InternalSessionHandler) GetSessionRuntime(w http.ResponseWriter, r *http.Request) {
+	sessionID := strings.TrimSpace(chi.URLParam(r, "session_id"))
+	if sessionID == "" {
+		response.Error(w, http.StatusBadRequest, "invalid_payload", "invalid payload")
+		return
+	}
+
+	runtime, err := h.service.GetSessionRuntime(r.Context(), session.GetSessionRuntimeParams{SessionID: sessionID})
+	if err != nil {
+		h.handleGetSessionRuntimeError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, mapRuntimeToResponse(runtime))
 }
 
 func (h *InternalSessionHandler) DeleteSessionRuntime(w http.ResponseWriter, _ *http.Request) {
@@ -97,6 +109,17 @@ func (h *InternalSessionHandler) handleInitSessionError(w http.ResponseWriter, e
 		response.Error(w, http.StatusFailedDependency, "bootstrap_fetch_failed", "failed to fetch bootstrap data")
 	case errors.Is(err, session.ErrRoomCodeUnavailable):
 		response.Error(w, http.StatusServiceUnavailable, "room_code_unavailable", "room code unavailable")
+	case errors.Is(err, session.ErrRuntimeStoreUnavailable):
+		response.Error(w, http.StatusServiceUnavailable, "redis_unavailable", "runtime store unavailable")
+	default:
+		response.Error(w, http.StatusInternalServerError, "internal_error", "internal error")
+	}
+}
+
+func (h *InternalSessionHandler) handleGetSessionRuntimeError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, session.ErrSessionRuntimeNotFound):
+		response.Error(w, http.StatusNotFound, "session_runtime_not_found", "session runtime not found")
 	case errors.Is(err, session.ErrRuntimeStoreUnavailable):
 		response.Error(w, http.StatusServiceUnavailable, "redis_unavailable", "runtime store unavailable")
 	default:
