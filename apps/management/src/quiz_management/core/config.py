@@ -12,10 +12,12 @@ class Settings(BaseSettings):
 
     database_url: str
 
-    internal_service_name: str
-    internal_allowed_services: str
-    internal_token: str
-    session_service_url: str = Field(validation_alias="SESSION_MANAGEMENT_BASE_URL")
+    internal_service_name: str = "management"
+    internal_allowed_services: str = "session"
+    internal_token: str = "placeholder_token"  # noqa: S105
+    session_service_url: str = Field(
+        default="http://localhost:8000", validation_alias="SESSION_MANAGEMENT_BASE_URL"
+    )
 
     model_config = SettingsConfigDict(
         env_prefix="MANAGEMENT_",
