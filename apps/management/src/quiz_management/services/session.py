@@ -1,8 +1,8 @@
 from uuid import UUID
 
-import httpx
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from quiz_management.core.exceptions import ServiceException
 from quiz_management.models.quiz import Quiz
 from quiz_management.models.session import GameSession, SessionStatus
 from quiz_management.repositories.session_repositories import SessionRepository
@@ -15,6 +15,13 @@ class SessionService:
         self.client = SessionServiceClient()
 
     async def create_session(self, quiz: Quiz, user_id: UUID, idempotency_key: str) -> GameSession:
+        if not quiz.questions:
+            raise ServiceException(
+                status_code=400,
+                code="quiz_not_ready",
+                message="Cannot start session for quiz without questions",
+            )
+
         new_session = GameSession(
             quiz_id=quiz.id, host_id=user_id, status=SessionStatus.INITIALIZING
         )
@@ -38,12 +45,17 @@ class SessionService:
             new_session.status = SessionStatus.INIT_FAILED
             await self.repository.save_session(new_session)
             await self.client.delete_session(new_session.id)
-            raise httpx.HTTPStatusError(
-                "Go service returned error", request=response.request, response=response
+            raise ServiceException(
+                status_code=424,
+                code="session_provider_error",
+                message="Go session service failed to initialize runtime",
             )
-
         except Exception:
             new_session.status = SessionStatus.INIT_FAILED
             await self.repository.save_session(new_session)
             await self.client.delete_session(new_session.id)
-            raise
+            raise ServiceException(
+                status_code=503,
+                code="session_provider_unavailable",
+                message="Go session service is not responding",
+            ) from None
