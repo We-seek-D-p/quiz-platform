@@ -16,6 +16,9 @@ class SessionRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    async def get_session_by_id(self, session_id: UUID) -> GameSession | None:
+        return await self.db.get(GameSession, session_id)
+
     async def save_session(self, session: TSession) -> None:
         self.db.add(session)
         await self.db.commit()

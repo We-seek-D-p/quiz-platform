@@ -63,3 +63,9 @@ class SessionPublic(SQLModel):
 class SessionBootstrap(SQLModel):
     session: SessionPublic
     quiz_snapshot: QuizPublic
+
+
+class SessionStatusUpdate(SQLModel):
+    status: SessionStatus
+    event_id: str
+    started_at: datetime | None = None

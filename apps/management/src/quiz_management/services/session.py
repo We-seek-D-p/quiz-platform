@@ -4,7 +4,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from quiz_management.core.exceptions import ServiceException
 from quiz_management.models.quiz import Quiz
-from quiz_management.models.session import GameSession, SessionStatus
+from quiz_management.models.session import GameSession, SessionStatus, SessionStatusUpdate
 from quiz_management.repositories.session_repositories import SessionRepository
 from quiz_management.services.session_client import SessionServiceClient
 
@@ -73,3 +73,22 @@ class SessionService:
             raise ServiceException(404, "quiz_not_found", "Linked quiz not found")
 
         return session
+
+    async def update_session_status(self, session_id: UUID, data: SessionStatusUpdate) -> None:
+        session = await self.repository.get_session_by_id(session_id)
+        if not session:
+            raise ServiceException(404, "session_not_found", "Session not found")
+
+        if session.status == data.status:
+            return
+
+        if session.status == SessionStatus.FINISHED:
+            raise ServiceException(
+                409, "already_finished", "Cannot change status of a finished session"
+            )
+
+        session.status = data.status
+        if data.status == SessionStatus.IN_PROGRESS and data.started_at:
+            session.started_at = data.started_at
+
+        await self.repository.save_session(session)
