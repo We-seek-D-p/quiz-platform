@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from quiz_management.api.internal import router as internal_router
 from quiz_management.api.question import router as question_router
 from quiz_management.api.quiz import router as quiz_router
 from quiz_management.api.session import router as session_router
@@ -10,6 +11,7 @@ app = FastAPI(title="Quiz Management")
 app.include_router(quiz_router, prefix="/api/v1")
 app.include_router(question_router, prefix="/api/v1")
 app.include_router(session_router, prefix="/api/v1")
+app.include_router(internal_router)
 
 STATUS_TO_CODE = {
     400: "invalid_payload",

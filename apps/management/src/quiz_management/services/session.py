@@ -4,15 +4,21 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from quiz_management.core.exceptions import ServiceException
 from quiz_management.models.quiz import Quiz
-from quiz_management.models.session import GameSession, SessionStatus
+from quiz_management.models.session import (
+    GameSession,
+    SessionParticipant,
+    SessionResultsUpdate,
+    SessionStatus,
+    SessionStatusUpdate,
+)
 from quiz_management.repositories.session_repositories import SessionRepository
 from quiz_management.services.session_client import SessionServiceClient
 
 
 class SessionService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, session_client: SessionServiceClient):
         self.repository = SessionRepository(db)
-        self.client = SessionServiceClient()
+        self.client = session_client
 
     async def create_session(self, quiz: Quiz, user_id: UUID, idempotency_key: str) -> GameSession:
         if not quiz.questions:
@@ -59,3 +65,59 @@ class SessionService:
                 code="session_provider_unavailable",
                 message="Go session service is not responding",
             ) from None
+
+    async def get_bootstrap_data(self, session_id: UUID) -> GameSession:
+        session = await self.repository.get_session_with_quiz(session_id)
+
+        if not session:
+            raise ServiceException(404, "session_not_found", "Session not found")
+
+        if session.status == SessionStatus.FINISHED:
+            raise ServiceException(409, "already_finished", "Session already finished")
+
+        if not session.quiz:
+            raise ServiceException(404, "quiz_not_found", "Linked quiz not found")
+
+        return session
+
+    async def update_session_status(self, session_id: UUID, data: SessionStatusUpdate) -> None:
+        session = await self.repository.get_session_by_id(session_id)
+        if not session:
+            raise ServiceException(404, "session_not_found", "Session not found")
+
+        if session.status == data.status:
+            return
+
+        if session.status == SessionStatus.FINISHED:
+            raise ServiceException(
+                409, "already_finished", "Cannot change status of a finished session"
+            )
+
+        session.status = data.status
+        if data.status == SessionStatus.IN_PROGRESS and data.started_at:
+            session.started_at = data.started_at
+
+        await self.repository.save_session(session)
+
+    async def finalize_session(self, session_id: UUID, data: SessionResultsUpdate) -> None:
+        session = await self.repository.get_session_with_quiz(session_id)
+        if not session:
+            raise ServiceException(404, "session_not_found", "Session not found")
+
+        if session.status == SessionStatus.FINISHED:
+            return
+
+        participants = []
+        for p_data in data.participants:
+            participant = SessionParticipant(
+                session_id=session_id,
+                player_nickname=p_data.nickname,
+                score=p_data.score,
+                rank=p_data.rank,
+            )
+            participants.append(participant)
+
+        session.status = SessionStatus.FINISHED
+        session.finished_at = data.finished_at
+
+        await self.repository.save_results(session, participants)
