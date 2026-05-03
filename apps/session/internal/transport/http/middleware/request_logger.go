@@ -49,7 +49,8 @@ func RequestLogger(log *slog.Logger) func(http.Handler) http.Handler {
 				status = http.StatusOK
 			}
 
-			log.Info(
+			log.InfoContext(
+				r.Context(),
 				"http request handled",
 				"request_id", RequestIDFromContext(r.Context()),
 				"method", r.Method,

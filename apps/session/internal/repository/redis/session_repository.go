@@ -24,7 +24,7 @@ func (r *SessionRepository) Create(ctx context.Context, runtime domain.SessionRu
 
 	exists, err := r.client.Exists(ctx, metaKey).Result()
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrRedisUnavailable, err)
+		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
 	}
 	if exists > 0 {
 		return ErrSessionConflict
@@ -47,7 +47,7 @@ func (r *SessionRepository) Create(ctx context.Context, runtime domain.SessionRu
 	pipe.Set(ctx, snapshotKey, quizJSON, 0)
 
 	if _, err := pipe.Exec(ctx); err != nil {
-		return fmt.Errorf("%w: %v", ErrRedisUnavailable, err)
+		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
 	}
 
 	return nil
@@ -58,7 +58,7 @@ func (r *SessionRepository) Get(ctx context.Context, sessionID string) (domain.S
 
 	meta, err := r.client.HGetAll(ctx, metaKey).Result()
 	if err != nil {
-		return domain.SessionRuntime{}, fmt.Errorf("%w: %v", ErrRedisUnavailable, err)
+		return domain.SessionRuntime{}, fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
 	}
 	if len(meta) == 0 {
 		return domain.SessionRuntime{}, ErrSessionNotFound
@@ -85,7 +85,7 @@ func (r *SessionRepository) Delete(ctx context.Context, sessionID string) error 
 
 	meta, err := r.client.HGetAll(ctx, metaKey).Result()
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrRedisUnavailable, err)
+		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
 	}
 
 	roomCode := meta["room_code"]
@@ -98,7 +98,7 @@ func (r *SessionRepository) Delete(ctx context.Context, sessionID string) error 
 	}
 
 	if _, err := pipe.Exec(ctx); err != nil {
-		return fmt.Errorf("%w: %v", ErrRedisUnavailable, err)
+		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
 	}
 
 	return nil
