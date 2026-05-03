@@ -147,7 +147,7 @@ func (r *Repository) resultsPath(sessionID string) string {
 	return fmt.Sprintf("%s/sessions/%s/results", internalAPIPrefix, url.PathEscape(sessionID))
 }
 
-func (r *Repository) newRequest(ctx context.Context, method string, path string, payload any) (*http.Request, error) {
+func (r *Repository) newRequest(ctx context.Context, method, path string, payload any) (*http.Request, error) {
 	var body *bytes.Buffer
 
 	if payload != nil {

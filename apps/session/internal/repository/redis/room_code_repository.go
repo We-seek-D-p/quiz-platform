@@ -15,7 +15,7 @@ func NewRoomCodeRepository(client *goredis.Client) *RoomCodeRepository {
 	return &RoomCodeRepository{client: client}
 }
 
-func (r *RoomCodeRepository) Reserve(ctx context.Context, roomCode string, sessionID string) (bool, error) {
+func (r *RoomCodeRepository) Reserve(ctx context.Context, roomCode, sessionID string) (bool, error) {
 	key := roomCodeKey(roomCode)
 
 	ok, err := r.client.SetNX(ctx, key, sessionID, 0).Result()
