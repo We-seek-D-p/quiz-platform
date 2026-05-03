@@ -21,6 +21,6 @@ func NewRandomRoomCodeGenerator() *RandomRoomCodeGenerator {
 }
 
 func (g *RandomRoomCodeGenerator) Generate() string {
-	val := rand.Uint64N(g.limit)
+	val := rand.Uint64N(g.limit) //nolint:gosec
 	return fmt.Sprintf("%0*d", g.length, val)
 }
