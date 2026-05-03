@@ -13,6 +13,7 @@ from quiz_management.repositories.quiz_repository import QuizRepository
 from quiz_management.services.question import QuestionService
 from quiz_management.services.quiz import QuizService
 from quiz_management.services.session import SessionService
+from quiz_management.services.session_client import SessionServiceClient
 
 
 async def get_current_user_id(
@@ -61,3 +62,7 @@ async def get_session_service(
     db: Annotated[AsyncSession, Depends(get_session)],
 ) -> SessionService:
     return SessionService(db)
+
+
+def get_session_client() -> SessionServiceClient:
+    return SessionServiceClient()

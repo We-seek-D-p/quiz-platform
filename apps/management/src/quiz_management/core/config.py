@@ -11,6 +11,10 @@ class Settings(BaseSettings):
 
     database_url: str
 
+    management_service_url: str = "http://localhost:8000"
+    management_internal_token: str = "secret"  # noqa: S105
+    management_service_name: str = "management-service"
+
     model_config = SettingsConfigDict(
         env_prefix="MANAGEMENT_",
         env_file=BASE_DIR / ".env",
