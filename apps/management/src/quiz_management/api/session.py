@@ -11,7 +11,7 @@ from quiz_management.core.dependencies import (
     get_valid_quiz,
 )
 from quiz_management.models.session import SessionCreate, SessionPublic
-from quiz_management.service.session import SessionService
+from quiz_management.services.session import SessionService
 
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
 
