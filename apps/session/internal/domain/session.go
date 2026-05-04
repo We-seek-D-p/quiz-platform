@@ -40,6 +40,11 @@ type RuntimeProgress struct {
 	RevealUntil          *time.Time
 }
 
+type SessionSnapshot struct {
+	Runtime SessionRuntime
+	Quiz    QuizSnapshot
+}
+
 type SessionBootstrap struct {
 	SessionID string
 	QuizID    string

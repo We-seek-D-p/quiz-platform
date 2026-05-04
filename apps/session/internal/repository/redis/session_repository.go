@@ -3,7 +3,8 @@ package redis
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+    "errors"
+    "fmt"
 	"strconv"
 	"time"
 
@@ -22,6 +23,10 @@ func NewSessionRepository(client *goredis.Client) *SessionRepository {
 func (r *SessionRepository) Create(ctx context.Context, runtime domain.SessionRuntime, quiz domain.QuizSnapshot) error {
 	metaKey := sessionMetaKey(runtime.SessionID)
 	snapshotKey := sessionQuizSnapshotKey(runtime.SessionID)
+	totalQuestions := runtime.Progress.TotalQuestions
+	if totalQuestions == 0 {
+		totalQuestions = len(quiz.Questions)
+	}
 
 	exists, err := r.client.Exists(ctx, metaKey).Result()
 	if err != nil {
@@ -45,7 +50,7 @@ func (r *SessionRepository) Create(ctx context.Context, runtime domain.SessionRu
 		"status":                 string(runtime.Status),
 		"initialized_at":         runtime.InitializedAt.UTC().Format(time.RFC3339Nano),
 		"current_question_index": runtime.Progress.CurrentQuestionIndex,
-		"total_questions":        runtime.Progress.TotalQuestions,
+		"total_questions":        totalQuestions,
 		"started_at":             formatOptionalTime(runtime.Progress.StartedAt),
 		"finished_at":            formatOptionalTime(runtime.Progress.FinishedAt),
 		"deadline_at":            formatOptionalTime(runtime.Progress.DeadlineAt),
@@ -122,6 +127,29 @@ func (r *SessionRepository) Get(ctx context.Context, sessionID string) (domain.S
 			RevealUntil:          revealUntil,
 		},
 	}, nil
+}
+
+func (r *SessionRepository) GetSnapshot(ctx context.Context, sessionID string) (domain.SessionSnapshot, error) {
+	runtime, err := r.Get(ctx, sessionID)
+	if err != nil {
+		return domain.SessionSnapshot{}, err
+	}
+
+	snapshotJSON, err := r.client.Get(ctx, sessionQuizSnapshotKey(sessionID)).Result()
+	if err != nil {
+		if errors.Is(err, goredis.Nil) {
+			return domain.SessionSnapshot{}, ErrSessionNotFound
+		}
+
+		return domain.SessionSnapshot{}, fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+	}
+
+	var quiz domain.QuizSnapshot
+	if err := json.Unmarshal([]byte(snapshotJSON), &quiz); err != nil {
+		return domain.SessionSnapshot{}, fmt.Errorf("unmarshal quiz snapshot: %w", err)
+	}
+
+	return domain.SessionSnapshot{Runtime: runtime, Quiz: quiz}, nil
 }
 
 func (r *SessionRepository) Delete(ctx context.Context, sessionID string) error {

@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	goredis "github.com/redis/go-redis/v9"
@@ -24,6 +25,21 @@ func (r *RoomCodeRepository) Reserve(ctx context.Context, roomCode, sessionID st
 	}
 
 	return ok, nil
+}
+
+func (r *RoomCodeRepository) GetSessionID(ctx context.Context, roomCode string) (string, error) {
+	key := roomCodeKey(roomCode)
+
+	sessionID, err := r.client.Get(ctx, key).Result()
+	if err != nil {
+		if errors.Is(err, goredis.Nil) {
+			return "", ErrRoomNotFound
+		}
+
+		return "", fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+	}
+
+	return sessionID, nil
 }
 
 func (r *RoomCodeRepository) Release(ctx context.Context, roomCode string) error {
