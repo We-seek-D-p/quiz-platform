@@ -15,14 +15,40 @@ type ManagementRepository interface {
 type RuntimeRepository interface {
 	Create(ctx context.Context, runtime domain.SessionRuntime, quiz domain.QuizSnapshot) error
 	Get(ctx context.Context, sessionID string) (domain.SessionRuntime, error)
+	GetSnapshot(ctx context.Context, sessionID string) (domain.SessionSnapshot, error)
 	Delete(ctx context.Context, sessionID string) error
 }
 
 type RoomCodeRepository interface {
 	Reserve(ctx context.Context, roomCode string, sessionID string) (bool, error)
+	GetSessionID(ctx context.Context, roomCode string) (string, error)
 	Release(ctx context.Context, roomCode string) error
 }
 
 type RoomCodeGenerator interface {
 	Generate() string
+}
+
+type ParticipantRepository interface {
+	Create(ctx context.Context, sessionID string, participant domain.RuntimeParticipant) error
+	GetByToken(ctx context.Context, sessionID string, participantToken string) (domain.RuntimeParticipant, error)
+	GetByNickname(ctx context.Context, sessionID string, nickname string) (domain.RuntimeParticipant, error)
+	GetByID(ctx context.Context, sessionID string, participantID string) (domain.RuntimeParticipant, error)
+	List(ctx context.Context, sessionID string) ([]domain.RuntimeParticipant, error)
+	SetConnected(ctx context.Context, sessionID string, participantID string, connected bool) error
+	UpdateScoreAndRank(ctx context.Context, sessionID string, participantID string, score int, rank int) error
+}
+
+type AnswerRepository interface {
+	SubmitOnce(ctx context.Context, sessionID string, questionID string, answer domain.RuntimeAnswer) error
+	GetByParticipant(ctx context.Context, sessionID string, questionID string, participantID string) (domain.RuntimeAnswer, error)
+	ListByQuestion(ctx context.Context, sessionID string, questionID string) ([]domain.RuntimeAnswer, error)
+}
+
+type LeaderboardRepository interface {
+	AddScore(ctx context.Context, sessionID string, participantID string, delta int) (int, error)
+	SetScore(ctx context.Context, sessionID string, participantID string, score int) error
+	GetScore(ctx context.Context, sessionID string, participantID string) (int, error)
+	GetRank(ctx context.Context, sessionID string, participantID string) (int, error)
+	GetTop(ctx context.Context, sessionID string, limit int) ([]domain.LeaderboardEntry, error)
 }
