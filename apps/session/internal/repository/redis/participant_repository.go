@@ -13,6 +13,7 @@ import (
 )
 
 const participantCreateMaxRetries = 5
+const participantUpdateMaxRetries = 5
 
 type ParticipantRepository struct {
 	client *goredis.Client
@@ -175,7 +176,8 @@ func (r *ParticipantRepository) SetConnected(ctx context.Context, sessionID, par
 	}
 
 	participant.Connected = connected
-	participant.LastSeenAt = new(time.Now().UTC())
+	now := time.Now().UTC()
+	participant.LastSeenAt = &now
 
 	return r.update(ctx, sessionID, participant)
 }
@@ -201,27 +203,44 @@ func (r *ParticipantRepository) update(ctx context.Context, sessionID string, pa
 		return fmt.Errorf("marshal participant: %w", err)
 	}
 
-	exists, err := r.client.HExists(ctx, participantsKey, participant.ParticipantID).Result()
-	if err != nil {
+	for attempt := 0; attempt < participantUpdateMaxRetries; attempt++ {
+		err = r.client.Watch(ctx, func(tx *goredis.Tx) error {
+			exists, err := tx.HExists(ctx, participantsKey, participant.ParticipantID).Result()
+			if err != nil {
+				return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+			}
+			if !exists {
+				return ErrParticipantNotFound
+			}
+
+			_, err = tx.TxPipelined(ctx, func(pipe goredis.Pipeliner) error {
+				pipe.HSet(ctx, participantsKey, participant.ParticipantID, payload)
+				pipe.ZAdd(ctx, leaderboardKey, goredis.Z{
+					Score:  float64(participant.Score),
+					Member: participant.ParticipantID,
+				})
+				return nil
+			})
+
+			return err
+		}, participantsKey, leaderboardKey)
+
+		if err == nil {
+			return nil
+		}
+
+		if errors.Is(err, ErrParticipantNotFound) || errors.Is(err, ErrRedisUnavailable) {
+			return err
+		}
+
+		if errors.Is(err, goredis.TxFailedErr) {
+			continue
+		}
+
 		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
 	}
-	if !exists {
-		return ErrParticipantNotFound
-	}
 
-	pipe := r.client.TxPipeline()
-	pipe.HSet(ctx, participantsKey, participant.ParticipantID, payload)
-
-	pipe.ZAdd(ctx, leaderboardKey, goredis.Z{
-		Score:  float64(participant.Score),
-		Member: participant.ParticipantID,
-	})
-
-	if _, err := pipe.Exec(ctx); err != nil {
-		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
-	}
-
-	return nil
+	return fmt.Errorf("%w: participant update retries exceeded", ErrRedisUnavailable)
 }
 
 func unmarshalParticipant(payload string) (domain.RuntimeParticipant, error) {
