@@ -38,3 +38,17 @@ type ParticipantRepository interface {
 	SetConnected(ctx context.Context, sessionID string, participantID string, connected bool) error
 	UpdateScoreAndRank(ctx context.Context, sessionID string, participantID string, score int, rank int) error
 }
+
+type AnswerRepository interface {
+	SubmitOnce(ctx context.Context, sessionID string, questionID string, answer domain.RuntimeAnswer) error
+	GetByParticipant(ctx context.Context, sessionID string, questionID string, participantID string) (domain.RuntimeAnswer, error)
+	ListByQuestion(ctx context.Context, sessionID string, questionID string) ([]domain.RuntimeAnswer, error)
+}
+
+type LeaderboardRepository interface {
+	AddScore(ctx context.Context, sessionID string, participantID string, delta int) (int, error)
+	SetScore(ctx context.Context, sessionID string, participantID string, score int) error
+	GetScore(ctx context.Context, sessionID string, participantID string) (int, error)
+	GetRank(ctx context.Context, sessionID string, participantID string) (int, error)
+	GetTop(ctx context.Context, sessionID string, limit int) ([]domain.LeaderboardEntry, error)
+}

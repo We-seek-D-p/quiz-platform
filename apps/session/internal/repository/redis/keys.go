@@ -26,6 +26,10 @@ func sessionParticipantNicknameIndexKey(sessionID string) string {
 	return fmt.Sprintf("session:%s:participant_nickname_idx", sessionID)
 }
 
+func sessionAnswersKey(sessionID, questionID string) string {
+	return fmt.Sprintf("session:%s:answers:%s", sessionID, questionID)
+}
+
 func sessionLeaderboardKey(sessionID string) string {
 	return fmt.Sprintf("session:%s:leaderboard", sessionID)
 }
