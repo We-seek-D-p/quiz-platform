@@ -1,0 +1,35 @@
+:root {
+  --app-color-primary: var(--p-primary-500);
+  --app-color-primary-hover: var(--p-primary-600, var(--p-primary-500));
+
+  --app-color-surface: var(--p-surface-0);
+  --app-color-surface-hover: var(--p-surface-200);
+  --app-color-border: var(--p-surface-200);
+
+  --app-color-text: var(--p-text-color);
+  --app-color-text-muted: var(--p-surface-600);
+  --app-color-text-strong: var(--p-surface-900);
+
+  --app-bg-color: var(--p-surface-0, #ffffff);
+
+  --app-topbar-height: 3.5rem;
+  --app-control-radius: var(--p-border-radius, 0.5rem);
+  --app-sidebar-width: 16rem;
+  --app-sidebar-collapse-offset: 0.75rem;
+  --app-transition-fast: 200ms ease;
+}
+
+.app-dark {
+  --app-color-primary: var(--p-primary-400, var(--p-primary-500));
+  --app-color-primary-hover: var(--p-primary-300, var(--p-primary-400, var(--p-primary-500)));
+
+  --app-color-surface: var(--p-surface-900);
+  --app-color-surface-hover: var(--p-surface-800);
+  --app-color-border: var(--p-surface-800);
+
+  --app-color-text: var(--p-text-color);
+  --app-color-text-muted: var(--p-surface-200);
+  --app-color-text-strong: var(--p-surface-0);
+
+  --app-bg-color: var(--p-surface-950, #14151d);
+}
