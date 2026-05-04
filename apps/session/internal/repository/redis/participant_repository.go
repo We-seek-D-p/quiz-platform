@@ -27,10 +27,11 @@ func (r *ParticipantRepository) Create(ctx context.Context, sessionID string, pa
 	tokenIndexKey := sessionParticipantTokenIndexKey(sessionID)
 	nicknameIndexKey := sessionParticipantNicknameIndexKey(sessionID)
 
-	nicknameKey, err := normalizeNickname(participant.Nickname)
-	if err != nil {
+	if err := validateNickname(participant.Nickname); err != nil {
 		return err
 	}
+
+	nicknameKey := canonicalNicknameKey(participant.Nickname)
 	payload, err := json.Marshal(participant)
 	if err != nil {
 		return fmt.Errorf("marshal participant: %w", err)
@@ -108,10 +109,11 @@ func (r *ParticipantRepository) GetByToken(ctx context.Context, sessionID, parti
 func (r *ParticipantRepository) GetByNickname(ctx context.Context, sessionID, nickname string) (domain.RuntimeParticipant, error) {
 	nicknameIndexKey := sessionParticipantNicknameIndexKey(sessionID)
 
-	nicknameKey, err := normalizeNickname(nickname)
-	if err != nil {
+	if err := validateNickname(nickname); err != nil {
 		return domain.RuntimeParticipant{}, err
 	}
+
+	nicknameKey := canonicalNicknameKey(nickname)
 
 	participantID, err := r.client.HGet(ctx, nicknameIndexKey, nicknameKey).Result()
 	if err != nil {
@@ -173,8 +175,7 @@ func (r *ParticipantRepository) SetConnected(ctx context.Context, sessionID, par
 	}
 
 	participant.Connected = connected
-	now := time.Now().UTC()
-	participant.LastSeenAt = &now
+    participant.LastSeenAt = new(time.Now().UTC())
 
 	return r.update(ctx, sessionID, participant)
 }
@@ -232,11 +233,15 @@ func unmarshalParticipant(payload string) (domain.RuntimeParticipant, error) {
 	return participant, nil
 }
 
-func normalizeNickname(nickname string) (string, error) {
-	n := strings.ToLower(strings.TrimSpace(nickname))
+func validateNickname(nickname string) error {
+	n := strings.TrimSpace(nickname)
 	if len(n) > 64 || len(n) < 2 {
-		return "", ErrInvalidNickname
+		return ErrInvalidNickname
 	}
 
-	return n, nil
+	return nil
+}
+
+func canonicalNicknameKey(nickname string) string {
+	return strings.ToLower(strings.TrimSpace(nickname))
 }
