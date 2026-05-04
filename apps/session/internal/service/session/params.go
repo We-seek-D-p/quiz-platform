@@ -26,3 +26,35 @@ type GetSessionRuntimeParams struct {
 type DeleteSessionRuntimeParams struct {
 	SessionID string
 }
+
+type HostConnectParams struct {
+	SessionID  string
+	HostUserID string
+}
+
+type PlayerJoinParams struct {
+	RoomCode string
+	Nickname string
+}
+
+type PlayerReconnectParams struct {
+	RoomCode         string
+	ParticipantToken string
+}
+
+type StartGameParams struct {
+	SessionID  string
+	HostUserID string
+}
+
+type SubmitAnswerParams struct {
+	SessionID         string
+	ParticipantID     string
+	QuestionID        string
+	SelectedOptionIDs []string
+}
+
+type FinishGameParams struct {
+	SessionID  string
+	HostUserID string
+}
