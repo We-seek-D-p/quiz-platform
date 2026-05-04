@@ -17,6 +17,8 @@ type RuntimeRepository interface {
 	Get(ctx context.Context, sessionID string) (domain.SessionRuntime, error)
 	GetSnapshot(ctx context.Context, sessionID string) (domain.SessionSnapshot, error)
 	Delete(ctx context.Context, sessionID string) error
+	UpdateRuntime(ctx context.Context, runtime domain.SessionRuntime) error
+	SetStatusAndProgress(ctx context.Context, sessionID string, status domain.RuntimeStatus, progress domain.RuntimeProgress) error
 }
 
 type RoomCodeRepository interface {
