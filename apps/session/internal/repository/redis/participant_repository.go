@@ -175,7 +175,7 @@ func (r *ParticipantRepository) SetConnected(ctx context.Context, sessionID, par
 	}
 
 	participant.Connected = connected
-    participant.LastSeenAt = new(time.Now().UTC())
+	participant.LastSeenAt = new(time.Now().UTC())
 
 	return r.update(ctx, sessionID, participant)
 }
