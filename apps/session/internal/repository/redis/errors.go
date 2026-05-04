@@ -10,4 +10,5 @@ var (
 	ErrParticipantConflict = errors.New("participant already exists")
 	ErrSessionConflict     = errors.New("session already exists")
 	ErrRedisUnavailable    = errors.New("redis service unavailable")
+	ErrInvalidNickname     = errors.New("invalid nickname")
 )

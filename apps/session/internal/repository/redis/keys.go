@@ -25,3 +25,7 @@ func sessionParticipantTokenIndexKey(sessionID string) string {
 func sessionParticipantNicknameIndexKey(sessionID string) string {
 	return fmt.Sprintf("session:%s:participant_nickname_idx", sessionID)
 }
+
+func sessionLeaderboardKey(sessionID string) string {
+	return fmt.Sprintf("session:%s:leaderboard", sessionID)
+}

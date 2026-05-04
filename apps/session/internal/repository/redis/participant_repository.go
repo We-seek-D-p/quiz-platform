@@ -27,7 +27,10 @@ func (r *ParticipantRepository) Create(ctx context.Context, sessionID string, pa
 	tokenIndexKey := sessionParticipantTokenIndexKey(sessionID)
 	nicknameIndexKey := sessionParticipantNicknameIndexKey(sessionID)
 
-	nicknameKey := normalizeNickname(participant.Nickname)
+	nicknameKey, err := normalizeNickname(participant.Nickname)
+	if err != nil {
+		return err
+	}
 	payload, err := json.Marshal(participant)
 	if err != nil {
 		return fmt.Errorf("marshal participant: %w", err)
@@ -105,7 +108,12 @@ func (r *ParticipantRepository) GetByToken(ctx context.Context, sessionID, parti
 func (r *ParticipantRepository) GetByNickname(ctx context.Context, sessionID, nickname string) (domain.RuntimeParticipant, error) {
 	nicknameIndexKey := sessionParticipantNicknameIndexKey(sessionID)
 
-	participantID, err := r.client.HGet(ctx, nicknameIndexKey, normalizeNickname(nickname)).Result()
+	nicknameKey, err := normalizeNickname(nickname)
+	if err != nil {
+		return domain.RuntimeParticipant{}, err
+	}
+
+	participantID, err := r.client.HGet(ctx, nicknameIndexKey, nicknameKey).Result()
 	if err != nil {
 		if errors.Is(err, goredis.Nil) {
 			return domain.RuntimeParticipant{}, ErrParticipantNotFound
@@ -165,7 +173,8 @@ func (r *ParticipantRepository) SetConnected(ctx context.Context, sessionID, par
 	}
 
 	participant.Connected = connected
-	participant.LastSeenAt = new(time.Now().UTC())
+	now := time.Now().UTC()
+	participant.LastSeenAt = &now
 
 	return r.update(ctx, sessionID, participant)
 }
@@ -184,6 +193,7 @@ func (r *ParticipantRepository) UpdateScoreAndRank(ctx context.Context, sessionI
 
 func (r *ParticipantRepository) update(ctx context.Context, sessionID string, participant domain.RuntimeParticipant) error {
 	participantsKey := sessionParticipantsKey(sessionID)
+	leaderboardKey := sessionLeaderboardKey(sessionID)
 
 	payload, err := json.Marshal(participant)
 	if err != nil {
@@ -198,11 +208,17 @@ func (r *ParticipantRepository) update(ctx context.Context, sessionID string, pa
 		return ErrParticipantNotFound
 	}
 
-	if err := r.client.HSet(ctx, participantsKey, participant.ParticipantID, payload).Err(); err != nil {
+	pipe := r.client.TxPipeline()
+	pipe.HSet(ctx, participantsKey, participant.ParticipantID, payload)
+
+	pipe.ZAdd(ctx, leaderboardKey, goredis.Z{
+		Score:  float64(participant.Score),
+		Member: participant.ParticipantID,
+	})
+
+	if _, err := pipe.Exec(ctx); err != nil {
 		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
 	}
-
-	// TODO: make update operation atomic with leaderboard writes
 
 	return nil
 }
@@ -216,7 +232,11 @@ func unmarshalParticipant(payload string) (domain.RuntimeParticipant, error) {
 	return participant, nil
 }
 
-func normalizeNickname(nickname string) string {
-	// TODO: nickname normalization
-	return strings.ToLower(strings.TrimSpace(nickname))
+func normalizeNickname(nickname string) (string, error) {
+	n := strings.ToLower(strings.TrimSpace(nickname))
+	if len(n) > 64 || len(n) < 2 {
+		return "", ErrInvalidNickname
+	}
+
+	return n, nil
 }
