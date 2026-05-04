@@ -18,7 +18,15 @@
             "in": "header",
             "required": false,
             "schema": {
-              "type": "string",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "X-User-Id"
             }
           }
@@ -40,6 +48,58 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/QuizPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Quizzes"
+        ],
+        "summary": "Get Quizzes",
+        "operationId": "get_quizzes_api_v1_quizzes__get",
+        "parameters": [
+          {
+            "name": "X-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QuizPublic"
+                  },
+                  "title": "Response Get Quizzes Api V1 Quizzes  Get"
                 }
               }
             }
@@ -80,7 +140,15 @@
             "in": "header",
             "required": false,
             "schema": {
-              "type": "string",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "X-User-Id"
             }
           }
@@ -130,7 +198,15 @@
             "in": "header",
             "required": false,
             "schema": {
-              "type": "string",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "X-User-Id"
             }
           }
@@ -190,7 +266,15 @@
             "in": "header",
             "required": false,
             "schema": {
-              "type": "string",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "X-User-Id"
             }
           }
@@ -235,7 +319,15 @@
             "in": "header",
             "required": false,
             "schema": {
-              "type": "string",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "X-User-Id"
             }
           }
@@ -295,7 +387,15 @@
             "in": "header",
             "required": false,
             "schema": {
-              "type": "string",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "X-User-Id"
             }
           }
@@ -341,7 +441,36 @@
             "in": "path",
             "required": true,
             "schema": {
+              "type": "string",
+              "format": "uuid",
               "title": "Question Id"
+            }
+          },
+          {
+            "name": "quiz_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Quiz Id"
+            }
+          },
+          {
+            "name": "X-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
             }
           }
         ],
@@ -380,7 +509,36 @@
             "in": "path",
             "required": true,
             "schema": {
+              "type": "string",
+              "format": "uuid",
               "title": "Question Id"
+            }
+          },
+          {
+            "name": "quiz_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Quiz Id"
+            }
+          },
+          {
+            "name": "X-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
             }
           }
         ],
@@ -429,7 +587,36 @@
             "in": "path",
             "required": true,
             "schema": {
+              "type": "string",
+              "format": "uuid",
               "title": "Question Id"
+            }
+          },
+          {
+            "name": "quiz_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Quiz Id"
+            }
+          },
+          {
+            "name": "X-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
             }
           }
         ],
@@ -450,39 +637,250 @@
         }
       }
     },
-    "/api/v1/sessions": {
+    "/api/v1/sessions/": {
       "post": {
         "tags": [
           "Sessions"
         ],
         "summary": "Create Session",
-        "operationId": "create_session_api_v1_sessions_post",
+        "operationId": "create_session_api_v1_sessions__post",
         "parameters": [
           {
-            "name": "data",
-            "in": "query",
+            "name": "Idempotency-Key",
+            "in": "header",
             "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "X-User-Id",
+            "in": "header",
+            "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "$ref": "#/components/schemas/GameSession"
+                  "type": "string",
+                  "format": "uuid"
                 },
                 {
-                  "$ref": "#/components/schemas/SessionParticipant"
+                  "type": "null"
                 }
               ],
-              "title": "Data"
+              "title": "X-User-Id"
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionCreate"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SessionPublic"
+                }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/sessions/{session_id}/bootstrap": {
+      "get": {
+        "tags": [
+          "Internal"
+        ],
+        "summary": "Get Bootstrap",
+        "operationId": "get_bootstrap_internal_v1_sessions__session_id__bootstrap_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "X-Internal-Service",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "X-Internal-Service"
+            }
+          },
+          {
+            "name": "X-Internal-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "X-Internal-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionBootstrap"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/sessions/{session_id}/status": {
+      "patch": {
+        "tags": [
+          "Internal"
+        ],
+        "summary": "Update Session Status",
+        "operationId": "update_session_status_internal_v1_sessions__session_id__status_patch",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "X-Internal-Service",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "X-Internal-Service"
+            }
+          },
+          {
+            "name": "X-Internal-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "X-Internal-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionStatusUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/sessions/{session_id}/results": {
+      "put": {
+        "tags": [
+          "Internal"
+        ],
+        "summary": "Report Results",
+        "operationId": "report_results_internal_v1_sessions__session_id__results_put",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "X-Internal-Service",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "X-Internal-Service"
+            }
+          },
+          {
+            "name": "X-Internal-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "X-Internal-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionResultsUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -500,71 +898,6 @@
   },
   "components": {
     "schemas": {
-      "GameSession": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "quiz_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Quiz Id"
-          },
-          "room_code": {
-            "type": "string",
-            "maxLength": 10,
-            "title": "Room Code"
-          },
-          "host_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Host Id"
-          },
-          "status": {
-            "type": "string",
-            "title": "Status"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          },
-          "started_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Started At"
-          },
-          "finished_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Finished At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "quiz_id",
-          "room_code",
-          "host_id",
-          "status"
-        ],
-        "title": "GameSession"
-      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -681,6 +1014,35 @@
         "type": "object",
         "title": "OptionUpdate"
       },
+      "ParticipantResult": {
+        "properties": {
+          "participant_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Participant Id"
+          },
+          "nickname": {
+            "type": "string",
+            "title": "Nickname"
+          },
+          "score": {
+            "type": "integer",
+            "title": "Score"
+          },
+          "rank": {
+            "type": "integer",
+            "title": "Rank"
+          }
+        },
+        "type": "object",
+        "required": [
+          "participant_id",
+          "nickname",
+          "score",
+          "rank"
+        ],
+        "title": "ParticipantResult"
+      },
       "QuestionCreate": {
         "properties": {
           "text": {
@@ -706,6 +1068,8 @@
               "$ref": "#/components/schemas/OptionCreate"
             },
             "type": "array",
+            "maxItems": 4,
+            "minItems": 4,
             "title": "Options"
           }
         },
@@ -817,7 +1181,9 @@
                 "items": {
                   "$ref": "#/components/schemas/OptionUpdate"
                 },
-                "type": "array"
+                "type": "array",
+                "maxItems": 4,
+                "minItems": 4
               },
               {
                 "type": "null"
@@ -915,46 +1281,149 @@
         "type": "object",
         "title": "QuizUpdate"
       },
-      "SessionParticipant": {
+      "SessionBootstrap": {
+        "properties": {
+          "session": {
+            "$ref": "#/components/schemas/SessionPublic"
+          },
+          "quiz_snapshot": {
+            "$ref": "#/components/schemas/QuizPublic"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session",
+          "quiz_snapshot"
+        ],
+        "title": "SessionBootstrap"
+      },
+      "SessionCreate": {
+        "properties": {
+          "quiz_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Quiz Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "quiz_id"
+        ],
+        "title": "SessionCreate"
+      },
+      "SessionPublic": {
         "properties": {
           "id": {
             "type": "string",
             "format": "uuid",
             "title": "Id"
           },
-          "session_id": {
+          "quiz_id": {
             "type": "string",
             "format": "uuid",
-            "title": "Session Id"
+            "title": "Quiz Id"
           },
-          "player_nickname": {
-            "type": "string",
-            "maxLength": 255,
-            "title": "Player Nickname"
-          },
-          "score": {
-            "type": "integer",
-            "title": "Score",
-            "default": 0
-          },
-          "rank": {
+          "room_code": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Rank"
+            "title": "Room Code"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SessionStatus"
+          },
+          "host_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Host Id"
           }
         },
         "type": "object",
         "required": [
-          "session_id",
-          "player_nickname"
+          "id",
+          "quiz_id",
+          "room_code",
+          "status",
+          "host_id"
         ],
-        "title": "SessionParticipant"
+        "title": "SessionPublic"
+      },
+      "SessionResultsUpdate": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "finish_reason": {
+            "type": "string",
+            "title": "Finish Reason"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Finished At"
+          },
+          "participants": {
+            "items": {
+              "$ref": "#/components/schemas/ParticipantResult"
+            },
+            "type": "array",
+            "title": "Participants"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "finish_reason",
+          "finished_at",
+          "participants"
+        ],
+        "title": "SessionResultsUpdate"
+      },
+      "SessionStatus": {
+        "type": "string",
+        "enum": [
+          "initializing",
+          "lobby",
+          "in_progress",
+          "finished",
+          "init_failed"
+        ],
+        "title": "SessionStatus"
+      },
+      "SessionStatusUpdate": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/SessionStatus"
+          },
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "event_id"
+        ],
+        "title": "SessionStatusUpdate"
       },
       "ValidationError": {
         "properties": {
