@@ -13,3 +13,15 @@ func sessionQuizSnapshotKey(sessionID string) string {
 func roomCodeKey(roomCode string) string {
 	return fmt.Sprintf("room_code:%s", roomCode)
 }
+
+func sessionParticipantsKey(sessionID string) string {
+	return fmt.Sprintf("session:%s:participants", sessionID)
+}
+
+func sessionParticipantTokenIndexKey(sessionID string) string {
+	return fmt.Sprintf("session:%s:participant_token_idx", sessionID)
+}
+
+func sessionParticipantNicknameIndexKey(sessionID string) string {
+	return fmt.Sprintf("session:%s:participant_nickname_idx", sessionID)
+}

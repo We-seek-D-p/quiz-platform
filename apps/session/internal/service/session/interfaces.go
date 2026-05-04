@@ -28,3 +28,13 @@ type RoomCodeRepository interface {
 type RoomCodeGenerator interface {
 	Generate() string
 }
+
+type ParticipantRepository interface {
+	Create(ctx context.Context, sessionID string, participant domain.RuntimeParticipant) error
+	GetByToken(ctx context.Context, sessionID string, participantToken string) (domain.RuntimeParticipant, error)
+	GetByNickname(ctx context.Context, sessionID string, nickname string) (domain.RuntimeParticipant, error)
+	GetByID(ctx context.Context, sessionID string, participantID string) (domain.RuntimeParticipant, error)
+	List(ctx context.Context, sessionID string) ([]domain.RuntimeParticipant, error)
+	SetConnected(ctx context.Context, sessionID string, participantID string, connected bool) error
+	UpdateScoreAndRank(ctx context.Context, sessionID string, participantID string, score int, rank int) error
+}
