@@ -262,13 +262,74 @@ func (s *Service) PlayerReconnect(ctx context.Context, cmd PlayerReconnectParams
 }
 
 func (s *Service) StartGame(ctx context.Context, cmd StartGameParams) (StartGameResult, error) {
-	_ = ctx
+	sessionID := strings.TrimSpace(cmd.SessionID)
+	hostUserID := strings.TrimSpace(cmd.HostUserID)
 
-	if strings.TrimSpace(cmd.SessionID) == "" || strings.TrimSpace(cmd.HostUserID) == "" {
+	if sessionID == "" || hostUserID == "" {
 		return StartGameResult{}, ErrInvalidParams
 	}
 
-	return StartGameResult{}, ErrNotImplemented
+	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
+	if err != nil {
+		return StartGameResult{}, s.mapRedisError(err)
+	}
+
+	if snapshot.Runtime.HostID != hostUserID {
+		return StartGameResult{}, ErrForbidden
+	}
+
+	if snapshot.Runtime.Status != domain.RuntimeStatusLobby {
+		if snapshot.Runtime.Status == domain.RuntimeStatusFinished {
+			return StartGameResult{}, ErrGameAlreadyFinished
+		}
+		return StartGameResult{}, ErrGameAlreadyStarted
+	}
+
+	if len(snapshot.Quiz.Questions) == 0 {
+		return StartGameResult{}, ErrInternal
+	}
+
+	now := time.Now().UTC()
+	firstQuestion := snapshot.Quiz.Questions[0]
+
+	snapshot.Runtime.Status = domain.RuntimeStatusQuestionOpen
+	snapshot.Runtime.Progress.CurrentQuestionIndex = 0
+	snapshot.Runtime.Progress.StartedAt = &now
+	snapshot.Runtime.Progress.DeadlineAt = s.calculateDeadline(now, firstQuestion.TimeLimitSeconds)
+
+	if err := s.runtimeRepository.UpdateRuntime(ctx, snapshot.Runtime); err != nil {
+		return StartGameResult{}, s.mapRedisError(err)
+	}
+
+	eventID := uuid.NewString()
+	err = s.managementRepository.ReportSessionStatus(ctx, sessionID, domain.SessionStatusUpdate{
+		Status:    domain.PersistedStatusInProgress,
+		StartedAt: &now,
+		EventID:   eventID,
+	})
+	if err != nil {
+		return StartGameResult{}, s.mapManagementError(err)
+	}
+
+	participants, _ := s.participantRepository.List(ctx, sessionID)
+	snapshotDTO := s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, participants)
+
+	return StartGameResult{
+		QuestionOpened: QuestionOpenedDTO{
+			QuestionIndex:  0,
+			TotalQuestions: len(snapshot.Quiz.Questions),
+			Question:       *snapshotDTO.CurrentQuestion,
+			DeadlineAt:     *snapshot.Runtime.Progress.DeadlineAt,
+		},
+		SessionSnapshot:  snapshotDTO,
+		PersistedStatus:  string(domain.PersistedStatusInProgress),
+		PersistedEventID: eventID,
+	}, nil
+}
+
+func (s *Service) calculateDeadline(start time.Time, seconds int) *time.Time {
+	deadline := start.Add(time.Duration(seconds) * time.Second)
+	return &deadline
 }
 
 func (s *Service) SubmitAnswer(ctx context.Context, cmd SubmitAnswerParams) (SubmitAnswerResult, error) {
