@@ -13,13 +13,19 @@ import (
 type Handler struct {
 	log       *slog.Logger
 	readLimit int64
+	hub       *Hub
 }
 
 func NewHandler(cfg *config.Config, log *slog.Logger) *Handler {
 	return &Handler{
 		log:       log,
 		readLimit: int64(cfg.WS.ReadLimitBytes),
+		hub:       NewHub(log),
 	}
+}
+
+func (h *Handler) Hub() *Hub {
+	return h.hub
 }
 
 func (h *Handler) Host(w http.ResponseWriter, r *http.Request) {
@@ -44,5 +50,8 @@ func (h *Handler) acceptAndServe(w http.ResponseWriter, r *http.Request, role Co
 	}
 
 	wsConn := NewConnection(r.Context(), conn, h.log, h.readLimit, bootstrap)
+	wsConn.SetOnClose(func(conn *Connection) {
+		h.hub.Unbind(conn)
+	})
 	wsConn.Run()
 }

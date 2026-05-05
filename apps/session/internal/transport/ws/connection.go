@@ -26,12 +26,16 @@ type BootstrapData struct {
 }
 
 type Connection struct {
-	conn         *websocket.Conn
-	log          *slog.Logger
-	ctx          context.Context
-	cancel       context.CancelFunc
-	readLimit    int64
-	connectionID string
+	conn          *websocket.Conn
+	log           *slog.Logger
+	ctx           context.Context
+	cancel        context.CancelFunc
+	readLimit     int64
+	connectionID  string
+	metaMu        sync.RWMutex
+	sessionID     string
+	participantID string
+	onClose       func(*Connection)
 
 	bootstrap BootstrapData
 	outbound  chan []byte
@@ -61,6 +65,46 @@ func (c *Connection) Run() {
 	go c.writeLoop()
 	c.readLoop()
 	c.close(websocket.StatusNormalClosure, "connection closed")
+}
+
+func (c *Connection) ID() string {
+	return c.connectionID
+}
+
+func (c *Connection) Role() ConnectionRole {
+	return c.bootstrap.Role
+}
+
+func (c *Connection) SessionID() string {
+	c.metaMu.RLock()
+	defer c.metaMu.RUnlock()
+
+	return c.sessionID
+}
+
+func (c *Connection) ParticipantID() string {
+	c.metaMu.RLock()
+	defer c.metaMu.RUnlock()
+
+	return c.participantID
+}
+
+func (c *Connection) BindSession(sessionID string) {
+	c.metaMu.Lock()
+	c.sessionID = sessionID
+	c.metaMu.Unlock()
+}
+
+func (c *Connection) BindParticipant(participantID string) {
+	c.metaMu.Lock()
+	c.participantID = participantID
+	c.metaMu.Unlock()
+}
+
+func (c *Connection) SetOnClose(callback func(*Connection)) {
+	c.metaMu.Lock()
+	c.onClose = callback
+	c.metaMu.Unlock()
 }
 
 func (c *Connection) EnqueueText(payload []byte) bool {
@@ -138,9 +182,16 @@ func (c *Connection) writeLoop() {
 
 func (c *Connection) close(code websocket.StatusCode, reason string) {
 	c.closeOnce.Do(func() {
+		c.metaMu.RLock()
+		onClose := c.onClose
+		c.metaMu.RUnlock()
+
 		c.cancel()
 		close(c.outbound)
 		_ = c.conn.Close(code, reason)
+		if onClose != nil {
+			onClose(c)
+		}
 		c.log.InfoContext(context.Background(), "websocket disconnected", "connection_id", c.connectionID, "role", c.bootstrap.Role, "host_user_id", c.bootstrap.HostUserID)
 	})
 }

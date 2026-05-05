@@ -57,9 +57,5 @@ func validateEnvelope(envelope MessageEnvelope) error {
 		return NewWSError(ErrCodeInvalidPayload, "payload must be an object")
 	}
 
-	if err := validateMessageType(envelope.Type); err != nil {
-		return err
-	}
-
-	return nil
+	return validateMessageType(envelope.Type)
 }
