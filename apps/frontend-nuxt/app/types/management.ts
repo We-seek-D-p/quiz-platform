@@ -1,5 +1,7 @@
 export type QuestionSelectionType = 'single' | 'multiple'
 
+export type SessionStatus = 'initializing' | 'lobby' | 'in_progress' | 'finished' | 'init_failed'
+
 export type QuizCreate = {
   title: string
   description: string
@@ -16,6 +18,18 @@ export type QuizPublic = {
   description: string
   created_at: string
   updated_at: string
+}
+
+export type SessionCreate = {
+  quiz_id: string
+}
+
+export type SessionPublic = {
+  id: string
+  quiz_id: string
+  room_code: string | null
+  status: SessionStatus
+  host_id: string
 }
 
 export type OptionCreate = {
