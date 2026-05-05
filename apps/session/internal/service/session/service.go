@@ -160,7 +160,7 @@ func (s *Service) HostConnect(ctx context.Context, cmd HostConnectParams) (HostC
 
 	participants, err := s.participantRepository.List(ctx, sessionID)
 	if err != nil {
-		return HostConnectResult{}, ErrInternal
+		return HostConnectResult{}, s.mapParticipantRepositoryError(err)
 	}
 
 	return HostConnectResult{
@@ -178,7 +178,7 @@ func (s *Service) PlayerJoin(ctx context.Context, cmd PlayerJoinParams) (PlayerJ
 
 	sessionID, err := s.roomCodeRepository.GetSessionID(ctx, roomCode)
 	if err != nil {
-		return PlayerJoinResult{}, ErrRoomNotFound
+		return PlayerJoinResult{}, s.mapRoomCodeError(err)
 	}
 
 	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
@@ -206,16 +206,30 @@ func (s *Service) PlayerJoin(ctx context.Context, cmd PlayerJoinParams) (PlayerJ
 	}
 
 	if err := s.participantRepository.Create(ctx, sessionID, participant); err != nil {
-		return PlayerJoinResult{}, err
+		return PlayerJoinResult{}, s.mapParticipantRepositoryError(err)
 	}
 
-	rank, err := s.leaderboardRepository.AddScore(ctx, sessionID, pID, 0)
-	if err == nil {
-		_ = s.participantRepository.UpdateScoreAndRank(ctx, sessionID, pID, 0, rank)
-		participant.Rank = rank
+	newScore, err := s.leaderboardRepository.AddScore(ctx, sessionID, pID, 0)
+	if err != nil {
+		return PlayerJoinResult{}, s.mapLeaderboardRepositoryError(err)
 	}
 
-	allParticipants, _ := s.participantRepository.List(ctx, sessionID)
+	rank, err := s.leaderboardRepository.GetRank(ctx, sessionID, pID)
+	if err != nil {
+		return PlayerJoinResult{}, s.mapLeaderboardRepositoryError(err)
+	}
+
+	if err := s.participantRepository.UpdateScoreAndRank(ctx, sessionID, pID, newScore, rank); err != nil {
+		return PlayerJoinResult{}, s.mapParticipantRepositoryError(err)
+	}
+
+	participant.Score = newScore
+	participant.Rank = rank
+
+	allParticipants, err := s.participantRepository.List(ctx, sessionID)
+	if err != nil {
+		return PlayerJoinResult{}, s.mapParticipantRepositoryError(err)
+	}
 
 	return PlayerJoinResult{
 		JoinedLobby: JoinedLobbyDTO{
@@ -242,22 +256,31 @@ func (s *Service) PlayerReconnect(ctx context.Context, cmd PlayerReconnectParams
 
 	sessionID, err := s.roomCodeRepository.GetSessionID(ctx, roomCode)
 	if err != nil {
-		return PlayerReconnectResult{}, ErrRoomNotFound
+		return PlayerReconnectResult{}, s.mapRoomCodeError(err)
 	}
 
 	participant, err := s.participantRepository.GetByToken(ctx, sessionID, token)
 	if err != nil {
-		return PlayerReconnectResult{}, ErrInvalidParticipantToken
+		if errors.Is(err, redis.ErrParticipantNotFound) {
+			return PlayerReconnectResult{}, ErrInvalidParticipantToken
+		}
+
+		return PlayerReconnectResult{}, s.mapParticipantRepositoryError(err)
 	}
 
-	_ = s.participantRepository.SetConnected(ctx, sessionID, participant.ParticipantID, true)
+	if err := s.participantRepository.SetConnected(ctx, sessionID, participant.ParticipantID, true); err != nil {
+		return PlayerReconnectResult{}, s.mapParticipantRepositoryError(err)
+	}
 
 	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
 	if err != nil {
 		return PlayerReconnectResult{}, s.mapRedisError(err)
 	}
 
-	allParticipants, _ := s.participantRepository.List(ctx, sessionID)
+	allParticipants, err := s.participantRepository.List(ctx, sessionID)
+	if err != nil {
+		return PlayerReconnectResult{}, s.mapParticipantRepositoryError(err)
+	}
 
 	return PlayerReconnectResult{
 		SessionSnapshot: s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, allParticipants),
@@ -314,7 +337,10 @@ func (s *Service) StartGame(ctx context.Context, cmd StartGameParams) (StartGame
 		return StartGameResult{}, s.mapManagementError(err)
 	}
 
-	participants, _ := s.participantRepository.List(ctx, sessionID)
+	participants, err := s.participantRepository.List(ctx, sessionID)
+	if err != nil {
+		return StartGameResult{}, s.mapParticipantRepositoryError(err)
+	}
 	snapshotDTO := s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, participants)
 
 	return StartGameResult{
@@ -331,8 +357,7 @@ func (s *Service) StartGame(ctx context.Context, cmd StartGameParams) (StartGame
 }
 
 func (s *Service) calculateDeadline(start time.Time, seconds int) *time.Time {
-	deadline := start.Add(time.Duration(seconds) * time.Second)
-	return &deadline
+    return new(start.Add(time.Duration(seconds) * time.Second))
 }
 
 func (s *Service) SubmitAnswer(ctx context.Context, cmd SubmitAnswerParams) (SubmitAnswerResult, error) {
@@ -382,13 +407,17 @@ func (s *Service) SubmitAnswer(ctx context.Context, cmd SubmitAnswerParams) (Sub
 		return SubmitAnswerResult{}, err
 	}
 
+	if _, err := s.participantRepository.GetByID(ctx, sessionID, pID); err != nil {
+		return SubmitAnswerResult{}, s.mapParticipantRepositoryError(err)
+	}
+
 	answer := domain.RuntimeAnswer{
 		ParticipantID:     pID,
 		SelectedOptionIDs: cmd.SelectedOptionIDs,
 		SubmittedAt:       time.Now().UTC(),
 	}
 	if err := s.answersRepository.SubmitOnce(ctx, sessionID, qID, answer); err != nil {
-		return SubmitAnswerResult{}, ErrAnswerAlreadySubmitted
+		return SubmitAnswerResult{}, s.mapAnswerRepositoryError(err)
 	}
 
 	delta := 0
@@ -396,12 +425,29 @@ func (s *Service) SubmitAnswer(ctx context.Context, cmd SubmitAnswerParams) (Sub
 		delta = 1
 	}
 
-	newScore, _ := s.leaderboardRepository.AddScore(ctx, sessionID, pID, delta)
-	rank, _ := s.leaderboardRepository.GetRank(ctx, sessionID, pID)
-	_ = s.participantRepository.UpdateScoreAndRank(ctx, sessionID, pID, newScore, rank)
+	newScore, err := s.leaderboardRepository.AddScore(ctx, sessionID, pID, delta)
+	if err != nil {
+		return SubmitAnswerResult{}, s.mapLeaderboardRepositoryError(err)
+	}
 
-	answered, _ := s.answersRepository.ListByQuestion(ctx, sessionID, qID)
-	participants, _ := s.participantRepository.List(ctx, sessionID)
+	rank, err := s.leaderboardRepository.GetRank(ctx, sessionID, pID)
+	if err != nil {
+		return SubmitAnswerResult{}, s.mapLeaderboardRepositoryError(err)
+	}
+
+	if err := s.participantRepository.UpdateScoreAndRank(ctx, sessionID, pID, newScore, rank); err != nil {
+		return SubmitAnswerResult{}, s.mapParticipantRepositoryError(err)
+	}
+
+	answered, err := s.answersRepository.ListByQuestion(ctx, sessionID, qID)
+	if err != nil {
+		return SubmitAnswerResult{}, s.mapAnswerRepositoryError(err)
+	}
+
+	participants, err := s.participantRepository.List(ctx, sessionID)
+	if err != nil {
+		return SubmitAnswerResult{}, s.mapParticipantRepositoryError(err)
+	}
 
 	return SubmitAnswerResult{
 		AnswerAccepted: AnswerAcceptedDTO{
@@ -481,13 +527,22 @@ func (s *Service) FinishGame(ctx context.Context, cmd FinishGameParams) (FinishG
 	}
 
 	if snapshot.Runtime.Status == domain.RuntimeStatusFinished {
-		participants, _ := s.participantRepository.List(ctx, sessionID)
+		participants, err := s.participantRepository.List(ctx, sessionID)
+		if err != nil {
+			return FinishGameResult{}, s.mapParticipantRepositoryError(err)
+		}
+
+		persistedAt := time.Now().UTC()
+		if snapshot.Runtime.Progress.FinishedAt != nil {
+			persistedAt = *snapshot.Runtime.Progress.FinishedAt
+		}
+
 		return FinishGameResult{
 			SessionFinished: FinishedDTO{
 				LeaderboardTop: s.mapParticipantsToLeaderboard(participants),
 			},
 			PersistedStatus: string(domain.PersistedStatusFinished),
-			PersistedAt:     *snapshot.Runtime.Progress.FinishedAt,
+			PersistedAt:     persistedAt,
 		}, nil
 	}
 
@@ -499,7 +554,7 @@ func (s *Service) FinishGame(ctx context.Context, cmd FinishGameParams) (FinishG
 
 	participants, err := s.participantRepository.List(ctx, sessionID)
 	if err != nil {
-		return FinishGameResult{}, ErrInternal
+		return FinishGameResult{}, s.mapParticipantRepositoryError(err)
 	}
 
 	eventID := uuid.NewString()
@@ -564,9 +619,50 @@ func (s *Service) mapManagementError(err error) error {
 }
 
 func (s *Service) mapRedisError(err error) error {
+	if errors.Is(err, redis.ErrSessionNotFound) {
+		return ErrSessionRuntimeNotFound
+	}
 	if errors.Is(err, redis.ErrSessionConflict) {
 		return ErrSessionRuntimeConflict
 	}
+	return ErrRuntimeStoreUnavailable
+}
+
+func (s *Service) mapRoomCodeError(err error) error {
+	if errors.Is(err, redis.ErrRoomNotFound) {
+		return ErrRoomNotFound
+	}
+
+	return ErrRuntimeStoreUnavailable
+}
+
+func (s *Service) mapParticipantRepositoryError(err error) error {
+	if errors.Is(err, redis.ErrNicknameTaken) {
+		return ErrNicknameTaken
+	}
+	if errors.Is(err, redis.ErrParticipantNotFound) {
+		return ErrParticipantNotFound
+	}
+	if errors.Is(err, redis.ErrInvalidNickname) {
+		return ErrInvalidParams
+	}
+
+	return ErrRuntimeStoreUnavailable
+}
+
+func (s *Service) mapAnswerRepositoryError(err error) error {
+	if errors.Is(err, redis.ErrAnswerAlreadySubmitted) {
+		return ErrAnswerAlreadySubmitted
+	}
+
+	return ErrRuntimeStoreUnavailable
+}
+
+func (s *Service) mapLeaderboardRepositoryError(err error) error {
+	if errors.Is(err, redis.ErrLeaderboardEntryNotFound) {
+		return ErrParticipantNotFound
+	}
+
 	return ErrRuntimeStoreUnavailable
 }
 
@@ -599,7 +695,6 @@ func (s *Service) buildSessionSnapshot(
 	currIdx := runtime.Progress.CurrentQuestionIndex
 	if (runtime.Status == domain.RuntimeStatusQuestionOpen || runtime.Status == domain.RuntimeStatusAnswerReveal) &&
 		currIdx < len(quiz.Questions) {
-
 		q := quiz.Questions[currIdx]
 
 		dto.CurrentQuestion = &SnapshotQuestionDTO{
@@ -657,7 +752,11 @@ func (s *Service) CloseCurrentQuestionAndBuildReveal(ctx context.Context, sessio
 		return SnapshotDTO{}, s.mapRedisError(err)
 	}
 
-	participants, _ := s.participantRepository.List(ctx, sessionID)
+	participants, err := s.participantRepository.List(ctx, sessionID)
+	if err != nil {
+		return SnapshotDTO{}, s.mapParticipantRepositoryError(err)
+	}
+
 	return s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, participants), nil
 }
 
@@ -690,6 +789,10 @@ func (s *Service) AdvanceToNextQuestion(ctx context.Context, sessionID string) (
 		return SnapshotDTO{}, s.mapRedisError(err)
 	}
 
-	participants, _ := s.participantRepository.List(ctx, sessionID)
+	participants, err := s.participantRepository.List(ctx, sessionID)
+	if err != nil {
+		return SnapshotDTO{}, s.mapParticipantRepositoryError(err)
+	}
+
 	return s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, participants), nil
 }

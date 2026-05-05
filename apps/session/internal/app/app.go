@@ -27,8 +27,20 @@ func New(cfg *config.Config, log *slog.Logger) *App {
 	runtimeRepository := redisrepo.NewSessionRepository(redisClient)
 	roomCodeRepository := redisrepo.NewRoomCodeRepository(redisClient)
 	roomCodeGenerator := redisrepo.NewRandomRoomCodeGenerator()
+	participantRepository := redisrepo.NewParticipantRepository(redisClient)
+	answersRepository := redisrepo.NewAnswersRepository(redisClient)
+	leaderboardRepository := redisrepo.NewLeaderboardRepository(redisClient)
 	managementRepository := managementrepo.NewRepository(cfg)
-	svc := sessionservice.NewService(managementRepository, runtimeRepository, roomCodeRepository, roomCodeGenerator)
+	svc := sessionservice.NewService(
+		managementRepository,
+		runtimeRepository,
+		roomCodeRepository,
+		roomCodeGenerator,
+		participantRepository,
+		answersRepository,
+		leaderboardRepository,
+		cfg.Game.RevealDuration(),
+	)
 	internalSessionHandler := handler.NewInternalSessionHandler(svc)
 
 	router := httptransport.NewRouter(cfg, log, internalSessionHandler)
