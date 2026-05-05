@@ -1,0 +1,57 @@
+set dotenv-load := true
+set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
+
+APP := "session-service"
+BIN_DIR := "bin"
+BIN := BIN_DIR + "/" + APP
+CMD := "./cmd/session-service"
+
+# List recipes
+[default]
+[private]
+default:
+    @just --list --unsorted
+
+# Download Go dependencies
+install:
+    go mod download
+
+# Tidy Go module files
+tidy:
+    go mod tidy
+
+# Format Go code and tidy modules
+fmt:
+    gofmt -w .
+    go mod tidy
+
+# Check Go formatting
+fmt-check:
+    test -z "$(gofmt -l .)"
+
+# Run go vet checks
+vet:
+    go vet ./...
+
+# Run golangci-lint
+lint:
+    golangci-lint run ./...
+
+# Run Go tests
+test:
+    go test ./...
+
+# Build service binary
+build:
+    mkdir -p {{ BIN_DIR }}
+    go build -o {{ BIN }} {{ CMD }}
+
+# Run service locally
+run:
+    go run {{ CMD }}
+
+# Check Go code
+check: fmt-check vet lint test
+
+# Run all Go tasks
+all: fmt vet lint test build

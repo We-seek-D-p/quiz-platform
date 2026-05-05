@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID, uuid7
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlmodel import Field, Relationship, SQLModel
 
 from quiz_management.models.quiz import Quiz
@@ -9,6 +9,14 @@ from quiz_management.models.quiz import Quiz
 
 def get_utc_now():
     return datetime.now(UTC).replace(tzinfo=None)
+
+
+def validate_options_list(v: list | None):
+    if v is None:
+        return v
+    if not any(opt.is_correct for opt in v):
+        raise ValueError("At least one option must be correct")
+    return v
 
 
 class TimestampMixin(SQLModel):
@@ -71,7 +79,12 @@ class QuestionCreate(BaseModel):
     selection_type: str = "single"
     time_limit_seconds: int = 15
     order_index: int
-    options: list[OptionCreate]
+    options: list[OptionCreate] = Field(..., min_length=4, max_length=4)
+
+    @field_validator("options")
+    @classmethod
+    def validate_opts(cls, v):
+        return validate_options_list(v)
 
 
 class OptionUpdate(BaseModel):
@@ -86,7 +99,12 @@ class QuestionUpdate(BaseModel):
     selection_type: str | None = None
     time_limit_seconds: int | None = None
     order_index: int | None = None
-    options: list[OptionUpdate] | None = None
+    options: list[OptionUpdate] | None = Field(None, min_length=4, max_length=4)
+
+    @field_validator("options")
+    @classmethod
+    def validate_opts(cls, v):
+        return validate_options_list(v)
 
 
 class QuestionPublic(BaseModel):

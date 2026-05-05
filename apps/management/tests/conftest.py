@@ -43,8 +43,13 @@ def question_service(mock_db: AsyncMock) -> QuestionService:
 
 
 @pytest.fixture
-def session_service(mock_db: AsyncMock) -> SessionService:
-    return SessionService(mock_db)
+def mock_session_client() -> AsyncMock:
+    return AsyncMock()
+
+
+@pytest.fixture
+def session_service(mock_db: AsyncMock, mock_session_client: AsyncMock) -> SessionService:
+    return SessionService(mock_db, mock_session_client)
 
 
 @pytest.fixture
@@ -116,6 +121,8 @@ def question_create_factory(
             or [
                 option_create_factory(text="A", order_index=0, is_correct=True),
                 option_create_factory(text="B", order_index=1, is_correct=False),
+                option_create_factory(text="C", order_index=2, is_correct=False),
+                option_create_factory(text="D", order_index=3, is_correct=False),
             ],
         )
 
