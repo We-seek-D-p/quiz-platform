@@ -526,51 +526,9 @@ func (s *Service) FinishGame(ctx context.Context, cmd FinishGameParams) (FinishG
 		return FinishGameResult{}, ErrForbidden
 	}
 
-	if snapshot.Runtime.Status == domain.RuntimeStatusFinished {
-		participants, err := s.participantRepository.List(ctx, sessionID)
-		if err != nil {
-			return FinishGameResult{}, s.mapParticipantRepositoryError(err)
-		}
-
-		persistedAt := time.Now().UTC()
-		if snapshot.Runtime.Progress.FinishedAt != nil {
-			persistedAt = *snapshot.Runtime.Progress.FinishedAt
-		}
-
-		return FinishGameResult{
-			SessionFinished: FinishedDTO{
-				LeaderboardTop: s.mapParticipantsToLeaderboard(participants),
-			},
-			PersistedStatus: string(domain.PersistedStatusFinished),
-			PersistedAt:     persistedAt,
-		}, nil
-	}
-
-	now := time.Now().UTC()
-	snapshot.Runtime.Status = domain.RuntimeStatusFinished
-	snapshot.Runtime.Progress.FinishedAt = &now
-	snapshot.Runtime.Progress.DeadlineAt = nil
-	snapshot.Runtime.Progress.RevealUntil = nil
-
-	participants, err := s.participantRepository.List(ctx, sessionID)
+	_, participants, persistedAt, err := s.finishSession(ctx, snapshot, "manual")
 	if err != nil {
-		return FinishGameResult{}, s.mapParticipantRepositoryError(err)
-	}
-
-	eventID := uuid.NewString()
-	results := domain.SessionResults{
-		EventID:      eventID,
-		FinishReason: "manual",
-		FinishedAt:   now,
-		Participants: s.mapToManagementResults(participants),
-	}
-
-	if err := s.managementRepository.ReportSessionResults(ctx, sessionID, results); err != nil {
-		return FinishGameResult{}, s.mapManagementError(err)
-	}
-
-	if err := s.runtimeRepository.UpdateRuntime(ctx, snapshot.Runtime); err != nil {
-		return FinishGameResult{}, s.mapRedisError(err)
+		return FinishGameResult{}, err
 	}
 
 	return FinishGameResult{
@@ -578,8 +536,60 @@ func (s *Service) FinishGame(ctx context.Context, cmd FinishGameParams) (FinishG
 			LeaderboardTop: s.mapParticipantsToLeaderboard(participants),
 		},
 		PersistedStatus: string(domain.PersistedStatusFinished),
-		PersistedAt:     now,
+		PersistedAt:     persistedAt,
 	}, nil
+}
+
+func (s *Service) finishSession(
+	ctx context.Context,
+	snapshot domain.SessionSnapshot,
+	finishReason string,
+) (domain.SessionRuntime, []domain.RuntimeParticipant, time.Time, error) {
+	sessionID := snapshot.Runtime.SessionID
+
+	if snapshot.Runtime.Status == domain.RuntimeStatusFinished {
+		participants, err := s.participantRepository.List(ctx, sessionID)
+		if err != nil {
+			return domain.SessionRuntime{}, nil, time.Time{}, s.mapParticipantRepositoryError(err)
+		}
+
+		persistedAt := time.Now().UTC()
+		if snapshot.Runtime.Progress.FinishedAt != nil {
+			persistedAt = *snapshot.Runtime.Progress.FinishedAt
+		}
+
+		return snapshot.Runtime, participants, persistedAt, nil
+	}
+
+	now := time.Now().UTC()
+	runtime := snapshot.Runtime
+	runtime.Status = domain.RuntimeStatusFinished
+	runtime.Progress.FinishedAt = &now
+	runtime.Progress.DeadlineAt = nil
+	runtime.Progress.RevealUntil = nil
+
+	participants, err := s.participantRepository.List(ctx, sessionID)
+	if err != nil {
+		return domain.SessionRuntime{}, nil, time.Time{}, s.mapParticipantRepositoryError(err)
+	}
+
+	eventID := uuid.NewString()
+	results := domain.SessionResults{
+		EventID:      eventID,
+		FinishReason: finishReason,
+		FinishedAt:   now,
+		Participants: s.mapToManagementResults(participants),
+	}
+
+	if err := s.managementRepository.ReportSessionResults(ctx, sessionID, results); err != nil {
+		return domain.SessionRuntime{}, nil, time.Time{}, s.mapManagementError(err)
+	}
+
+	if err := s.runtimeRepository.UpdateRuntime(ctx, runtime); err != nil {
+		return domain.SessionRuntime{}, nil, time.Time{}, s.mapRedisError(err)
+	}
+
+	return runtime, participants, now, nil
 }
 
 func (s *Service) mapToManagementResults(ps []domain.RuntimeParticipant) []domain.SessionResultParticipant {
@@ -694,6 +704,7 @@ func (s *Service) buildSessionSnapshot(
 
 	currIdx := runtime.Progress.CurrentQuestionIndex
 	if (runtime.Status == domain.RuntimeStatusQuestionOpen || runtime.Status == domain.RuntimeStatusAnswerReveal) &&
+		currIdx >= 0 &&
 		currIdx < len(quiz.Questions) {
 		q := quiz.Questions[currIdx]
 
@@ -741,11 +752,14 @@ func (s *Service) CloseCurrentQuestionAndBuildReveal(ctx context.Context, sessio
 		return SnapshotDTO{}, ErrInvalidStateTransition
 	}
 
-	now := time.Now().UTC()
-	revealUntil := now.Add(s.revealDuration)
+	currIdx := snapshot.Runtime.Progress.CurrentQuestionIndex
+	if currIdx < 0 || currIdx >= len(snapshot.Quiz.Questions) {
+		return SnapshotDTO{}, ErrInvalidStateTransition
+	}
 
-	snapshot.Runtime.Status = domain.RuntimeStatusAnswerReveal
-	snapshot.Runtime.Progress.RevealUntil = &revealUntil
+	now := time.Now().UTC()
+    snapshot.Runtime.Status = domain.RuntimeStatusAnswerReveal
+	snapshot.Runtime.Progress.RevealUntil = new(now.Add(s.revealDuration))
 	snapshot.Runtime.Progress.DeadlineAt = nil
 
 	if err := s.runtimeRepository.UpdateRuntime(ctx, snapshot.Runtime); err != nil {
@@ -774,7 +788,12 @@ func (s *Service) AdvanceToNextQuestion(ctx context.Context, sessionID string) (
 
 	nextIndex := snapshot.Runtime.Progress.CurrentQuestionIndex + 1
 	if nextIndex >= len(snapshot.Quiz.Questions) {
-		return SnapshotDTO{}, ErrInvalidStateTransition
+		runtime, participants, _, err := s.finishSession(ctx, snapshot, "completed")
+		if err != nil {
+			return SnapshotDTO{}, err
+		}
+
+		return s.buildSessionSnapshot(runtime, snapshot.Quiz, participants), nil
 	}
 
 	now := time.Now().UTC()
