@@ -1,193 +1,435 @@
 <script setup lang="ts">
-import Card from 'primevue/card'
-import ProgressBar from 'primevue/progressbar'
 import Button from 'primevue/button'
+import Card from 'primevue/card'
+import Message from 'primevue/message'
+import ProgressBar from 'primevue/progressbar'
+import Tag from 'primevue/tag'
+import { useToast } from 'primevue/usetoast'
+import { useGameSessionStore } from '~/stores/gameSession'
 
-const currentQuestionIndex = ref(0)
-const timerProgress = ref(80)
-const isSubmitted = ref(false)
+definePageMeta({
+  layout: 'game',
+  title: 'Игра',
+})
 
-const testQuestion = {
-  text: 'В каком году был основан МАИ?',
-  selection_type: 'single', // multiple
-  options: [
-    { id: 1, text: '1928', is_correct: false },
-    { id: 2, text: '1930', is_correct: true },
-    { id: 3, text: '1942', is_correct: false },
-    { id: 4, text: '1954', is_correct: false }
-  ]
+const route = useRoute()
+const router = useRouter()
+const toast = useToast()
+const sessionStore = useGameSessionStore()
+
+const isBootstrapping = ref(true)
+
+const selectionTypeLabel = computed(() => {
+  if (!sessionStore.currentQuestion) {
+    return ''
+  }
+
+  return sessionStore.currentQuestion.selection_type === 'multiple'
+    ? 'Выберите несколько вариантов'
+    : 'Выберите один вариант'
+})
+
+const timerProgress = ref(0)
+const timerLabel = ref('--')
+
+let timerInterval: ReturnType<typeof setInterval> | null = null
+
+const clearTimer = () => {
+  if (!timerInterval) {
+    return
+  }
+
+  clearInterval(timerInterval)
+  timerInterval = null
 }
 
-const selectedIds = ref<number[]>([])
+const recomputeTimer = () => {
+  const countdownTarget =
+    sessionStore.phase === 'question_open'
+      ? sessionStore.deadlineAt
+      : sessionStore.phase === 'answer_reveal'
+        ? sessionStore.revealUntil
+        : null
 
-const toggleOption = (id: number) => {
-  if (isSubmitted.value) return
-  selectedIds.value = [id]
+  if (!countdownTarget) {
+    timerProgress.value = 0
+    timerLabel.value = '--'
+    return
+  }
+
+  const endMs = new Date(countdownTarget).getTime()
+  const nowMs = Date.now()
+  const remainingMs = Math.max(0, endMs - nowMs)
+  const remainingSec = Math.ceil(remainingMs / 1000)
+  timerLabel.value = `${remainingSec}s`
+
+  if (sessionStore.phase === 'question_open' && sessionStore.currentQuestion?.time_limit_seconds) {
+    const total = Math.max(1, sessionStore.currentQuestion.time_limit_seconds)
+    timerProgress.value = Math.min(100, Math.max(0, (remainingSec / total) * 100))
+    return
+  }
+
+  if (sessionStore.phase === 'answer_reveal') {
+    const revealWindowMs = 5000
+    timerProgress.value = Math.min(100, Math.max(0, (remainingMs / revealWindowMs) * 100))
+    return
+  }
+
+  timerProgress.value = 0
 }
 
-const handleAnswer = () => {
-  isSubmitted.value = true
+const startTimer = () => {
+  clearTimer()
+  recomputeTimer()
+
+  timerInterval = setInterval(() => {
+    recomputeTimer()
+  }, 300)
 }
 
-const getOptionClass = (option: any) => {
-  return {
-    'option-btn--active': selectedIds.value.includes(option.id) && !isSubmitted.value,
-    'option-btn--correct': isSubmitted.value && option.is_correct,
-    'option-btn--wrong': isSubmitted.value && selectedIds.value.includes(option.id) && !option.is_correct
+const tryAutoConnect = async () => {
+  const roomFromQuery = typeof route.query.room_code === 'string' ? route.query.room_code.trim() : ''
+  const nicknameFromQuery = typeof route.query.nickname === 'string' ? route.query.nickname.trim() : ''
+
+  try {
+    await sessionStore.playerReconnect(roomFromQuery || undefined)
+    return
+  } catch {
+    if (!roomFromQuery || !nicknameFromQuery) {
+      await router.replace('/')
+      return
+    }
+
+    try {
+      await sessionStore.playerJoin(roomFromQuery, nicknameFromQuery)
+    } catch (error: unknown) {
+      const detail = error instanceof Error ? error.message : 'Попробуйте снова'
+      toast.add({
+        group: 'global',
+        severity: 'error',
+        summary: 'Не удалось подключиться к игре',
+        detail,
+        life: 3500,
+      })
+      await router.replace({ path: '/', query: roomFromQuery ? { room_code: roomFromQuery } : {} })
+    }
   }
 }
+
+const retryConnection = async () => {
+  if (sessionStore.connectionStatus === 'connected' || sessionStore.connectionStatus === 'connecting') {
+    return
+  }
+
+  await tryAutoConnect()
+}
+
+const toggleOption = (optionId: string) => {
+  sessionStore.toggleSelectedOption(optionId)
+}
+
+const submitAnswer = () => {
+  try {
+    sessionStore.submitCurrentAnswer()
+  } catch (error: unknown) {
+    toast.add({
+      group: 'global',
+      severity: 'error',
+      summary: 'Ошибка отправки',
+      detail: error instanceof Error ? error.message : 'Не удалось отправить ответ',
+      life: 3000,
+    })
+  }
+}
+
+watch(
+  () => sessionStore.shouldReturnToJoin,
+  async (value) => {
+    if (!value) {
+      return
+    }
+
+    const query: Record<string, string> = {}
+    if (sessionStore.roomCode) {
+      query.room_code = sessionStore.roomCode
+    }
+
+    await router.replace({ path: '/', query })
+  },
+)
+
+watch(
+  () => [sessionStore.phase, sessionStore.deadlineAt, sessionStore.revealUntil, sessionStore.currentQuestion?.time_limit_seconds] as const,
+  () => {
+    startTimer()
+  },
+)
+
+onMounted(async () => {
+  await tryAutoConnect()
+  startTimer()
+  isBootstrapping.value = false
+})
+
+onBeforeUnmount(() => {
+  clearTimer()
+})
+
+useHead({
+  title: 'Игра',
+})
 </script>
 
 <template>
-    <div class="quiz-game__container">
-      <Card class="quiz-card">
-        <template #content>
-          <ProgressBar :value="timerProgress" :show-value="false" class="quiz-game__progress" />
-          <div class="quiz-game__main">
-            <div class="quiz-game__question-wrap">
-              <span class="quiz-game__meta">Вопрос {{ currentQuestionIndex + 1 }}</span>
-              <h1 class="quiz-game__title">{{ testQuestion.text }}</h1>
-            </div>
-
-            <div class="quiz-game__options">
-              <button
-                v-for="option in testQuestion.options"
-                :key="option.id"
-                class="option-btn"
-                :class="getOptionClass(option)"
-                @click="toggleOption(option.id)"
-              >
-                <span class="option-btn__text">{{ option.text }}</span>
-                <i v-if="selectedIds.includes(option.id) && !isSubmitted" class="pi pi-check" />
-              </button>
-            </div>
-
-            <div class="quiz-game__actions">
-              <Button
-                :label="'Ответить'"
-                :disabled="selectedIds.length === 0"
-                class="quiz-game__submit"
-                @click="handleAnswer"
-              />
-            </div>
+  <section class="game-screen">
+    <Card class="game-screen__card">
+      <template #content>
+        <div class="game-screen__header">
+          <div class="game-screen__header-left">
+            <Tag
+              :severity="sessionStore.isConnected ? 'success' : sessionStore.isReconnecting ? 'warn' : 'danger'"
+              :value="sessionStore.isConnected ? 'Подключено' : sessionStore.isReconnecting ? 'Переподключение' : 'Не в сети'"
+            />
+            <span class="game-screen__room">Комната: {{ sessionStore.roomCode ?? '--------' }}</span>
           </div>
-        </template>
-      </Card>
-    </div>
+
+          <span class="game-screen__timer">{{ timerLabel }}</span>
+        </div>
+
+        <ProgressBar :value="timerProgress" :show-value="false" class="game-screen__progress" />
+
+        <Message v-if="sessionStore.lastError" severity="warn" :closable="false">
+          {{ sessionStore.lastError }}
+        </Message>
+
+        <Message v-if="sessionStore.reconnectNotice" severity="success" :closable="false">
+          {{ sessionStore.reconnectNotice }}
+        </Message>
+
+        <div v-if="isBootstrapping" class="game-screen__state">
+          <p>Подключаемся к игровой сессии...</p>
+        </div>
+
+        <div
+          v-else-if="sessionStore.connectionStatus === 'disconnected' && !sessionStore.shouldReturnToJoin"
+          class="game-screen__state"
+        >
+          <p>Соединение потеряно. Попробуйте подключиться снова.</p>
+          <Button label="Переподключиться" icon="pi pi-refresh" @click="retryConnection" />
+        </div>
+
+        <div v-else-if="sessionStore.phase === 'lobby'" class="game-screen__state">
+          <h1 class="game-screen__title">Лобби</h1>
+          <p class="game-screen__subtitle">Ожидайте начала игры от хоста</p>
+          <p class="game-screen__meta">Игроков в комнате: {{ sessionStore.playersCount }}</p>
+        </div>
+
+        <div v-else-if="sessionStore.phase === 'question_open' && sessionStore.currentQuestion" class="game-screen__question">
+          <div class="game-screen__question-head">
+            <p class="game-screen__meta">
+              Вопрос {{ sessionStore.currentQuestionNumber }}
+              <span v-if="sessionStore.totalQuestions">/ {{ sessionStore.totalQuestions }}</span>
+            </p>
+            <p class="game-screen__subtitle">{{ selectionTypeLabel }}</p>
+          </div>
+
+          <h1 class="game-screen__title">{{ sessionStore.currentQuestion.text }}</h1>
+
+          <div class="game-screen__options">
+            <button
+              v-for="option in sessionStore.currentQuestion.options"
+              :key="option.id"
+              type="button"
+              class="option-btn"
+              :class="{ 'option-btn--active': sessionStore.selectedOptionIds.includes(option.id) }"
+              :disabled="sessionStore.hasSubmittedAnswer"
+              @click="toggleOption(option.id)"
+            >
+              <span>{{ option.text }}</span>
+              <i v-if="sessionStore.selectedOptionIds.includes(option.id)" class="pi pi-check" />
+            </button>
+          </div>
+
+          <Message v-if="sessionStore.answerSubmitError" severity="error" :closable="false">
+            {{ sessionStore.answerSubmitError }}
+          </Message>
+
+          <div class="game-screen__actions">
+            <Button
+              label="Ответить"
+              icon="pi pi-send"
+              :disabled="!sessionStore.canSubmitAnswer"
+              :loading="sessionStore.isSubmittingAnswer"
+              @click="submitAnswer"
+            />
+            <Tag v-if="sessionStore.hasSubmittedAnswer" severity="success" value="Ответ принят" />
+          </div>
+        </div>
+
+        <div v-else-if="sessionStore.phase === 'answer_reveal'" class="game-screen__state">
+          <h1 class="game-screen__title">Ответы раскрыты</h1>
+          <p class="game-screen__subtitle">Сейчас откроется следующий вопрос</p>
+          <p class="game-screen__meta" v-if="sessionStore.myScore !== null">
+            Ваш счет: {{ sessionStore.myScore }} · Место: {{ sessionStore.myRank ?? '-' }}
+          </p>
+
+          <ol class="game-screen__leaderboard" v-if="sessionStore.leaderboardTop.length > 0">
+            <li v-for="entry in sessionStore.leaderboardTop" :key="`${entry.nickname}-${entry.rank}`">
+              <span>{{ entry.rank }}. {{ entry.nickname }}</span>
+              <strong>{{ entry.score }}</strong>
+            </li>
+          </ol>
+        </div>
+
+        <div v-else-if="sessionStore.phase === 'finished'" class="game-screen__state">
+          <h1 class="game-screen__title">Игра завершена</h1>
+          <p class="game-screen__subtitle">Финальный рейтинг</p>
+
+          <ol class="game-screen__leaderboard" v-if="sessionStore.leaderboardTop.length > 0">
+            <li v-for="entry in sessionStore.leaderboardTop" :key="`${entry.nickname}-${entry.rank}`">
+              <span>{{ entry.rank }}. {{ entry.nickname }}</span>
+              <strong>{{ entry.score }}</strong>
+            </li>
+          </ol>
+
+          <div class="game-screen__actions">
+            <Button label="Вернуться на главную" outlined @click="router.replace('/')" />
+          </div>
+        </div>
+      </template>
+    </Card>
+  </section>
 </template>
 
 <style scoped>
-.quiz-game {
+.game-screen {
+  display: grid;
+  min-height: calc(100dvh - 1.5rem);
+  place-items: center;
+}
+
+.game-screen__card {
+  width: min(100%, 52rem);
+  border-radius: 1.25rem;
+}
+
+.game-screen__header {
   display: flex;
-  flex-direction: column;
-  height: 100vh;
-  height: 100dvh;
-  background-color: var(--p-content-hover-background);
-}
-
-.quiz-game__header {
-  padding: 1.5rem 2rem;
-  width: 100%;
-}
-
-.quiz-game__progress {
-  height: 8px;
-}
-
-.quiz-game__container {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding: 2rem;
-}
-
-.quiz-card {
-  width: 100%;
-  max-width: 700px;
-  border-radius: 1.5rem;
-}
-
-.quiz-game__main {
-  display: flex;
-  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.75rem;
   align-items: center;
-  gap: 2.5rem;
-  padding: 1rem;
+  flex-wrap: wrap;
 }
 
-.quiz-game__question-wrap {
-  text-align: center;
+.game-screen__header-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
-.quiz-game__meta {
-  font-size: 0.875rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: var(--app-color-text-muted);
+.game-screen__room {
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
-.quiz-game__title {
-  margin: 0.75rem 0 0;
-  font-size: 2rem;
+.game-screen__timer {
   font-weight: 700;
 }
 
-.quiz-game__options {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
+.game-screen__progress {
+  margin-top: 0.75rem;
+  margin-bottom: 1rem;
+  height: 0.625rem;
+}
+
+.game-screen__state,
+.game-screen__question {
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
-  width: 100%;
+}
+
+.game-screen__question-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.game-screen__title {
+  margin: 0;
+  font-size: clamp(1.5rem, 2.6vw, 2.2rem);
+  line-height: 1.2;
+}
+
+.game-screen__subtitle,
+.game-screen__meta {
+  margin: 0;
+  color: var(--app-color-text-muted);
+}
+
+.game-screen__options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
 }
 
 .option-btn {
-  background: var(--p-content-background);
   border: 1px solid var(--app-color-border);
-  border-radius: 1rem;
-  padding: 1.25rem;
+  border-radius: 0.875rem;
+  padding: 0.9rem;
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
+  background: var(--p-content-background);
+  color: inherit;
+  font: inherit;
   cursor: pointer;
-  transition: all 0.2s;
-  min-height: 70px;
+  text-align: left;
+  transition:
+    border-color var(--app-transition-fast),
+    background-color var(--app-transition-fast);
 }
 
 .option-btn--active {
   border-color: var(--app-color-primary);
-  background: color-mix(in srgb, var(--app-color-primary) 8%, transparent);
+  background: color-mix(in srgb, var(--app-color-primary) 12%, transparent);
 }
 
-.option-btn--correct {
-  border-color: rgb(34, 197, 94);
-  background: rgba(34, 197, 94, 0.2);
+.option-btn:disabled {
+  cursor: default;
+  opacity: 0.7;
 }
 
-.option-btn--wrong {
-  border-color: rgba(255, 98, 98);
-  background: rgba(255, 98, 98, 0.2)
-}
-
-.option-btn__text {
-  font-size: 1.1rem;
-  font-weight: 700;
-}
-
-.quiz-game__actions {
-  width: 100%;
+.game-screen__actions {
   display: flex;
-  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
-.quiz-game__submit {
-  width: 100%;
-  max-width: 300px;
-  padding: 1rem;
-  font-weight: 800;
+.game-screen__leaderboard {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.game-screen__leaderboard li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid var(--app-color-border);
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.75rem;
 }
 
 @media (max-width: 768px) {
-  .quiz-game__options {
+  .game-screen__options {
     grid-template-columns: 1fr;
   }
 }
