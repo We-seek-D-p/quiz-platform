@@ -464,13 +464,93 @@ func (s *Service) checkIsCorrect(q domain.QuestionSnapshot, selected []string) b
 }
 
 func (s *Service) FinishGame(ctx context.Context, cmd FinishGameParams) (FinishGameResult, error) {
-	_ = ctx
+	sessionID := strings.TrimSpace(cmd.SessionID)
+	hostUserID := strings.TrimSpace(cmd.HostUserID)
 
-	if strings.TrimSpace(cmd.SessionID) == "" || strings.TrimSpace(cmd.HostUserID) == "" {
+	if sessionID == "" || hostUserID == "" {
 		return FinishGameResult{}, ErrInvalidParams
 	}
 
-	return FinishGameResult{}, ErrNotImplemented
+	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
+	if err != nil {
+		return FinishGameResult{}, s.mapRedisError(err)
+	}
+
+	if snapshot.Runtime.HostID != hostUserID {
+		return FinishGameResult{}, ErrForbidden
+	}
+
+	if snapshot.Runtime.Status == domain.RuntimeStatusFinished {
+		participants, _ := s.participantRepository.List(ctx, sessionID)
+		return FinishGameResult{
+			SessionFinished: FinishedDTO{
+				LeaderboardTop: s.mapParticipantsToLeaderboard(participants),
+			},
+			PersistedStatus: string(domain.PersistedStatusFinished),
+			PersistedAt:     *snapshot.Runtime.Progress.FinishedAt,
+		}, nil
+	}
+
+	now := time.Now().UTC()
+	snapshot.Runtime.Status = domain.RuntimeStatusFinished
+	snapshot.Runtime.Progress.FinishedAt = &now
+	snapshot.Runtime.Progress.DeadlineAt = nil
+	snapshot.Runtime.Progress.RevealUntil = nil
+
+	participants, err := s.participantRepository.List(ctx, sessionID)
+	if err != nil {
+		return FinishGameResult{}, ErrInternal
+	}
+
+	eventID := uuid.NewString()
+	results := domain.SessionResults{
+		EventID:      eventID,
+		FinishReason: "manual",
+		FinishedAt:   now,
+		Participants: s.mapToManagementResults(participants),
+	}
+
+	if err := s.managementRepository.ReportSessionResults(ctx, sessionID, results); err != nil {
+		return FinishGameResult{}, s.mapManagementError(err)
+	}
+
+	if err := s.runtimeRepository.UpdateRuntime(ctx, snapshot.Runtime); err != nil {
+		return FinishGameResult{}, s.mapRedisError(err)
+	}
+
+	return FinishGameResult{
+		SessionFinished: FinishedDTO{
+			LeaderboardTop: s.mapParticipantsToLeaderboard(participants),
+		},
+		PersistedStatus: string(domain.PersistedStatusFinished),
+		PersistedAt:     now,
+	}, nil
+}
+
+func (s *Service) mapToManagementResults(ps []domain.RuntimeParticipant) []domain.SessionResultParticipant {
+	res := make([]domain.SessionResultParticipant, len(ps))
+	for i, p := range ps {
+		res[i] = domain.SessionResultParticipant{
+			ParticipantID: p.ParticipantID,
+			Nickname:      p.Nickname,
+			Score:         p.Score,
+			Rank:          p.Rank,
+		}
+	}
+	return res
+}
+
+func (s *Service) mapParticipantsToLeaderboard(ps []domain.RuntimeParticipant) []SnapshotLeaderboardEntryDTO {
+	res := make([]SnapshotLeaderboardEntryDTO, len(ps))
+	for i, p := range ps {
+		res[i] = SnapshotLeaderboardEntryDTO{
+			ParticipantID: p.ParticipantID,
+			Nickname:      p.Nickname,
+			Score:         p.Score,
+			Rank:          p.Rank,
+		}
+	}
+	return res
 }
 
 func (s *Service) mapManagementError(err error) error {
