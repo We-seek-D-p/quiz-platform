@@ -177,6 +177,72 @@ func (r *SessionRepository) Delete(ctx context.Context, sessionID string) error 
 	return nil
 }
 
+func (r *SessionRepository) UpdateRuntime(ctx context.Context, runtime domain.SessionRuntime) error {
+	metaKey := sessionMetaKey(runtime.SessionID)
+
+	exists, err := r.client.Exists(ctx, metaKey).Result()
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+	}
+	if exists == 0 {
+		return ErrSessionNotFound
+	}
+
+	update := map[string]any{
+		"session_id":             runtime.SessionID,
+		"quiz_id":                runtime.QuizID,
+		"host_id":                runtime.HostID,
+		"room_code":              runtime.RoomCode,
+		"status":                 string(runtime.Status),
+		"initialized_at":         runtime.InitializedAt.UTC().Format(time.RFC3339Nano),
+		"current_question_index": runtime.Progress.CurrentQuestionIndex,
+		"total_questions":        runtime.Progress.TotalQuestions,
+		"started_at":             formatOptionalTime(runtime.Progress.StartedAt),
+		"finished_at":            formatOptionalTime(runtime.Progress.FinishedAt),
+		"deadline_at":            formatOptionalTime(runtime.Progress.DeadlineAt),
+		"reveal_until":           formatOptionalTime(runtime.Progress.RevealUntil),
+	}
+
+	if err := r.client.HSet(ctx, metaKey, update).Err(); err != nil {
+		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+	}
+
+	return nil
+}
+
+func (r *SessionRepository) SetStatusAndProgress(
+	ctx context.Context,
+	sessionID string,
+	status domain.RuntimeStatus,
+	progress domain.RuntimeProgress,
+) error {
+	metaKey := sessionMetaKey(sessionID)
+
+	exists, err := r.client.Exists(ctx, metaKey).Result()
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+	}
+	if exists == 0 {
+		return ErrSessionNotFound
+	}
+
+	update := map[string]any{
+		"status":                 string(status),
+		"current_question_index": progress.CurrentQuestionIndex,
+		"total_questions":        progress.TotalQuestions,
+		"started_at":             formatOptionalTime(progress.StartedAt),
+		"finished_at":            formatOptionalTime(progress.FinishedAt),
+		"deadline_at":            formatOptionalTime(progress.DeadlineAt),
+		"reveal_until":           formatOptionalTime(progress.RevealUntil),
+	}
+
+	if err := r.client.HSet(ctx, metaKey, update).Err(); err != nil {
+		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+	}
+
+	return nil
+}
+
 func formatOptionalTime(value *time.Time) string {
 	if value == nil {
 		return ""
