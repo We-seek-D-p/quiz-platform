@@ -18,9 +18,10 @@ import (
 )
 
 type App struct {
-	cfg    *config.Config
-	log    *slog.Logger
-	server *httptransport.Server
+	cfg       *config.Config
+	log       *slog.Logger
+	server    *httptransport.Server
+	wsHandler *wstransport.Handler
 }
 
 func New(cfg *config.Config, log *slog.Logger) *App {
@@ -49,9 +50,10 @@ func New(cfg *config.Config, log *slog.Logger) *App {
 	server := httptransport.NewServer(cfg.HTTP.Address(), router)
 
 	return &App{
-		cfg:    cfg,
-		log:    log,
-		server: server,
+		cfg:       cfg,
+		log:       log,
+		server:    server,
+		wsHandler: wsHandler,
 	}
 }
 
@@ -59,6 +61,7 @@ func (a *App) Run(ctx context.Context) error {
 	serverErrCh := make(chan error, 1)
 
 	a.log.InfoContext(ctx, "starting http server", "addr", a.cfg.HTTP.Address())
+	a.wsHandler.StartTimerLoop(ctx)
 	go func() {
 		serverErrCh <- a.server.Run()
 	}()

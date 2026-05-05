@@ -20,19 +20,27 @@ type Handler struct {
 	readLimit int64
 	hub       *Hub
 	service   *sessionservice.Service
+	timers    *timerLoop
 }
 
 func NewHandler(cfg *config.Config, log *slog.Logger, service *sessionservice.Service) *Handler {
+	hub := NewHub(log)
+
 	return &Handler{
 		log:       log,
 		readLimit: int64(cfg.WS.ReadLimitBytes),
-		hub:       NewHub(log),
+		hub:       hub,
 		service:   service,
+		timers:    newTimerLoop(log, service, hub),
 	}
 }
 
 func (h *Handler) Hub() *Hub {
 	return h.hub
+}
+
+func (h *Handler) StartTimerLoop(ctx context.Context) {
+	go h.timers.Run(ctx)
 }
 
 func (h *Handler) Host(w http.ResponseWriter, r *http.Request) {

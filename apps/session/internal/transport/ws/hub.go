@@ -116,6 +116,18 @@ func (h *Hub) BroadcastPlayers(sessionID string, payload []byte) int {
 	return len(recipients) - len(stale)
 }
 
+func (h *Hub) ActiveSessionIDs() []string {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	ids := make([]string, 0, len(h.sessions))
+	for sessionID := range h.sessions {
+		ids = append(ids, sessionID)
+	}
+
+	return ids
+}
+
 func (h *Hub) ensureSessionPeersLocked(sessionID string) *sessionPeers {
 	peers, ok := h.sessions[sessionID]
 	if ok {
