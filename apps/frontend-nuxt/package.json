@@ -10,6 +10,7 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
+    "@primevue/nuxt-module": "^4.5.5",
     "@primevue/themes": "^4.5.4",
     "@tailwindcss/vite": "^4.1.14",
     "nuxt": "^4.4.4",

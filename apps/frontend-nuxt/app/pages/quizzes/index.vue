@@ -11,7 +11,7 @@ useHead({
 </script>
 
 <template>
-  <section class="page-stub">Quizzes list page (next step)</section>
+  <section class="page-stub">Список квизов</section>
 </template>
 
 <style scoped>

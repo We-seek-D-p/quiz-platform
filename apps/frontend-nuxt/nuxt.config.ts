@@ -1,12 +1,17 @@
 import tailwindcss from '@tailwindcss/vite'
+import { primeVueOptions } from './app/theme/primevue-options'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+  modules: ['@primevue/nuxt-module'],
   css: ['~/assets/styles/index.css', 'primeicons/primeicons.css'],
   vite: {
     plugins: [tailwindcss()],
+  },
+  primevue: {
+    options: primeVueOptions,
   },
   runtimeConfig: {
     public: {
