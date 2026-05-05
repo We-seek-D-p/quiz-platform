@@ -44,13 +44,11 @@ type Connection struct {
 }
 
 func NewConnection(parent context.Context, conn *websocket.Conn, log *slog.Logger, readLimit int64, bootstrap BootstrapData) *Connection {
-	ctx, cancel := context.WithCancel(parent)
-
 	return &Connection{
 		conn:         conn,
 		log:          log,
-		ctx:          ctx,
-		cancel:       cancel,
+		ctx:          parent,
+		cancel:       nil,
 		readLimit:    readLimit,
 		connectionID: uuid.NewString(),
 		bootstrap:    bootstrap,
@@ -59,6 +57,12 @@ func NewConnection(parent context.Context, conn *websocket.Conn, log *slog.Logge
 }
 
 func (c *Connection) Run() {
+	runCtx, cancel := context.WithCancel(c.ctx)
+	c.metaMu.Lock()
+	c.ctx = runCtx
+	c.cancel = cancel
+	c.metaMu.Unlock()
+
 	c.conn.SetReadLimit(c.readLimit)
 
 	c.log.InfoContext(c.ctx, "websocket connected", "connection_id", c.connectionID, "role", c.bootstrap.Role, "host_user_id", c.bootstrap.HostUserID)
@@ -219,7 +223,9 @@ func (c *Connection) close(code websocket.StatusCode, reason string) {
 		onClose := c.onClose
 		c.metaMu.RUnlock()
 
-		c.cancel()
+		if c.cancel != nil {
+			c.cancel()
+		}
 		close(c.outbound)
 		_ = c.conn.Close(code, reason)
 		if onClose != nil {

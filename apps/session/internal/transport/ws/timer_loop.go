@@ -112,7 +112,8 @@ func (l *timerLoop) handleDeadlineTransition(ctx context.Context, sessionID, fro
 		_ = l.hub.SendHost(sessionID, hostPayload)
 	}
 
-	for _, playerReveal := range revealResult.PlayerReveals {
+	for i := range revealResult.PlayerReveals {
+		playerReveal := &revealResult.PlayerReveals[i]
 		playerPayload, encodeErr := EncodeEnvelope("answer_reveal", playerReveal.Payload)
 		if encodeErr != nil {
 			continue
