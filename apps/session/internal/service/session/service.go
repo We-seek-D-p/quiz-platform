@@ -333,9 +333,11 @@ func (s *Service) calculateDeadline(start time.Time, seconds int) *time.Time {
 }
 
 func (s *Service) SubmitAnswer(ctx context.Context, cmd SubmitAnswerParams) (SubmitAnswerResult, error) {
-	_ = ctx
+	sessionID := strings.TrimSpace(cmd.SessionID)
+	pID := strings.TrimSpace(cmd.ParticipantID)
+	qID := strings.TrimSpace(cmd.QuestionID)
 
-	if strings.TrimSpace(cmd.SessionID) == "" || strings.TrimSpace(cmd.ParticipantID) == "" || strings.TrimSpace(cmd.QuestionID) == "" {
+	if sessionID == "" || pID == "" || qID == "" {
 		return SubmitAnswerResult{}, ErrInvalidParams
 	}
 	if len(cmd.SelectedOptionIDs) == 0 {
@@ -354,7 +356,108 @@ func (s *Service) SubmitAnswer(ctx context.Context, cmd SubmitAnswerParams) (Sub
 		seen[normalized] = struct{}{}
 	}
 
-	return SubmitAnswerResult{}, ErrNotImplemented
+	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
+	if err != nil {
+		return SubmitAnswerResult{}, s.mapRedisError(err)
+	}
+
+	if snapshot.Runtime.Status != domain.RuntimeStatusQuestionOpen {
+		return SubmitAnswerResult{}, ErrQuestionNotActive
+	}
+
+	currIdx := snapshot.Runtime.Progress.CurrentQuestionIndex
+	if currIdx < 0 || currIdx >= len(snapshot.Quiz.Questions) {
+		return SubmitAnswerResult{}, ErrQuestionNotActive
+	}
+
+	currentQuestion := snapshot.Quiz.Questions[currIdx]
+	if currentQuestion.ID != qID {
+		return SubmitAnswerResult{}, ErrQuestionNotActive
+	}
+
+	if err := s.validateAnswerPayload(currentQuestion, cmd.SelectedOptionIDs); err != nil {
+		return SubmitAnswerResult{}, err
+	}
+
+	answer := domain.RuntimeAnswer{
+		ParticipantID:     pID,
+		SelectedOptionIDs: cmd.SelectedOptionIDs,
+		SubmittedAt:       time.Now().UTC(),
+	}
+	if err := s.answersRepository.SubmitOnce(ctx, sessionID, qID, answer); err != nil {
+		return SubmitAnswerResult{}, ErrAnswerAlreadySubmitted
+	}
+
+	delta := 0
+	if s.checkIsCorrect(currentQuestion, cmd.SelectedOptionIDs) {
+		delta = 1
+	}
+
+	newScore, _ := s.leaderboardRepository.AddScore(ctx, sessionID, pID, delta)
+	rank, _ := s.leaderboardRepository.GetRank(ctx, sessionID, pID)
+	_ = s.participantRepository.UpdateScoreAndRank(ctx, sessionID, pID, newScore, rank)
+
+	answered, _ := s.answersRepository.ListByQuestion(ctx, sessionID, qID)
+	participants, _ := s.participantRepository.List(ctx, sessionID)
+
+	return SubmitAnswerResult{
+		AnswerAccepted: AnswerAcceptedDTO{
+			QuestionID: qID,
+			AcceptedAt: answer.SubmittedAt,
+		},
+		HostProgress: &QuestionProgressDTO{
+			QuestionID:    qID,
+			AnsweredCount: len(answered),
+			TotalPlayers:  len(participants),
+		},
+	}, nil
+}
+
+func (s *Service) validateAnswerPayload(q domain.QuestionSnapshot, selected []string) error {
+	validIDs := make(map[string]struct{})
+	for _, opt := range q.Options {
+		validIDs[opt.ID] = struct{}{}
+	}
+
+	for _, id := range selected {
+		if _, ok := validIDs[id]; !ok {
+			return ErrInvalidAnswerPayload
+		}
+	}
+
+	st := string(q.SelectionType)
+	if st == "single" && len(selected) != 1 {
+		return ErrSelectionCountInvalid
+	}
+	if st == "multiple" && len(selected) < 1 {
+		return ErrSelectionCountInvalid
+	}
+	return nil
+}
+
+func (s *Service) checkIsCorrect(q domain.QuestionSnapshot, selected []string) bool {
+	var correctIDs []string
+	for _, opt := range q.Options {
+		if opt.IsCorrect {
+			correctIDs = append(correctIDs, opt.ID)
+		}
+	}
+
+	if len(correctIDs) != len(selected) {
+		return false
+	}
+
+	selectedMap := make(map[string]struct{}, len(selected))
+	for _, id := range selected {
+		selectedMap[id] = struct{}{}
+	}
+
+	for _, id := range correctIDs {
+		if _, ok := selectedMap[id]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Service) FinishGame(ctx context.Context, cmd FinishGameParams) (FinishGameResult, error) {
