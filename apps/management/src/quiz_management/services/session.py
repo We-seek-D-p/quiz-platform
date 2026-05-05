@@ -1,5 +1,6 @@
 from uuid import UUID
 
+import httpx
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from quiz_management.core.exceptions import ServiceException
@@ -40,10 +41,19 @@ class SessionService:
                 host_id=user_id,
                 idempotency_key=idempotency_key,
             )
-        except Exception:
-            new_session.status = SessionStatus.INIT_FAILED
-            await self.repository.save_session(new_session)
-            await self.client.delete_session(new_session.id)
+        except httpx.HTTPError:
+            reconcile_response = await self._reconcile_session_runtime(new_session.id)
+            if reconcile_response and reconcile_response.status_code == 200:
+                return await self._apply_initialized_runtime(new_session, reconcile_response)
+
+            await self._mark_init_failed_and_compensate(new_session)
+            if reconcile_response and reconcile_response.status_code == 404:
+                raise ServiceException(
+                    status_code=424,
+                    code="session_provider_error",
+                    message="Go session service runtime was not found during reconcile",
+                ) from None
+
             raise ServiceException(
                 status_code=503,
                 code="session_provider_unavailable",
@@ -51,20 +61,61 @@ class SessionService:
             ) from None
 
         if response.status_code in (200, 201):
-            data = response.json()
-            new_session.room_code = data["room_code"]
-            new_session.status = SessionStatus.LOBBY
-            await self.repository.save_session(new_session)
-            return new_session
+            return await self._apply_initialized_runtime(new_session, response)
 
-        new_session.status = SessionStatus.INIT_FAILED
-        await self.repository.save_session(new_session)
-        await self.client.delete_session(new_session.id)
-        raise ServiceException(
-            status_code=424,
-            code="session_provider_error",
-            message="Go session service failed to initialize runtime",
-        )
+        await self._mark_init_failed_and_compensate(new_session)
+        raise self._map_init_error_response(response)
+
+    async def _apply_initialized_runtime(
+        self, session: GameSession, response: httpx.Response
+    ) -> GameSession:
+        data = response.json()
+        session.room_code = data["room_code"]
+        session.status = SessionStatus.LOBBY
+        await self.repository.save_session(session)
+        return session
+
+    async def _mark_init_failed_and_compensate(self, session: GameSession) -> None:
+        session.status = SessionStatus.INIT_FAILED
+        await self.repository.save_session(session)
+        try:
+            await self.client.delete_session(session.id)
+        except httpx.HTTPError:
+            return
+
+    async def _reconcile_session_runtime(self, session_id: UUID) -> httpx.Response | None:
+        try:
+            return await self.client.get_session(session_id)
+        except httpx.HTTPError:
+            return None
+
+    def _map_init_error_response(self, response: httpx.Response) -> ServiceException:
+        code = "session_provider_error"
+        message = "Go session service failed to initialize runtime"
+
+        try:
+            payload = response.json()
+            if isinstance(payload, dict):
+                upstream_code = payload.get("code")
+                if isinstance(upstream_code, str) and upstream_code.strip():
+                    code = upstream_code
+                upstream_message = payload.get("message")
+                if isinstance(upstream_message, str) and upstream_message.strip():
+                    message = upstream_message
+        except ValueError:
+            pass
+
+        status_code = response.status_code
+        if status_code in (400, 404, 409, 424):
+            return ServiceException(status_code=424, code=code, message=message)
+        if status_code in (401, 403, 500, 502, 503, 504):
+            return ServiceException(
+                status_code=503,
+                code="session_provider_unavailable",
+                message="Go session service is not responding",
+            )
+
+        return ServiceException(status_code=424, code=code, message=message)
 
     async def get_bootstrap_data(self, session_id: UUID) -> GameSession:
         session = await self.repository.get_session_with_quiz(session_id)
