@@ -9,6 +9,7 @@ import (
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/domain"
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/repository/management"
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/repository/redis"
+	"github.com/google/uuid"
 )
 
 type Service struct {
@@ -165,23 +166,99 @@ func (s *Service) HostConnect(ctx context.Context, cmd HostConnectParams) (HostC
 }
 
 func (s *Service) PlayerJoin(ctx context.Context, cmd PlayerJoinParams) (PlayerJoinResult, error) {
-	_ = ctx
+	roomCode := strings.TrimSpace(cmd.RoomCode)
+	nickname := strings.TrimSpace(cmd.Nickname)
 
-	if strings.TrimSpace(cmd.RoomCode) == "" || strings.TrimSpace(cmd.Nickname) == "" {
+	if roomCode == "" || nickname == "" {
 		return PlayerJoinResult{}, ErrInvalidParams
 	}
 
-	return PlayerJoinResult{}, ErrNotImplemented
+	sessionID, err := s.roomCodeRepository.GetSessionID(ctx, roomCode)
+	if err != nil {
+		return PlayerJoinResult{}, ErrRoomNotFound
+	}
+
+	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
+	if err != nil {
+		return PlayerJoinResult{}, s.mapRedisError(err)
+	}
+
+	if snapshot.Runtime.Status == domain.RuntimeStatusFinished {
+		return PlayerJoinResult{}, ErrGameAlreadyFinished
+	}
+
+	pID := uuid.NewString()
+	token := uuid.NewString()
+	now := time.Now().UTC()
+
+	participant := domain.RuntimeParticipant{
+		ParticipantID:    pID,
+		ParticipantToken: token,
+		Nickname:         nickname,
+		Score:            0,
+		Rank:             0,
+		Connected:        true,
+		JoinedAt:         now,
+		LastSeenAt:       &now,
+	}
+
+	if err := s.participantRepository.Create(ctx, sessionID, participant); err != nil {
+		return PlayerJoinResult{}, err
+	}
+
+	rank, err := s.leaderboardRepository.AddScore(ctx, sessionID, pID, 0)
+	if err == nil {
+		_ = s.participantRepository.UpdateScoreAndRank(ctx, sessionID, pID, 0, rank)
+		participant.Rank = rank
+	}
+
+	allParticipants, _ := s.participantRepository.List(ctx, sessionID)
+
+	return PlayerJoinResult{
+		JoinedLobby: JoinedLobbyDTO{
+			ParticipantID:    pID,
+			ParticipantToken: token,
+			Nickname:         nickname,
+			RoomCode:         roomCode,
+			Status:           string(snapshot.Runtime.Status),
+		},
+		LobbyUpdated: LobbyUpdatedDTO{
+			PlayersCount: len(allParticipants),
+		},
+		SessionSnapshot: s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, allParticipants),
+	}, nil
 }
 
 func (s *Service) PlayerReconnect(ctx context.Context, cmd PlayerReconnectParams) (PlayerReconnectResult, error) {
-	_ = ctx
+	roomCode := strings.TrimSpace(cmd.RoomCode)
+	token := strings.TrimSpace(cmd.ParticipantToken)
 
-	if strings.TrimSpace(cmd.RoomCode) == "" || strings.TrimSpace(cmd.ParticipantToken) == "" {
+	if roomCode == "" || token == "" {
 		return PlayerReconnectResult{}, ErrInvalidParams
 	}
 
-	return PlayerReconnectResult{}, ErrNotImplemented
+	sessionID, err := s.roomCodeRepository.GetSessionID(ctx, roomCode)
+	if err != nil {
+		return PlayerReconnectResult{}, ErrRoomNotFound
+	}
+
+	participant, err := s.participantRepository.GetByToken(ctx, sessionID, token)
+	if err != nil {
+		return PlayerReconnectResult{}, ErrInvalidParticipantToken
+	}
+
+	_ = s.participantRepository.SetConnected(ctx, sessionID, participant.ParticipantID, true)
+
+	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
+	if err != nil {
+		return PlayerReconnectResult{}, s.mapRedisError(err)
+	}
+
+	allParticipants, _ := s.participantRepository.List(ctx, sessionID)
+
+	return PlayerReconnectResult{
+		SessionSnapshot: s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, allParticipants),
+	}, nil
 }
 
 func (s *Service) StartGame(ctx context.Context, cmd StartGameParams) (StartGameResult, error) {
