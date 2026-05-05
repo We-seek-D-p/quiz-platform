@@ -12,10 +12,13 @@ import (
 )
 
 type Service struct {
-	managementRepository ManagementRepository
-	runtimeRepository    RuntimeRepository
-	roomCodeRepository   RoomCodeRepository
-	roomCodeGenerator    RoomCodeGenerator
+	managementRepository  ManagementRepository
+	runtimeRepository     RuntimeRepository
+	roomCodeRepository    RoomCodeRepository
+	roomCodeGenerator     RoomCodeGenerator
+	participantRepository ParticipantRepository
+	answersRepository     AnswerRepository
+	leaderboardRepository LeaderboardRepository
 }
 
 func NewService(
@@ -23,12 +26,18 @@ func NewService(
 	runtimeRepository RuntimeRepository,
 	roomCodeRepository RoomCodeRepository,
 	roomCodeGenerator RoomCodeGenerator,
+	participantRepository ParticipantRepository,
+	answersRepository AnswerRepository,
+	leaderboardRepository LeaderboardRepository,
 ) *Service {
 	return &Service{
-		managementRepository: managementRepository,
-		runtimeRepository:    runtimeRepository,
-		roomCodeRepository:   roomCodeRepository,
-		roomCodeGenerator:    roomCodeGenerator,
+		managementRepository:  managementRepository,
+		runtimeRepository:     runtimeRepository,
+		roomCodeRepository:    roomCodeRepository,
+		roomCodeGenerator:     roomCodeGenerator,
+		participantRepository: participantRepository,
+		answersRepository:     answersRepository,
+		leaderboardRepository: leaderboardRepository,
 	}
 }
 
@@ -129,13 +138,30 @@ func (s *Service) DeleteSessionRuntime(ctx context.Context, cmd DeleteSessionRun
 }
 
 func (s *Service) HostConnect(ctx context.Context, cmd HostConnectParams) (HostConnectResult, error) {
-	_ = ctx
+	sessionID := strings.TrimSpace(cmd.SessionID)
+	hostUserID := strings.TrimSpace(cmd.HostUserID)
 
-	if strings.TrimSpace(cmd.SessionID) == "" || strings.TrimSpace(cmd.HostUserID) == "" {
+	if sessionID == "" || hostUserID == "" {
 		return HostConnectResult{}, ErrInvalidParams
 	}
 
-	return HostConnectResult{}, ErrNotImplemented
+	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
+	if err != nil {
+		return HostConnectResult{}, s.mapRedisError(err)
+	}
+
+	if snapshot.Runtime.HostID != hostUserID {
+		return HostConnectResult{}, ErrForbidden
+	}
+
+	participants, err := s.participantRepository.List(ctx, sessionID)
+	if err != nil {
+		return HostConnectResult{}, ErrInternal
+	}
+
+	return HostConnectResult{
+		SessionSnapshot: s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, participants),
+	}, nil
 }
 
 func (s *Service) PlayerJoin(ctx context.Context, cmd PlayerJoinParams) (PlayerJoinResult, error) {
@@ -218,4 +244,68 @@ func (s *Service) mapRedisError(err error) error {
 		return ErrSessionRuntimeConflict
 	}
 	return ErrRuntimeStoreUnavailable
+}
+
+func (s *Service) buildSessionSnapshot(
+	runtime domain.SessionRuntime,
+	quiz domain.QuizSnapshot,
+	participants []domain.RuntimeParticipant,
+) SnapshotDTO {
+	dto := SnapshotDTO{
+		SessionID:            runtime.SessionID,
+		RoomCode:             runtime.RoomCode,
+		Status:               string(runtime.Status),
+		CurrentQuestionIndex: runtime.Progress.CurrentQuestionIndex,
+		TotalQuestions:       runtime.Progress.TotalQuestions,
+		DeadlineAt:           runtime.Progress.DeadlineAt,
+		RevealUntil:          runtime.Progress.RevealUntil,
+	}
+
+	dto.Participants = make([]SnapshotParticipantDTO, len(participants))
+	for i, p := range participants {
+		dto.Participants[i] = SnapshotParticipantDTO{
+			ParticipantID: p.ParticipantID,
+			Nickname:      p.Nickname,
+			Score:         p.Score,
+			Rank:          p.Rank,
+			Connected:     p.Connected,
+		}
+	}
+
+	currIdx := runtime.Progress.CurrentQuestionIndex
+	if (runtime.Status == domain.RuntimeStatusQuestionOpen || runtime.Status == domain.RuntimeStatusAnswerReveal) &&
+		currIdx < len(quiz.Questions) {
+
+		q := quiz.Questions[currIdx]
+
+		dto.CurrentQuestion = &SnapshotQuestionDTO{
+			ID:            q.ID,
+			Text:          q.Text,
+			SelectionType: string(q.SelectionType),
+			Options:       make([]SnapshotQuestionOptionDTO, len(q.Options)),
+		}
+
+		for i, opt := range q.Options {
+			dto.CurrentQuestion.Options[i] = SnapshotQuestionOptionDTO{
+				ID:   opt.ID,
+				Text: opt.Text,
+			}
+		}
+
+		if runtime.Status == domain.RuntimeStatusAnswerReveal && runtime.Progress.RevealUntil != nil {
+			var correctIDs []string
+			for _, opt := range q.Options {
+				if opt.IsCorrect {
+					correctIDs = append(correctIDs, opt.ID)
+				}
+			}
+			dto.CurrentQuestionReveal = &SnapshotQuestionRevealDTO{
+				QuestionID:       q.ID,
+				CorrectOptionIDs: correctIDs,
+				RevealUntil:      *runtime.Progress.RevealUntil,
+			}
+		}
+	}
+
+	return dto
 }
