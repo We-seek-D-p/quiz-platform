@@ -129,6 +129,7 @@ type PlayerJoinResult struct {
 }
 
 type PlayerReconnectResult struct {
+	ParticipantID   string
 	SessionSnapshot SnapshotDTO
 }
 

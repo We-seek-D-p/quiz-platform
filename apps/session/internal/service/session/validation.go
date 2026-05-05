@@ -7,9 +7,7 @@ import (
 )
 
 func (s *Service) calculateDeadline(start time.Time, seconds int) *time.Time {
-	t := start.Add(time.Duration(seconds) * time.Second)
-	return &t
-
+	return new(start.Add(time.Duration(seconds) * time.Second))
 }
 
 func (s *Service) validateAnswerPayload(q domain.QuestionSnapshot, selected []string) error {

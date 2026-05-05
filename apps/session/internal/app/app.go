@@ -14,12 +14,14 @@ import (
 	sessionservice "github.com/We-seek-D-p/quiz-platform/apps/session/internal/service/session"
 	httptransport "github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/http"
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/http/handler"
+	wstransport "github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/ws"
 )
 
 type App struct {
-	cfg    *config.Config
-	log    *slog.Logger
-	server *httptransport.Server
+	cfg       *config.Config
+	log       *slog.Logger
+	server    *httptransport.Server
+	wsHandler *wstransport.Handler
 }
 
 func New(cfg *config.Config, log *slog.Logger) *App {
@@ -42,14 +44,16 @@ func New(cfg *config.Config, log *slog.Logger) *App {
 		cfg.Game.RevealDuration(),
 	)
 	internalSessionHandler := handler.NewInternalSessionHandler(svc)
+	wsHandler := wstransport.NewHandler(cfg, log, svc)
 
-	router := httptransport.NewRouter(cfg, log, internalSessionHandler)
+	router := httptransport.NewRouter(cfg, log, internalSessionHandler, wsHandler)
 	server := httptransport.NewServer(cfg.HTTP.Address(), router)
 
 	return &App{
-		cfg:    cfg,
-		log:    log,
-		server: server,
+		cfg:       cfg,
+		log:       log,
+		server:    server,
+		wsHandler: wsHandler,
 	}
 }
 
@@ -57,6 +61,7 @@ func (a *App) Run(ctx context.Context) error {
 	serverErrCh := make(chan error, 1)
 
 	a.log.InfoContext(ctx, "starting http server", "addr", a.cfg.HTTP.Address())
+	a.wsHandler.StartTimerLoop(ctx)
 	go func() {
 		serverErrCh <- a.server.Run()
 	}()
