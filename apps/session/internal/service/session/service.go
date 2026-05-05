@@ -20,6 +20,7 @@ type Service struct {
 	participantRepository ParticipantRepository
 	answersRepository     AnswerRepository
 	leaderboardRepository LeaderboardRepository
+	revealDuration        time.Duration
 }
 
 func NewService(
@@ -30,6 +31,7 @@ func NewService(
 	participantRepository ParticipantRepository,
 	answersRepository AnswerRepository,
 	leaderboardRepository LeaderboardRepository,
+	revealDuration time.Duration,
 ) *Service {
 	return &Service{
 		managementRepository:  managementRepository,
@@ -39,6 +41,7 @@ func NewService(
 		participantRepository: participantRepository,
 		answersRepository:     answersRepository,
 		leaderboardRepository: leaderboardRepository,
+		revealDuration:        revealDuration,
 	}
 }
 
@@ -549,4 +552,64 @@ func (s *Service) buildSessionSnapshot(
 	}
 
 	return dto
+}
+
+func (s *Service) CloseCurrentQuestionAndBuildReveal(ctx context.Context, sessionID string) (SnapshotDTO, error) {
+	sessionID = strings.TrimSpace(sessionID)
+
+	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
+	if err != nil {
+		return SnapshotDTO{}, s.mapRedisError(err)
+	}
+
+	if snapshot.Runtime.Status != domain.RuntimeStatusQuestionOpen {
+		return SnapshotDTO{}, ErrInvalidStateTransition
+	}
+
+	now := time.Now().UTC()
+	revealUntil := now.Add(s.revealDuration)
+
+	snapshot.Runtime.Status = domain.RuntimeStatusAnswerReveal
+	snapshot.Runtime.Progress.RevealUntil = &revealUntil
+	snapshot.Runtime.Progress.DeadlineAt = nil
+
+	if err := s.runtimeRepository.UpdateRuntime(ctx, snapshot.Runtime); err != nil {
+		return SnapshotDTO{}, s.mapRedisError(err)
+	}
+
+	participants, _ := s.participantRepository.List(ctx, sessionID)
+	return s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, participants), nil
+}
+
+func (s *Service) AdvanceToNextQuestion(ctx context.Context, sessionID string) (SnapshotDTO, error) {
+	sessionID = strings.TrimSpace(sessionID)
+
+	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
+	if err != nil {
+		return SnapshotDTO{}, s.mapRedisError(err)
+	}
+
+	if snapshot.Runtime.Status != domain.RuntimeStatusAnswerReveal {
+		return SnapshotDTO{}, ErrInvalidStateTransition
+	}
+
+	nextIndex := snapshot.Runtime.Progress.CurrentQuestionIndex + 1
+	if nextIndex >= len(snapshot.Quiz.Questions) {
+		return SnapshotDTO{}, ErrInvalidStateTransition
+	}
+
+	now := time.Now().UTC()
+	nextQuestion := snapshot.Quiz.Questions[nextIndex]
+
+	snapshot.Runtime.Status = domain.RuntimeStatusQuestionOpen
+	snapshot.Runtime.Progress.CurrentQuestionIndex = nextIndex
+	snapshot.Runtime.Progress.DeadlineAt = s.calculateDeadline(now, nextQuestion.TimeLimitSeconds)
+	snapshot.Runtime.Progress.RevealUntil = nil
+
+	if err := s.runtimeRepository.UpdateRuntime(ctx, snapshot.Runtime); err != nil {
+		return SnapshotDTO{}, s.mapRedisError(err)
+	}
+
+	participants, _ := s.participantRepository.List(ctx, sessionID)
+	return s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, participants), nil
 }
