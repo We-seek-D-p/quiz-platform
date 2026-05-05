@@ -43,7 +43,7 @@ func New(cfg *config.Config, log *slog.Logger) *App {
 		cfg.Game.RevealDuration(),
 	)
 	internalSessionHandler := handler.NewInternalSessionHandler(svc)
-	wsHandler := wstransport.NewHandler(cfg, log)
+	wsHandler := wstransport.NewHandler(cfg, log, svc)
 
 	router := httptransport.NewRouter(cfg, log, internalSessionHandler, wsHandler)
 	server := httptransport.NewServer(cfg.HTTP.Address(), router)

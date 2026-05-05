@@ -36,6 +36,7 @@ type Connection struct {
 	sessionID     string
 	participantID string
 	onClose       func(*Connection)
+	onMessage     func(context.Context, *Connection, MessageEnvelope) error
 
 	bootstrap BootstrapData
 	outbound  chan []byte
@@ -89,6 +90,10 @@ func (c *Connection) ParticipantID() string {
 	return c.participantID
 }
 
+func (c *Connection) HostUserID() string {
+	return c.bootstrap.HostUserID
+}
+
 func (c *Connection) BindSession(sessionID string) {
 	c.metaMu.Lock()
 	c.sessionID = sessionID
@@ -104,6 +109,12 @@ func (c *Connection) BindParticipant(participantID string) {
 func (c *Connection) SetOnClose(callback func(*Connection)) {
 	c.metaMu.Lock()
 	c.onClose = callback
+	c.metaMu.Unlock()
+}
+
+func (c *Connection) SetMessageHandler(handler func(context.Context, *Connection, MessageEnvelope) error) {
+	c.metaMu.Lock()
+	c.onMessage = handler
 	c.metaMu.Unlock()
 }
 
@@ -147,13 +158,35 @@ func (c *Connection) readLoop() {
 			continue
 		}
 
-		if err := dispatchIncomingMessage(envelope); err != nil {
+		c.metaMu.RLock()
+		onMessage := c.onMessage
+		c.metaMu.RUnlock()
+
+		if onMessage == nil {
+			c.WriteError("internal_error", "internal error")
+			continue
+		}
+
+		if err := onMessage(c.ctx, c, envelope); err != nil {
 			wsErr := ToWSError(err)
 			c.log.DebugContext(c.ctx, "websocket message dispatch rejected", "connection_id", c.connectionID, "role", c.bootstrap.Role, "message_type", envelope.Type, "error_code", wsErr.Code)
 			c.WriteError(wsErr.Code, wsErr.Message)
 			continue
 		}
 	}
+}
+
+func (c *Connection) WriteEvent(messageType string, payload any) error {
+	encoded, err := EncodeEnvelope(messageType, payload)
+	if err != nil {
+		return err
+	}
+
+	if ok := c.EnqueueText(encoded); !ok {
+		return NewWSError("internal_error", "connection is closed")
+	}
+
+	return nil
 }
 
 func (c *Connection) WriteError(code, message string) {
