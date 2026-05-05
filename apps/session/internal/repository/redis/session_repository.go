@@ -155,6 +155,10 @@ func (r *SessionRepository) GetSnapshot(ctx context.Context, sessionID string) (
 func (r *SessionRepository) Delete(ctx context.Context, sessionID string) error {
 	metaKey := sessionMetaKey(sessionID)
 	snapshotKey := sessionQuizSnapshotKey(sessionID)
+	participantsKey := sessionParticipantsKey(sessionID)
+	tokenIndexKey := sessionParticipantTokenIndexKey(sessionID)
+	nicknameIndexKey := sessionParticipantNicknameIndexKey(sessionID)
+	leaderboardKey := sessionLeaderboardKey(sessionID)
 
 	meta, err := r.client.HGetAll(ctx, metaKey).Result()
 	if err != nil {
@@ -162,10 +166,21 @@ func (r *SessionRepository) Delete(ctx context.Context, sessionID string) error 
 	}
 
 	roomCode := meta["room_code"]
+	answerKeys, err := r.scanAnswerKeys(ctx, sessionID)
+	if err != nil {
+		return err
+	}
 
 	pipe := r.client.TxPipeline()
 	pipe.Del(ctx, metaKey)
 	pipe.Del(ctx, snapshotKey)
+	pipe.Del(ctx, participantsKey)
+	pipe.Del(ctx, tokenIndexKey)
+	pipe.Del(ctx, nicknameIndexKey)
+	pipe.Del(ctx, leaderboardKey)
+	for _, answerKey := range answerKeys {
+		pipe.Del(ctx, answerKey)
+	}
 	if roomCode != "" {
 		pipe.Del(ctx, roomCodeKey(roomCode))
 	}
@@ -175,6 +190,27 @@ func (r *SessionRepository) Delete(ctx context.Context, sessionID string) error 
 	}
 
 	return nil
+}
+
+func (r *SessionRepository) scanAnswerKeys(ctx context.Context, sessionID string) ([]string, error) {
+	pattern := sessionAnswersKey(sessionID, "*")
+	answerKeys := make([]string, 0)
+	var cursor uint64
+
+	for {
+		keys, nextCursor, err := r.client.Scan(ctx, cursor, pattern, 100).Result()
+		if err != nil {
+			return nil, fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		}
+
+		answerKeys = append(answerKeys, keys...)
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
+	}
+
+	return answerKeys, nil
 }
 
 func (r *SessionRepository) UpdateRuntime(ctx context.Context, runtime domain.SessionRuntime) error {
