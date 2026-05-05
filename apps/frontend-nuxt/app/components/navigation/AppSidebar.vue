@@ -100,7 +100,9 @@ const handleLogout = async () => {
   font-weight: 500;
   justify-content: flex-start;
   cursor: pointer;
-  transition: background-color var(--app-transition-fast), color var(--app-transition-fast);
+  transition:
+    background-color var(--app-transition-fast),
+    color var(--app-transition-fast);
 }
 
 .app-sidebar__logout:hover {

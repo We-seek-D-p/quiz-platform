@@ -26,7 +26,9 @@ defineProps<Props>()
   font-size: 0.875rem;
   font-weight: 500;
   text-decoration: none;
-  transition: background-color var(--app-transition-fast), color var(--app-transition-fast);
+  transition:
+    background-color var(--app-transition-fast),
+    color var(--app-transition-fast);
 }
 
 .sidebar-nav-item:hover,

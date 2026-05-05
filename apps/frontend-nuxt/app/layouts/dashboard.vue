@@ -84,7 +84,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .dashboard-sidebar {
   width: var(--app-sidebar-width);
-  height: 100vh;
+  height: 100%;
   border-right: 1px solid var(--app-color-border);
   background-color: var(--app-color-surface);
   overflow: hidden;
@@ -93,6 +93,12 @@ onBeforeUnmount(() => {
     opacity var(--app-transition-fast),
     transform var(--app-transition-fast),
     border-color var(--app-transition-fast);
+}
+
+:global(.layout-shell.layout-shell--row) {
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
 }
 
 .dashboard-sidebar--desktop {

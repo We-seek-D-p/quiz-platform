@@ -34,5 +34,11 @@ onMounted(() => {
 </script>
 
 <template>
-  <Button :icon="icon" text severity="secondary" :aria-label="`Тема: ${mode}`" @click="toggleTheme" />
+  <Button
+    :icon="icon"
+    text
+    severity="secondary"
+    :aria-label="`Тема: ${mode}`"
+    @click="toggleTheme"
+  />
 </template>

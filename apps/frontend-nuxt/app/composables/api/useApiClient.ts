@@ -2,7 +2,7 @@ type RequestMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
 
 type ApiRequestOptions = {
   method?: RequestMethod
-  body?: unknown
+  body?: BodyInit | Record<string, unknown> | null
   accessToken?: string | null
   headers?: HeadersInit
 }
@@ -40,7 +40,11 @@ export const useApiClient = () => {
   const request = async <T>(path: string, options: ApiRequestOptions = {}): Promise<T> => {
     const headers = new Headers(options.headers)
 
-    if (!headers.has('Content-Type') && options.body !== undefined && !(options.body instanceof FormData)) {
+    if (
+      !headers.has('Content-Type') &&
+      options.body !== undefined &&
+      !(options.body instanceof FormData)
+    ) {
       headers.set('Content-Type', 'application/json')
     }
 
@@ -49,12 +53,14 @@ export const useApiClient = () => {
     }
 
     try {
-      return await $fetch<T>(path, {
+      const fetchOptions = {
         method: options.method ?? 'GET',
-        body: options.body,
         headers,
         credentials: 'include',
-      })
+        ...(options.body !== undefined ? { body: options.body } : {}),
+      }
+
+      return await $fetch<T>(path, fetchOptions)
     } catch (error: unknown) {
       const status = (error as { status?: number })?.status ?? 500
       throw new ApiHttpError(parseErrorMessage(error), status)

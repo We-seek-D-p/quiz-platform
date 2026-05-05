@@ -45,7 +45,13 @@ useHead({
 
       <template #content>
         <FloatLabel variant="in">
-          <InputMask id="room_code" v-model="roomCode" mask="99999999" slot-char="" class="w-full" />
+          <InputMask
+            id="room_code"
+            v-model="roomCode"
+            mask="99999999"
+            slot-char=""
+            class="w-full"
+          />
           <label for="room_code">Код комнаты</label>
         </FloatLabel>
       </template>
