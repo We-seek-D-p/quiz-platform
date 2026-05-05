@@ -78,6 +78,15 @@ type playerReconnectPayload struct {
 	ParticipantToken string `json:"participant_token"`
 }
 
+type startGamePayload struct {
+	SessionID string `json:"session_id"`
+}
+
+type submitAnswerPayload struct {
+	QuestionID        string   `json:"question_id"`
+	SelectedOptionIDs []string `json:"selected_option_ids"`
+}
+
 func (h *Handler) dispatchIncomingMessage(ctx context.Context, conn *Connection, envelope MessageEnvelope) error {
 	switch envelope.Type {
 	case "host_connect":
@@ -86,6 +95,10 @@ func (h *Handler) dispatchIncomingMessage(ctx context.Context, conn *Connection,
 		return h.handlePlayerJoin(ctx, conn, envelope)
 	case "player_reconnect":
 		return h.handlePlayerReconnect(ctx, conn, envelope)
+	case "start_game":
+		return h.handleStartGame(ctx, conn, envelope)
+	case "submit_answer":
+		return h.handleSubmitAnswer(ctx, conn, envelope)
 	default:
 		return NewWSError(ErrCodeUnknownMessageType, "unknown message type")
 	}
@@ -265,6 +278,133 @@ func mapServicePlayerReconnectError(err error) error {
 		return NewWSError(ErrCodeInvalidPayload, "invalid payload")
 	case errors.Is(err, sessionservice.ErrRuntimeStoreUnavailable):
 		return NewWSError("internal_error", "internal error")
+	default:
+		return NewWSError("internal_error", "internal error")
+	}
+}
+
+func (h *Handler) handleStartGame(ctx context.Context, conn *Connection, envelope MessageEnvelope) error {
+	var payload startGamePayload
+	if err := json.Unmarshal(envelope.Payload, &payload); err != nil {
+		return NewWSError(ErrCodeInvalidPayload, "invalid payload")
+	}
+
+	payload.SessionID = strings.TrimSpace(payload.SessionID)
+	if payload.SessionID == "" {
+		return NewWSError(ErrCodeInvalidPayload, "invalid payload")
+	}
+
+	h.log.DebugContext(ctx, "start_game received", "connection_id", conn.ID(), "session_id", payload.SessionID)
+
+	result, err := h.service.StartGame(ctx, sessionservice.StartGameParams{
+		SessionID:  payload.SessionID,
+		HostUserID: conn.HostUserID(),
+	})
+	if err != nil {
+		wsErr := ToWSError(mapServiceStartGameError(err))
+		h.log.WarnContext(ctx, "start_game failed", "connection_id", conn.ID(), "session_id", payload.SessionID, "error_code", wsErr.Code)
+		return wsErr
+	}
+
+	if err := h.hub.BindHost(payload.SessionID, conn); err != nil {
+		h.log.WarnContext(ctx, "start_game bind failed", "connection_id", conn.ID(), "session_id", payload.SessionID, "error", err)
+		return NewWSError("internal_error", "internal error")
+	}
+
+	questionOpenedPayload, err := EncodeEnvelope("question_opened", result.QuestionOpened)
+	if err != nil {
+		h.log.WarnContext(ctx, "start_game encode question_opened failed", "connection_id", conn.ID(), "session_id", payload.SessionID, "error", err)
+		return NewWSError("internal_error", "internal error")
+	}
+	_ = h.hub.Broadcast(payload.SessionID, questionOpenedPayload)
+
+	if err := conn.WriteEvent("session_snapshot", result.SessionSnapshot); err != nil {
+		h.log.WarnContext(ctx, "start_game snapshot send failed", "connection_id", conn.ID(), "session_id", payload.SessionID, "error", err)
+		return NewWSError("internal_error", "internal error")
+	}
+
+	h.log.DebugContext(ctx, "start_game success", "connection_id", conn.ID(), "session_id", payload.SessionID)
+	return nil
+}
+
+func mapServiceStartGameError(err error) error {
+	switch {
+	case errors.Is(err, sessionservice.ErrForbidden):
+		return NewWSError("forbidden", "forbidden")
+	case errors.Is(err, sessionservice.ErrGameAlreadyStarted):
+		return NewWSError("game_already_started", "game already started")
+	case errors.Is(err, sessionservice.ErrGameAlreadyFinished):
+		return NewWSError("game_already_finished", "game already finished")
+	case errors.Is(err, sessionservice.ErrInvalidParams):
+		return NewWSError(ErrCodeInvalidPayload, "invalid payload")
+	default:
+		return NewWSError("internal_error", "internal error")
+	}
+}
+
+func (h *Handler) handleSubmitAnswer(ctx context.Context, conn *Connection, envelope MessageEnvelope) error {
+	var payload submitAnswerPayload
+	if err := json.Unmarshal(envelope.Payload, &payload); err != nil {
+		return NewWSError(ErrCodeInvalidPayload, "invalid payload")
+	}
+
+	payload.QuestionID = strings.TrimSpace(payload.QuestionID)
+	if payload.QuestionID == "" || len(payload.SelectedOptionIDs) == 0 {
+		return NewWSError(ErrCodeInvalidPayload, "invalid payload")
+	}
+
+	sessionID := strings.TrimSpace(conn.SessionID())
+	participantID := strings.TrimSpace(conn.ParticipantID())
+	if sessionID == "" || participantID == "" {
+		return NewWSError("invalid_participant_token", "invalid participant token")
+	}
+
+	h.log.DebugContext(ctx, "submit_answer received", "connection_id", conn.ID(), "session_id", sessionID, "participant_id", participantID, "question_id", payload.QuestionID)
+
+	result, err := h.service.SubmitAnswer(ctx, sessionservice.SubmitAnswerParams{
+		SessionID:         sessionID,
+		ParticipantID:     participantID,
+		QuestionID:        payload.QuestionID,
+		SelectedOptionIDs: payload.SelectedOptionIDs,
+	})
+	if err != nil {
+		wsErr := ToWSError(mapServiceSubmitAnswerError(err))
+		h.log.WarnContext(ctx, "submit_answer failed", "connection_id", conn.ID(), "session_id", sessionID, "participant_id", participantID, "question_id", payload.QuestionID, "error_code", wsErr.Code)
+		return wsErr
+	}
+
+	if err := conn.WriteEvent("answer_accepted", result.AnswerAccepted); err != nil {
+		h.log.WarnContext(ctx, "submit_answer answer_accepted send failed", "connection_id", conn.ID(), "session_id", sessionID, "participant_id", participantID, "question_id", payload.QuestionID, "error", err)
+		return NewWSError("internal_error", "internal error")
+	}
+
+	if result.HostProgress != nil {
+		hostProgressPayload, err := EncodeEnvelope("question_progress", result.HostProgress)
+		if err != nil {
+			h.log.WarnContext(ctx, "submit_answer encode question_progress failed", "connection_id", conn.ID(), "session_id", sessionID, "participant_id", participantID, "question_id", payload.QuestionID, "error", err)
+			return NewWSError("internal_error", "internal error")
+		}
+		_ = h.hub.SendHost(sessionID, hostProgressPayload)
+	}
+
+	h.log.DebugContext(ctx, "submit_answer success", "connection_id", conn.ID(), "session_id", sessionID, "participant_id", participantID, "question_id", payload.QuestionID)
+	return nil
+}
+
+func mapServiceSubmitAnswerError(err error) error {
+	switch {
+	case errors.Is(err, sessionservice.ErrQuestionNotActive):
+		return NewWSError("question_not_active", "question not active")
+	case errors.Is(err, sessionservice.ErrAnswerAlreadySubmitted):
+		return NewWSError("answer_already_submitted", "answer already submitted")
+	case errors.Is(err, sessionservice.ErrOptionNotInQuestion):
+		return NewWSError("option_not_in_question", "option not in question")
+	case errors.Is(err, sessionservice.ErrSelectionCountInvalid):
+		return NewWSError("selection_count_invalid", "selection count invalid")
+	case errors.Is(err, sessionservice.ErrInvalidAnswerPayload), errors.Is(err, sessionservice.ErrInvalidParams):
+		return NewWSError("invalid_answer_payload", "invalid answer payload")
+	case errors.Is(err, sessionservice.ErrParticipantNotFound):
+		return NewWSError("participant_not_found", "participant not found")
 	default:
 		return NewWSError("internal_error", "internal error")
 	}
