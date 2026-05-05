@@ -4,6 +4,8 @@ import type {
   QuestionCreate,
   QuestionPublic,
   QuestionUpdate,
+  SessionCreate,
+  SessionPublic,
   QuizCreate,
   QuizPublic,
   QuizUpdate,
@@ -16,7 +18,12 @@ export const useManagementApi = () => {
 
   const managementBase = config.public.managementApiBase
 
-  const authorizedRequest = async <T>(path: string, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', body?: unknown): Promise<T> => {
+  const authorizedRequest = async <T>(
+    path: string,
+    method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+    body?: unknown,
+    headers?: HeadersInit,
+  ): Promise<T> => {
     const accessToken = authStore.accessToken
     if (!accessToken) {
       throw new ApiHttpError('Сессия недоступна. Выполните вход снова.', 401)
@@ -27,6 +34,7 @@ export const useManagementApi = () => {
         method,
         body,
         accessToken,
+        headers,
       })
     } catch (error: unknown) {
       if (!(error instanceof ApiHttpError) || error.status !== 401) {
@@ -42,6 +50,7 @@ export const useManagementApi = () => {
         method,
         body,
         accessToken: authStore.accessToken,
+        headers,
       })
     }
   }
@@ -57,6 +66,17 @@ export const useManagementApi = () => {
 
     getQuiz: async (quizId: string): Promise<QuizPublic> => {
       return authorizedRequest<QuizPublic>(`${managementBase}/quizzes/${quizId}`, 'GET')
+    },
+
+    createSession: async (payload: SessionCreate): Promise<SessionPublic> => {
+      return authorizedRequest<SessionPublic>(
+        `${managementBase}/sessions/`,
+        'POST',
+        payload,
+        {
+          'Idempotency-Key': crypto.randomUUID(),
+        },
+      )
     },
 
     createQuiz: async (payload: QuizCreate): Promise<QuizPublic> => {

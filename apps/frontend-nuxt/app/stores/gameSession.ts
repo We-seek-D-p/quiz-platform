@@ -1,11 +1,14 @@
 import { defineStore } from 'pinia'
 import { useSessionWs } from '~/composables/session/useSessionWs'
 import type {
+  AnswerAcceptedPayload,
   AnswerRevealPayload,
   ConnectionStatus,
   JoinedLobbyPayload,
   LeaderboardEntryView,
+  LobbyUpdatedPayload,
   QuestionOpenedPayload,
+  QuestionProgressPayload,
   QuestionRevealHostPayload,
   QuizQuestionView,
   SessionFinishedPayload,
@@ -19,21 +22,50 @@ import type {
 const PLAYER_TOKEN_STORAGE_KEY = 'quiz:player_token'
 const PLAYER_ROOM_CODE_STORAGE_KEY = 'quiz:room_code'
 const PLAYER_PARTICIPANT_ID_STORAGE_KEY = 'quiz:participant_id'
+const PLAYER_NICKNAME_STORAGE_KEY = 'quiz:nickname'
+
+const ERROR_MESSAGE_DICTIONARY: Record<string, string> = {
+  unauthorized: 'Недостаточно прав для выполнения действия',
+  forbidden: 'Доступ запрещен',
+  session_not_found: 'Сессия не найдена',
+  room_not_found: 'Комната не найдена',
+  nickname_taken: 'Ник уже занят в этой комнате',
+  participant_not_found: 'Игрок не найден',
+  invalid_participant_token: 'Токен переподключения недействителен',
+  invalid_state_transition: 'Сейчас это действие недоступно',
+  game_already_started: 'Игра уже запущена',
+  game_already_finished: 'Игра уже завершена',
+  question_not_active: 'Время ответа на вопрос истекло',
+  answer_already_submitted: 'Ответ уже отправлен',
+  invalid_answer_payload: 'Некорректный формат ответа',
+  option_not_found: 'Вариант ответа не найден',
+  option_not_in_question: 'Вариант не принадлежит текущему вопросу',
+  selection_count_invalid: 'Выбрано неверное количество вариантов',
+  internal_error: 'Внутренняя ошибка сервиса',
+}
+
+const REDIRECT_TO_JOIN_ERROR_CODES = new Set<string>([
+  'room_not_found',
+  'participant_not_found',
+  'invalid_participant_token',
+  'session_not_found',
+])
+
+type ReconnectContext = {
+  roomCode: string
+  participantToken: string
+}
 
 function getErrorMessage(payload: WsErrorPayload): string {
-  const defaultMessage = payload.message || 'Unexpected session error'
-
-  const dictionary: Record<string, string> = {
-    room_not_found: 'Игра не найдена',
-    nickname_taken: 'Имя уже занято',
-    game_already_finished: 'Игра уже закончена',
-    invalid_participant_token: 'Reconnect token is invalid',
-    answer_already_submitted: 'Вы уже ответили',
-    question_not_active: 'На вопрос больше нельзя ответить',
-    selection_count_invalid: 'Неправильное количество выбранных ответов',
+  if (ERROR_MESSAGE_DICTIONARY[payload.code]) {
+    return ERROR_MESSAGE_DICTIONARY[payload.code]
   }
 
-  return dictionary[payload.code] ?? defaultMessage
+  if (payload.message.trim().length > 0) {
+    return payload.message
+  }
+
+  return 'Неизвестная ошибка сессии'
 }
 
 export const useGameSessionStore = defineStore('game-session', () => {
@@ -51,14 +83,27 @@ export const useGameSessionStore = defineStore('game-session', () => {
   const totalQuestions = ref<number | null>(null)
   const deadlineAt = ref<string | null>(null)
   const revealUntil = ref<string | null>(null)
+
   const playersCount = ref(0)
+  const answeredCount = ref<number | null>(null)
+  const totalPlayers = ref<number | null>(null)
 
   const leaderboardTop = ref<LeaderboardEntryView[]>([])
   const myScore = ref<number | null>(null)
   const myRank = ref<number | null>(null)
 
+  const selectedOptionIds = ref<string[]>([])
+  const hasSubmittedAnswer = ref(false)
+  const isSubmittingAnswer = ref(false)
+  const answerSubmitError = ref<string | null>(null)
+  const lastAnswerAcceptedAt = ref<string | null>(null)
+
   const lastError = ref<string | null>(null)
+  const lastErrorCode = ref<string | null>(null)
+  const shouldReturnToJoin = ref(false)
+
   const connectionStatus = ref<ConnectionStatus>('idle')
+  const reconnectNotice = ref<string | null>(null)
 
   const hostWs = useSessionWs({
     mode: 'host',
@@ -80,6 +125,7 @@ export const useGameSessionStore = defineStore('game-session', () => {
     if (role.value === 'host') {
       return hostWs
     }
+
     if (role.value === 'player') {
       return playerWs
     }
@@ -87,34 +133,88 @@ export const useGameSessionStore = defineStore('game-session', () => {
     return null
   })
 
-  watch(
-    () => hostWs.status.value,
-    (status) => {
-      if (role.value === 'host') {
-        connectionStatus.value = status
-      }
-    },
-  )
+  const isConnected = computed(() => connectionStatus.value === 'connected')
+  const isReconnecting = computed(() => connectionStatus.value === 'reconnecting')
+  const isRuntimePhase = computed(() => phase.value !== 'lobby')
+  const currentQuestionNumber = computed(() => {
+    if (questionIndex.value === null) {
+      return null
+    }
 
-  watch(
-    () => playerWs.status.value,
-    (status) => {
-      if (role.value === 'player') {
-        connectionStatus.value = status
-      }
-    },
-  )
+    return questionIndex.value + 1
+  })
 
-  const clearTransientState = () => {
+  const canSubmitAnswer = computed(() => {
+    if (role.value !== 'player' || phase.value !== 'question_open') {
+      return false
+    }
+
+    if (!currentQuestion.value) {
+      return false
+    }
+
+    if (isSubmittingAnswer.value || hasSubmittedAnswer.value) {
+      return false
+    }
+
+    if (currentQuestion.value.selection_type === 'single') {
+      return selectedOptionIds.value.length === 1
+    }
+
+    return selectedOptionIds.value.length > 0
+  })
+
+  const getReconnectContext = (): ReconnectContext | null => {
+    if (roomCode.value && participantToken.value) {
+      return {
+        roomCode: roomCode.value,
+        participantToken: participantToken.value,
+      }
+    }
+
+    if (!import.meta.client) {
+      return null
+    }
+
+    const storedRoomCode = localStorage.getItem(PLAYER_ROOM_CODE_STORAGE_KEY)
+    const storedToken = localStorage.getItem(PLAYER_TOKEN_STORAGE_KEY)
+
+    if (!storedRoomCode || !storedToken) {
+      return null
+    }
+
+    return {
+      roomCode: storedRoomCode,
+      participantToken: storedToken,
+    }
+  }
+
+  const clearAnswerUi = () => {
+    selectedOptionIds.value = []
+    hasSubmittedAnswer.value = false
+    isSubmittingAnswer.value = false
+    answerSubmitError.value = null
+    lastAnswerAcceptedAt.value = null
+  }
+
+  const clearRuntimeView = () => {
     currentQuestion.value = null
     questionIndex.value = null
     totalQuestions.value = null
     deadlineAt.value = null
     revealUntil.value = null
+    answeredCount.value = null
+    totalPlayers.value = null
     leaderboardTop.value = []
     myScore.value = null
     myRank.value = null
-    playersCount.value = 0
+    clearAnswerUi()
+  }
+
+  const clearSessionErrors = () => {
+    lastError.value = null
+    lastErrorCode.value = null
+    shouldReturnToJoin.value = false
   }
 
   const reset = () => {
@@ -123,15 +223,16 @@ export const useGameSessionStore = defineStore('game-session', () => {
 
     role.value = null
     phase.value = 'lobby'
-
     sessionId.value = null
     roomCode.value = null
     participantId.value = null
     participantToken.value = null
     nickname.value = null
-    clearTransientState()
+    playersCount.value = 0
     connectionStatus.value = 'idle'
-    lastError.value = null
+    reconnectNotice.value = null
+    clearRuntimeView()
+    clearSessionErrors()
   }
 
   const persistPlayerAuth = () => {
@@ -142,6 +243,10 @@ export const useGameSessionStore = defineStore('game-session', () => {
     localStorage.setItem(PLAYER_TOKEN_STORAGE_KEY, participantToken.value)
     localStorage.setItem(PLAYER_ROOM_CODE_STORAGE_KEY, roomCode.value)
     localStorage.setItem(PLAYER_PARTICIPANT_ID_STORAGE_KEY, participantId.value)
+
+    if (nickname.value) {
+      localStorage.setItem(PLAYER_NICKNAME_STORAGE_KEY, nickname.value)
+    }
   }
 
   const clearPlayerAuth = () => {
@@ -152,22 +257,59 @@ export const useGameSessionStore = defineStore('game-session', () => {
     localStorage.removeItem(PLAYER_TOKEN_STORAGE_KEY)
     localStorage.removeItem(PLAYER_ROOM_CODE_STORAGE_KEY)
     localStorage.removeItem(PLAYER_PARTICIPANT_ID_STORAGE_KEY)
+    localStorage.removeItem(PLAYER_NICKNAME_STORAGE_KEY)
+  }
+
+  const restorePlayerNickname = () => {
+    if (!import.meta.client || nickname.value) {
+      return
+    }
+
+    const persistedNickname = localStorage.getItem(PLAYER_NICKNAME_STORAGE_KEY)
+    if (persistedNickname && persistedNickname.trim().length > 0) {
+      nickname.value = persistedNickname.trim()
+    }
+  }
+
+  const sendHostConnect = () => {
+    if (!sessionId.value) {
+      throw new Error('Missing session id')
+    }
+
+    hostWs.send('host_connect', { session_id: sessionId.value })
+  }
+
+  const sendPlayerReconnect = () => {
+    const reconnectContext = getReconnectContext()
+    if (!reconnectContext) {
+      throw new Error('Reconnect context is not available')
+    }
+
+    roomCode.value = reconnectContext.roomCode
+    participantToken.value = reconnectContext.participantToken
+
+    playerWs.send('player_reconnect', {
+      room_code: reconnectContext.roomCode,
+      participant_token: reconnectContext.participantToken,
+    })
   }
 
   const hostConnect = async (targetSessionId: string) => {
     role.value = 'host'
     sessionId.value = targetSessionId
-    lastError.value = null
+    clearSessionErrors()
+    reconnectNotice.value = null
 
     await hostWs.connect()
-    hostWs.send('host_connect', { session_id: targetSessionId })
+    sendHostConnect()
   }
 
   const playerJoin = async (targetRoomCode: string, targetNickname: string) => {
     role.value = 'player'
     roomCode.value = targetRoomCode
     nickname.value = targetNickname
-    lastError.value = null
+    clearSessionErrors()
+    reconnectNotice.value = null
 
     await playerWs.connect()
     playerWs.send('player_join', {
@@ -178,23 +320,29 @@ export const useGameSessionStore = defineStore('game-session', () => {
 
   const playerReconnect = async (targetRoomCode?: string, targetToken?: string) => {
     role.value = 'player'
-    lastError.value = null
+    clearSessionErrors()
+    reconnectNotice.value = null
 
-    const reconnectRoomCode = targetRoomCode ?? roomCode.value ?? (import.meta.client ? localStorage.getItem(PLAYER_ROOM_CODE_STORAGE_KEY) : null)
-    const reconnectToken = targetToken ?? participantToken.value ?? (import.meta.client ? localStorage.getItem(PLAYER_TOKEN_STORAGE_KEY) : null)
+    const storedReconnectContext = getReconnectContext()
 
-    if (!reconnectRoomCode || !reconnectToken) {
+    const reconnectContext: ReconnectContext | null =
+      targetRoomCode || targetToken
+        ? {
+            roomCode: targetRoomCode ?? storedReconnectContext?.roomCode ?? '',
+            participantToken: targetToken ?? storedReconnectContext?.participantToken ?? '',
+          }
+        : storedReconnectContext
+
+    if (!reconnectContext || !reconnectContext.roomCode || !reconnectContext.participantToken) {
       throw new Error('Reconnect context is not available')
     }
 
-    roomCode.value = reconnectRoomCode
-    participantToken.value = reconnectToken
+    roomCode.value = reconnectContext.roomCode
+    participantToken.value = reconnectContext.participantToken
+    restorePlayerNickname()
 
     await playerWs.connect()
-    playerWs.send('player_reconnect', {
-      room_code: reconnectRoomCode,
-      participant_token: reconnectToken,
-    })
+    sendPlayerReconnect()
   }
 
   const startGame = () => {
@@ -205,13 +353,6 @@ export const useGameSessionStore = defineStore('game-session', () => {
     hostWs.send('start_game', { session_id: sessionId.value })
   }
 
-  const submitAnswer = (questionId: string, selectedOptionIds: string[]) => {
-    playerWs.send('submit_answer', {
-      question_id: questionId,
-      selected_option_ids: selectedOptionIds,
-    })
-  }
-
   const finishGame = () => {
     if (!sessionId.value) {
       throw new Error('Missing session id')
@@ -220,10 +361,112 @@ export const useGameSessionStore = defineStore('game-session', () => {
     hostWs.send('finish_game', { session_id: sessionId.value })
   }
 
+  const replaceSelectedOptions = (optionIds: string[]) => {
+    const question = currentQuestion.value
+    if (!question || hasSubmittedAnswer.value) {
+      return
+    }
+
+    const uniqueIds = [...new Set(optionIds)]
+    if (question.selection_type === 'single') {
+      selectedOptionIds.value = uniqueIds.slice(0, 1)
+      return
+    }
+
+    selectedOptionIds.value = uniqueIds
+  }
+
+  const toggleSelectedOption = (optionId: string) => {
+    const question = currentQuestion.value
+    if (!question || hasSubmittedAnswer.value) {
+      return
+    }
+
+    if (question.selection_type === 'single') {
+      selectedOptionIds.value = [optionId]
+      return
+    }
+
+    if (selectedOptionIds.value.includes(optionId)) {
+      selectedOptionIds.value = selectedOptionIds.value.filter((id) => id !== optionId)
+      return
+    }
+
+    selectedOptionIds.value = [...selectedOptionIds.value, optionId]
+  }
+
+  const submitCurrentAnswer = () => {
+    if (!currentQuestion.value) {
+      throw new Error('No active question')
+    }
+
+    if (!canSubmitAnswer.value) {
+      return
+    }
+
+    answerSubmitError.value = null
+    isSubmittingAnswer.value = true
+
+    playerWs.send('submit_answer', {
+      question_id: currentQuestion.value.id,
+      selected_option_ids: selectedOptionIds.value,
+    })
+  }
+
   const disconnect = () => {
     activeWs.value?.disconnect()
     connectionStatus.value = 'disconnected'
   }
+
+  const onConnected = (wsRole: SessionRole, previousStatus: ConnectionStatus) => {
+    if (previousStatus !== 'reconnecting' && previousStatus !== 'disconnected') {
+      return
+    }
+
+    if (role.value !== wsRole) {
+      return
+    }
+
+    try {
+      if (wsRole === 'host') {
+        sendHostConnect()
+      } else {
+        sendPlayerReconnect()
+      }
+
+      reconnectNotice.value = 'Соединение восстановлено'
+    } catch (error) {
+      if (error instanceof Error) {
+        lastError.value = error.message
+      }
+    }
+  }
+
+  watch(
+    () => hostWs.status.value,
+    (status, previousStatus) => {
+      if (role.value === 'host') {
+        connectionStatus.value = status
+      }
+
+      if (status === 'connected') {
+        onConnected('host', previousStatus)
+      }
+    },
+  )
+
+  watch(
+    () => playerWs.status.value,
+    (status, previousStatus) => {
+      if (role.value === 'player') {
+        connectionStatus.value = status
+      }
+
+      if (status === 'connected') {
+        onConnected('player', previousStatus)
+      }
+    },
+  )
 
   const applySessionSnapshot = (payload: SessionSnapshotPayload) => {
     phase.value = payload.status
@@ -237,6 +480,14 @@ export const useGameSessionStore = defineStore('game-session', () => {
     deadlineAt.value = payload.deadline_at ?? null
     revealUntil.value = payload.reveal_until ?? null
     leaderboardTop.value = payload.leaderboard_top ?? []
+
+    if (payload.status !== 'question_open') {
+      clearAnswerUi()
+    }
+
+    if (payload.status === 'finished') {
+      clearPlayerAuth()
+    }
   }
 
   const onJoinedLobby = (payload: JoinedLobbyPayload) => {
@@ -245,7 +496,12 @@ export const useGameSessionStore = defineStore('game-session', () => {
     nickname.value = payload.nickname
     roomCode.value = payload.room_code
     phase.value = payload.status
+    shouldReturnToJoin.value = false
     persistPlayerAuth()
+  }
+
+  const onLobbyUpdated = (payload: LobbyUpdatedPayload) => {
+    playersCount.value = payload.players_count
   }
 
   const onQuestionOpened = (payload: QuestionOpenedPayload) => {
@@ -255,6 +511,21 @@ export const useGameSessionStore = defineStore('game-session', () => {
     currentQuestion.value = payload.question
     deadlineAt.value = payload.deadline_at
     revealUntil.value = null
+    answeredCount.value = null
+    totalPlayers.value = null
+    clearAnswerUi()
+  }
+
+  const onQuestionProgress = (payload: QuestionProgressPayload) => {
+    answeredCount.value = payload.answered_count
+    totalPlayers.value = payload.total_players
+  }
+
+  const onAnswerAccepted = (payload: AnswerAcceptedPayload) => {
+    hasSubmittedAnswer.value = true
+    isSubmittingAnswer.value = false
+    answerSubmitError.value = null
+    lastAnswerAcceptedAt.value = payload.accepted_at
   }
 
   const onAnswerReveal = (payload: AnswerRevealPayload) => {
@@ -263,13 +534,19 @@ export const useGameSessionStore = defineStore('game-session', () => {
     leaderboardTop.value = payload.leaderboard_top
     myScore.value = payload.total_score
     myRank.value = payload.your_rank
+    hasSubmittedAnswer.value = true
+    isSubmittingAnswer.value = false
+    selectedOptionIds.value = payload.your_selected_option_ids
   }
 
   const onQuestionRevealHost = (payload: QuestionRevealHostPayload) => {
     phase.value = 'answer_reveal'
     revealUntil.value = payload.reveal_until
     leaderboardTop.value = payload.leaderboard_top
+    answeredCount.value = payload.answered_count
+    totalPlayers.value = payload.total_players
     playersCount.value = payload.total_players
+    clearAnswerUi()
   }
 
   const onSessionFinished = (payload: SessionFinishedPayload) => {
@@ -278,11 +555,43 @@ export const useGameSessionStore = defineStore('game-session', () => {
     deadlineAt.value = null
     revealUntil.value = null
     leaderboardTop.value = payload.leaderboard_top
+    clearAnswerUi()
     clearPlayerAuth()
   }
 
   const onSocketError = (payload: WsErrorPayload) => {
-    lastError.value = getErrorMessage(payload)
+    const message = getErrorMessage(payload)
+    lastErrorCode.value = payload.code
+    lastError.value = message
+
+    if (payload.code === 'answer_already_submitted') {
+      hasSubmittedAnswer.value = true
+      isSubmittingAnswer.value = false
+      answerSubmitError.value = null
+      return
+    }
+
+    if (payload.code === 'question_not_active') {
+      hasSubmittedAnswer.value = true
+      isSubmittingAnswer.value = false
+      answerSubmitError.value = message
+      return
+    }
+
+    if (payload.code === 'invalid_answer_payload' || payload.code === 'selection_count_invalid') {
+      isSubmittingAnswer.value = false
+      answerSubmitError.value = message
+      return
+    }
+
+    if (REDIRECT_TO_JOIN_ERROR_CODES.has(payload.code) && role.value === 'player') {
+      shouldReturnToJoin.value = true
+      participantId.value = null
+      participantToken.value = null
+      clearPlayerAuth()
+    }
+
+    isSubmittingAnswer.value = false
   }
 
   const handleMessage = (message: WsEnvelope) => {
@@ -294,10 +603,16 @@ export const useGameSessionStore = defineStore('game-session', () => {
         onJoinedLobby(message.payload as JoinedLobbyPayload)
         break
       case 'lobby_updated':
-        playersCount.value = Number((message.payload as { players_count?: number }).players_count ?? playersCount.value)
+        onLobbyUpdated(message.payload as LobbyUpdatedPayload)
         break
       case 'question_opened':
         onQuestionOpened(message.payload as QuestionOpenedPayload)
+        break
+      case 'question_progress':
+        onQuestionProgress(message.payload as QuestionProgressPayload)
+        break
+      case 'answer_accepted':
+        onAnswerAccepted(message.payload as AnswerAcceptedPayload)
         break
       case 'answer_reveal':
         onAnswerReveal(message.payload as AnswerRevealPayload)
@@ -330,18 +645,37 @@ export const useGameSessionStore = defineStore('game-session', () => {
     deadlineAt,
     revealUntil,
     playersCount,
+    answeredCount,
+    totalPlayers,
     leaderboardTop,
     myScore,
     myRank,
+    selectedOptionIds,
+    hasSubmittedAnswer,
+    isSubmittingAnswer,
+    answerSubmitError,
+    lastAnswerAcceptedAt,
     lastError,
+    lastErrorCode,
+    shouldReturnToJoin,
     connectionStatus,
+    reconnectNotice,
+    isConnected,
+    isReconnecting,
+    isRuntimePhase,
+    currentQuestionNumber,
+    canSubmitAnswer,
     hostConnect,
     playerJoin,
     playerReconnect,
     startGame,
-    submitAnswer,
     finishGame,
+    replaceSelectedOptions,
+    toggleSelectedOption,
+    submitCurrentAnswer,
     disconnect,
+    clearSessionErrors,
+    clearAnswerUi,
     reset,
   }
 })

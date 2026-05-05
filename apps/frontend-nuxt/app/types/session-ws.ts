@@ -20,6 +20,7 @@ export interface QuizQuestionView {
   id: string
   text: string
   selection_type: 'single' | 'multiple'
+  time_limit_seconds?: number
   options: QuizOptionView[]
 }
 
@@ -42,6 +43,10 @@ export interface SessionSnapshotPayload {
   leaderboard_top?: LeaderboardEntryView[]
 }
 
+export interface LobbyUpdatedPayload {
+  players_count: number
+}
+
 export interface JoinedLobbyPayload {
   participant_id: string
   participant_token: string
@@ -57,11 +62,22 @@ export interface QuestionOpenedPayload {
   deadline_at: string
 }
 
+export interface QuestionProgressPayload {
+  question_id: string
+  answered_count: number
+  total_players: number
+}
+
+export interface AnswerAcceptedPayload {
+  question_id: string
+  accepted_at: string
+}
+
 export interface AnswerRevealPayload {
   question_id: string
   correct_option_ids: string[]
   your_selected_option_ids: string[]
-  your_result: 'correct' | 'wrong'
+  your_result: string
   score_delta: number
   total_score: number
   your_rank: number
@@ -88,3 +104,15 @@ export interface WsErrorPayload {
   code: string
   message: string
 }
+
+export type SessionServerMessage =
+  | WsEnvelope<SessionSnapshotPayload>
+  | WsEnvelope<JoinedLobbyPayload>
+  | WsEnvelope<LobbyUpdatedPayload>
+  | WsEnvelope<QuestionOpenedPayload>
+  | WsEnvelope<QuestionProgressPayload>
+  | WsEnvelope<AnswerAcceptedPayload>
+  | WsEnvelope<AnswerRevealPayload>
+  | WsEnvelope<QuestionRevealHostPayload>
+  | WsEnvelope<SessionFinishedPayload>
+  | WsEnvelope<WsErrorPayload>
