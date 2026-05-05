@@ -168,6 +168,7 @@ func (s *Service) PlayerReconnect(ctx context.Context, cmd PlayerReconnectParams
 	}
 
 	return PlayerReconnectResult{
+		ParticipantID:   participant.ParticipantID,
 		SessionSnapshot: s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, allParticipants, leaderboardTop),
 	}, nil
 }

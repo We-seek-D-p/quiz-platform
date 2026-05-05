@@ -73,12 +73,19 @@ type playerJoinPayload struct {
 	Nickname string `json:"nickname"`
 }
 
+type playerReconnectPayload struct {
+	RoomCode         string `json:"room_code"`
+	ParticipantToken string `json:"participant_token"`
+}
+
 func (h *Handler) dispatchIncomingMessage(ctx context.Context, conn *Connection, envelope MessageEnvelope) error {
 	switch envelope.Type {
 	case "host_connect":
 		return h.handleHostConnect(ctx, conn, envelope)
 	case "player_join":
 		return h.handlePlayerJoin(ctx, conn, envelope)
+	case "player_reconnect":
+		return h.handlePlayerReconnect(ctx, conn, envelope)
 	default:
 		return NewWSError(ErrCodeUnknownMessageType, "unknown message type")
 	}
@@ -196,6 +203,64 @@ func mapServicePlayerJoinError(err error) error {
 		return NewWSError("nickname_taken", "nickname already taken")
 	case errors.Is(err, sessionservice.ErrGameAlreadyFinished):
 		return NewWSError("game_already_finished", "game already finished")
+	case errors.Is(err, sessionservice.ErrInvalidParams):
+		return NewWSError(ErrCodeInvalidPayload, "invalid payload")
+	case errors.Is(err, sessionservice.ErrRuntimeStoreUnavailable):
+		return NewWSError("internal_error", "internal error")
+	default:
+		return NewWSError("internal_error", "internal error")
+	}
+}
+
+func (h *Handler) handlePlayerReconnect(ctx context.Context, conn *Connection, envelope MessageEnvelope) error {
+	var payload playerReconnectPayload
+	if err := json.Unmarshal(envelope.Payload, &payload); err != nil {
+		return NewWSError(ErrCodeInvalidPayload, "invalid payload")
+	}
+
+	payload.RoomCode = strings.TrimSpace(payload.RoomCode)
+	payload.ParticipantToken = strings.TrimSpace(payload.ParticipantToken)
+	if payload.RoomCode == "" || payload.ParticipantToken == "" {
+		return NewWSError(ErrCodeInvalidPayload, "invalid payload")
+	}
+
+	h.log.DebugContext(ctx, "player_reconnect received", "connection_id", conn.ID(), "room_code", payload.RoomCode)
+
+	result, err := h.service.PlayerReconnect(ctx, sessionservice.PlayerReconnectParams{
+		RoomCode:         payload.RoomCode,
+		ParticipantToken: payload.ParticipantToken,
+	})
+	if err != nil {
+		wsErr := ToWSError(mapServicePlayerReconnectError(err))
+		h.log.WarnContext(ctx, "player_reconnect failed", "connection_id", conn.ID(), "room_code", payload.RoomCode, "error_code", wsErr.Code)
+		return wsErr
+	}
+
+	sessionID := result.SessionSnapshot.SessionID
+	participantID := result.ParticipantID
+
+	if err := h.hub.BindPlayer(sessionID, participantID, conn); err != nil {
+		h.log.WarnContext(ctx, "player_reconnect bind failed", "connection_id", conn.ID(), "room_code", payload.RoomCode, "session_id", sessionID, "participant_id", participantID, "error", err)
+		return NewWSError("internal_error", "internal error")
+	}
+
+	if err := conn.WriteEvent("session_snapshot", result.SessionSnapshot); err != nil {
+		h.log.WarnContext(ctx, "player_reconnect snapshot send failed", "connection_id", conn.ID(), "room_code", payload.RoomCode, "session_id", sessionID, "participant_id", participantID, "error", err)
+		return NewWSError("internal_error", "internal error")
+	}
+
+	h.log.DebugContext(ctx, "player_reconnect success", "connection_id", conn.ID(), "room_code", payload.RoomCode, "session_id", sessionID, "participant_id", participantID)
+	return nil
+}
+
+func mapServicePlayerReconnectError(err error) error {
+	switch {
+	case errors.Is(err, sessionservice.ErrRoomNotFound):
+		return NewWSError("room_not_found", "room not found")
+	case errors.Is(err, sessionservice.ErrInvalidParticipantToken):
+		return NewWSError("invalid_participant_token", "invalid participant token")
+	case errors.Is(err, sessionservice.ErrParticipantNotFound):
+		return NewWSError("participant_not_found", "participant not found")
 	case errors.Is(err, sessionservice.ErrInvalidParams):
 		return NewWSError(ErrCodeInvalidPayload, "invalid payload")
 	case errors.Is(err, sessionservice.ErrRuntimeStoreUnavailable):
