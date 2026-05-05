@@ -40,22 +40,6 @@ class SessionService:
                 host_id=user_id,
                 idempotency_key=idempotency_key,
             )
-
-            if response.status_code in (200, 201):
-                data = response.json()
-                new_session.room_code = data["room_code"]
-                new_session.status = SessionStatus.LOBBY
-                await self.repository.save_session(new_session)
-                return new_session
-
-            new_session.status = SessionStatus.INIT_FAILED
-            await self.repository.save_session(new_session)
-            await self.client.delete_session(new_session.id)
-            raise ServiceException(
-                status_code=424,
-                code="session_provider_error",
-                message="Go session service failed to initialize runtime",
-            )
         except Exception:
             new_session.status = SessionStatus.INIT_FAILED
             await self.repository.save_session(new_session)
@@ -65,6 +49,22 @@ class SessionService:
                 code="session_provider_unavailable",
                 message="Go session service is not responding",
             ) from None
+
+        if response.status_code in (200, 201):
+            data = response.json()
+            new_session.room_code = data["room_code"]
+            new_session.status = SessionStatus.LOBBY
+            await self.repository.save_session(new_session)
+            return new_session
+
+        new_session.status = SessionStatus.INIT_FAILED
+        await self.repository.save_session(new_session)
+        await self.client.delete_session(new_session.id)
+        raise ServiceException(
+            status_code=424,
+            code="session_provider_error",
+            message="Go session service failed to initialize runtime",
+        )
 
     async def get_bootstrap_data(self, session_id: UUID) -> GameSession:
         session = await self.repository.get_session_with_quiz(session_id)
