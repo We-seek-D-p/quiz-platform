@@ -63,7 +63,13 @@ func (s *Service) StartGame(ctx context.Context, cmd StartGameParams) (StartGame
 	if err != nil {
 		return StartGameResult{}, s.mapParticipantRepositoryError(err)
 	}
-	snapshotDTO := s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, participants)
+
+	leaderboardTop, err := s.loadLeaderboardTop(ctx, sessionID, participants, leaderboardTopLimit)
+	if err != nil {
+		return StartGameResult{}, err
+	}
+
+	snapshotDTO := s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, participants, leaderboardTop)
 
 	return StartGameResult{
 		QuestionOpened: QuestionOpenedDTO{
@@ -95,14 +101,29 @@ func (s *Service) FinishGame(ctx context.Context, cmd FinishGameParams) (FinishG
 		return FinishGameResult{}, ErrForbidden
 	}
 
+	if snapshot.Runtime.Status == domain.RuntimeStatusFinished {
+		return FinishGameResult{}, ErrGameAlreadyFinished
+	}
+
+	if snapshot.Runtime.Status != domain.RuntimeStatusLobby &&
+		snapshot.Runtime.Status != domain.RuntimeStatusQuestionOpen &&
+		snapshot.Runtime.Status != domain.RuntimeStatusAnswerReveal {
+		return FinishGameResult{}, ErrInvalidStateTransition
+	}
+
 	_, participants, persistedAt, err := s.finishSession(ctx, snapshot, "manual")
+	if err != nil {
+		return FinishGameResult{}, err
+	}
+
+	leaderboardTop, err := s.loadLeaderboardTop(ctx, sessionID, participants, len(participants))
 	if err != nil {
 		return FinishGameResult{}, err
 	}
 
 	return FinishGameResult{
 		SessionFinished: FinishedDTO{
-			LeaderboardTop: s.mapParticipantsToLeaderboard(participants),
+			LeaderboardTop: leaderboardTop,
 		},
 		PersistedStatus: string(domain.PersistedStatusFinished),
 		PersistedAt:     persistedAt,
@@ -161,21 +182,21 @@ func (s *Service) finishSession(
 	return runtime, participants, now, nil
 }
 
-func (s *Service) CloseCurrentQuestionAndBuildReveal(ctx context.Context, sessionID string) (SnapshotDTO, error) {
+func (s *Service) CloseCurrentQuestionAndBuildReveal(ctx context.Context, sessionID string) (RevealTransitionResult, error) {
 	sessionID = strings.TrimSpace(sessionID)
 
 	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
 	if err != nil {
-		return SnapshotDTO{}, s.mapRedisError(err)
+		return RevealTransitionResult{}, s.mapRedisError(err)
 	}
 
 	if snapshot.Runtime.Status != domain.RuntimeStatusQuestionOpen {
-		return SnapshotDTO{}, ErrInvalidStateTransition
+		return RevealTransitionResult{}, ErrInvalidStateTransition
 	}
 
 	currIdx := snapshot.Runtime.Progress.CurrentQuestionIndex
 	if currIdx < 0 || currIdx >= len(snapshot.Quiz.Questions) {
-		return SnapshotDTO{}, ErrInvalidStateTransition
+		return RevealTransitionResult{}, ErrInvalidStateTransition
 	}
 
 	now := time.Now().UTC()
@@ -185,15 +206,87 @@ func (s *Service) CloseCurrentQuestionAndBuildReveal(ctx context.Context, sessio
 	snapshot.Runtime.Progress.DeadlineAt = nil
 
 	if err := s.runtimeRepository.UpdateRuntime(ctx, snapshot.Runtime); err != nil {
-		return SnapshotDTO{}, s.mapRedisError(err)
+		return RevealTransitionResult{}, s.mapRedisError(err)
 	}
 
 	participants, err := s.participantRepository.List(ctx, sessionID)
 	if err != nil {
-		return SnapshotDTO{}, s.mapParticipantRepositoryError(err)
+		return RevealTransitionResult{}, s.mapParticipantRepositoryError(err)
 	}
 
-	return s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, participants), nil
+	answers, err := s.answersRepository.ListByQuestion(ctx, sessionID, snapshot.Quiz.Questions[currIdx].ID)
+	if err != nil {
+		return RevealTransitionResult{}, s.mapAnswerRepositoryError(err)
+	}
+
+	leaderboardTop, err := s.loadLeaderboardTop(ctx, sessionID, participants, leaderboardTopLimit)
+	if err != nil {
+		return RevealTransitionResult{}, err
+	}
+
+	snapshotDTO := s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, participants, leaderboardTop)
+	revealResult := s.buildRevealTransitionResult(snapshot, participants, answers, leaderboardTop)
+	revealResult.SessionSnapshot = snapshotDTO
+
+	return revealResult, nil
+}
+
+func (s *Service) buildRevealTransitionResult(
+	snapshot domain.SessionSnapshot,
+	participants []domain.RuntimeParticipant,
+	answers []domain.RuntimeAnswer,
+	leaderboardTop []SnapshotLeaderboardEntryDTO,
+) RevealTransitionResult {
+	currQuestion := snapshot.Quiz.Questions[snapshot.Runtime.Progress.CurrentQuestionIndex]
+	correctOptionIDs := s.collectCorrectOptionIDs(currQuestion)
+	answerByParticipant := make(map[string]domain.RuntimeAnswer, len(answers))
+
+	for _, answer := range answers {
+		answerByParticipant[answer.ParticipantID] = answer
+	}
+
+	playerReveals := make([]ParticipantAnswerRevealDTO, 0, len(participants))
+	for _, participant := range participants {
+		participantAnswer, hasAnswer := answerByParticipant[participant.ParticipantID]
+		var yourSelectedOptionIDs []string
+		yourResult := "wrong"
+		scoreDelta := 0
+
+		if hasAnswer {
+			yourSelectedOptionIDs = participantAnswer.SelectedOptionIDs
+			yourResult = participantAnswer.Result
+			scoreDelta = participantAnswer.ScoreDelta
+		}
+
+		playerReveals = append(playerReveals, ParticipantAnswerRevealDTO{
+			ParticipantID: participant.ParticipantID,
+			Payload: AnswerRevealDTO{
+				QuestionID:            currQuestion.ID,
+				CorrectOptionIDs:      correctOptionIDs,
+				YourSelectedOptionIDs: yourSelectedOptionIDs,
+				YourResult:            yourResult,
+				ScoreDelta:            scoreDelta,
+				TotalScore:            participant.Score,
+				YourRank:              participant.Rank,
+				LeaderboardTop:        leaderboardTop,
+				RevealDurationSec:     int(s.revealDuration.Seconds()),
+				RevealUntil:           *snapshot.Runtime.Progress.RevealUntil,
+			},
+		})
+	}
+
+	return RevealTransitionResult{
+		HostReveal: QuestionRevealHostDTO{
+			QuestionID:        currQuestion.ID,
+			CorrectOptionIDs:  correctOptionIDs,
+			AnsweredCount:     len(answers),
+			TotalPlayers:      len(participants),
+			LeaderboardTop:    leaderboardTop,
+			RevealDurationSec: int(s.revealDuration.Seconds()),
+			RevealUntil:       *snapshot.Runtime.Progress.RevealUntil,
+		},
+		PlayerReveals: playerReveals,
+	}
 }
 
 func (s *Service) AdvanceToNextQuestion(ctx context.Context, sessionID string) (SnapshotDTO, error) {
@@ -215,7 +308,12 @@ func (s *Service) AdvanceToNextQuestion(ctx context.Context, sessionID string) (
 			return SnapshotDTO{}, err
 		}
 
-		return s.buildSessionSnapshot(runtime, snapshot.Quiz, participants), nil
+		leaderboardTop, err := s.loadLeaderboardTop(ctx, sessionID, participants, len(participants))
+		if err != nil {
+			return SnapshotDTO{}, err
+		}
+
+		return s.buildSessionSnapshot(runtime, snapshot.Quiz, participants, leaderboardTop), nil
 	}
 
 	now := time.Now().UTC()
@@ -235,5 +333,10 @@ func (s *Service) AdvanceToNextQuestion(ctx context.Context, sessionID string) (
 		return SnapshotDTO{}, s.mapParticipantRepositoryError(err)
 	}
 
-	return s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, participants), nil
+	leaderboardTop, err := s.loadLeaderboardTop(ctx, sessionID, participants, leaderboardTopLimit)
+	if err != nil {
+		return SnapshotDTO{}, err
+	}
+
+	return s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, participants, leaderboardTop), nil
 }

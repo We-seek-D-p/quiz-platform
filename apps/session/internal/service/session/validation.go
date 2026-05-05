@@ -7,7 +7,9 @@ import (
 )
 
 func (s *Service) calculateDeadline(start time.Time, seconds int) *time.Time {
-	return new(start.Add(time.Duration(seconds) * time.Second))
+	t := start.Add(time.Duration(seconds) * time.Second)
+	return &t
+
 }
 
 func (s *Service) validateAnswerPayload(q domain.QuestionSnapshot, selected []string) error {
@@ -16,9 +18,16 @@ func (s *Service) validateAnswerPayload(q domain.QuestionSnapshot, selected []st
 		validIDs[opt.ID] = struct{}{}
 	}
 
+	seen := make(map[string]struct{}, len(selected))
+
 	for _, id := range selected {
+		if _, duplicate := seen[id]; duplicate {
+			return ErrSelectionCountInvalid
+		}
+		seen[id] = struct{}{}
+
 		if _, ok := validIDs[id]; !ok {
-			return ErrInvalidAnswerPayload
+			return ErrOptionNotInQuestion
 		}
 	}
 
@@ -32,13 +41,19 @@ func (s *Service) validateAnswerPayload(q domain.QuestionSnapshot, selected []st
 	return nil
 }
 
-func (s *Service) checkIsCorrect(q domain.QuestionSnapshot, selected []string) bool {
-	var correctIDs []string
+func (s *Service) collectCorrectOptionIDs(q domain.QuestionSnapshot) []string {
+	correctOptionIDs := make([]string, 0, len(q.Options))
 	for _, opt := range q.Options {
 		if opt.IsCorrect {
-			correctIDs = append(correctIDs, opt.ID)
+			correctOptionIDs = append(correctOptionIDs, opt.ID)
 		}
 	}
+
+	return correctOptionIDs
+}
+
+func (s *Service) checkIsCorrect(q domain.QuestionSnapshot, selected []string) bool {
+	correctIDs := s.collectCorrectOptionIDs(q)
 
 	if len(correctIDs) != len(selected) {
 		return false

@@ -36,6 +36,11 @@ type SnapshotQuestionRevealDTO struct {
 	RevealUntil      time.Time
 }
 
+type ParticipantAnswerRevealDTO struct {
+	ParticipantID string
+	Payload       AnswerRevealDTO
+}
+
 type SnapshotDTO struct {
 	SessionID             string
 	RoomCode              string
@@ -105,6 +110,12 @@ type QuestionRevealHostDTO struct {
 	LeaderboardTop    []SnapshotLeaderboardEntryDTO
 	RevealDurationSec int
 	RevealUntil       time.Time
+}
+
+type RevealTransitionResult struct {
+	SessionSnapshot SnapshotDTO
+	HostReveal      QuestionRevealHostDTO
+	PlayerReveals   []ParticipantAnswerRevealDTO
 }
 
 type HostConnectResult struct {

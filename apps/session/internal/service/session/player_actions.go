@@ -33,8 +33,13 @@ func (s *Service) HostConnect(ctx context.Context, cmd HostConnectParams) (HostC
 		return HostConnectResult{}, s.mapParticipantRepositoryError(err)
 	}
 
+	leaderboardTop, err := s.loadLeaderboardTop(ctx, sessionID, participants, leaderboardTopLimit)
+	if err != nil {
+		return HostConnectResult{}, err
+	}
+
 	return HostConnectResult{
-		SessionSnapshot: s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, participants),
+		SessionSnapshot: s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, participants, leaderboardTop),
 	}, nil
 }
 
@@ -101,6 +106,11 @@ func (s *Service) PlayerJoin(ctx context.Context, cmd PlayerJoinParams) (PlayerJ
 		return PlayerJoinResult{}, s.mapParticipantRepositoryError(err)
 	}
 
+	leaderboardTop, err := s.loadLeaderboardTop(ctx, sessionID, allParticipants, leaderboardTopLimit)
+	if err != nil {
+		return PlayerJoinResult{}, err
+	}
+
 	return PlayerJoinResult{
 		JoinedLobby: JoinedLobbyDTO{
 			ParticipantID:    pID,
@@ -112,7 +122,7 @@ func (s *Service) PlayerJoin(ctx context.Context, cmd PlayerJoinParams) (PlayerJ
 		LobbyUpdated: LobbyUpdatedDTO{
 			PlayersCount: len(allParticipants),
 		},
-		SessionSnapshot: s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, allParticipants),
+		SessionSnapshot: s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, allParticipants, leaderboardTop),
 	}, nil
 }
 
@@ -152,8 +162,13 @@ func (s *Service) PlayerReconnect(ctx context.Context, cmd PlayerReconnectParams
 		return PlayerReconnectResult{}, s.mapParticipantRepositoryError(err)
 	}
 
+	leaderboardTop, err := s.loadLeaderboardTop(ctx, sessionID, allParticipants, leaderboardTopLimit)
+	if err != nil {
+		return PlayerReconnectResult{}, err
+	}
+
 	return PlayerReconnectResult{
-		SessionSnapshot: s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, allParticipants),
+		SessionSnapshot: s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, allParticipants, leaderboardTop),
 	}, nil
 }
 
@@ -173,10 +188,10 @@ func (s *Service) SubmitAnswer(ctx context.Context, cmd SubmitAnswerParams) (Sub
 	for _, optionID := range cmd.SelectedOptionIDs {
 		normalized := strings.TrimSpace(optionID)
 		if normalized == "" {
-			return SubmitAnswerResult{}, ErrInvalidAnswerPayload
+			return SubmitAnswerResult{}, ErrOptionNotFound
 		}
 		if _, exists := seen[normalized]; exists {
-			return SubmitAnswerResult{}, ErrInvalidAnswerPayload
+			return SubmitAnswerResult{}, ErrSelectionCountInvalid
 		}
 		seen[normalized] = struct{}{}
 	}
@@ -213,13 +228,19 @@ func (s *Service) SubmitAnswer(ctx context.Context, cmd SubmitAnswerParams) (Sub
 		SelectedOptionIDs: cmd.SelectedOptionIDs,
 		SubmittedAt:       time.Now().UTC(),
 	}
-	if err := s.answersRepository.SubmitOnce(ctx, sessionID, qID, answer); err != nil {
-		return SubmitAnswerResult{}, s.mapAnswerRepositoryError(err)
-	}
 
 	delta := 0
+	result := "wrong"
 	if s.checkIsCorrect(currentQuestion, cmd.SelectedOptionIDs) {
 		delta = 1
+		result = "correct"
+	}
+
+	answer.Result = result
+	answer.ScoreDelta = delta
+
+	if err := s.answersRepository.SubmitOnce(ctx, sessionID, qID, answer); err != nil {
+		return SubmitAnswerResult{}, s.mapAnswerRepositoryError(err)
 	}
 
 	newScore, err := s.leaderboardRepository.AddScore(ctx, sessionID, pID, delta)
