@@ -14,6 +14,7 @@ import (
 	sessionservice "github.com/We-seek-D-p/quiz-platform/apps/session/internal/service/session"
 	httptransport "github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/http"
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/http/handler"
+	wstransport "github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/ws"
 )
 
 type App struct {
@@ -42,8 +43,9 @@ func New(cfg *config.Config, log *slog.Logger) *App {
 		cfg.Game.RevealDuration(),
 	)
 	internalSessionHandler := handler.NewInternalSessionHandler(svc)
+	wsHandler := wstransport.NewHandler(cfg, log)
 
-	router := httptransport.NewRouter(cfg, log, internalSessionHandler)
+	router := httptransport.NewRouter(cfg, log, internalSessionHandler, wsHandler)
 	server := httptransport.NewServer(cfg.HTTP.Address(), router)
 
 	return &App{
