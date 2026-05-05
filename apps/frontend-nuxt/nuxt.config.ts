@@ -1,8 +1,13 @@
+import tailwindcss from '@tailwindcss/vite'
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
   css: ['~/assets/styles/index.css', 'primeicons/primeicons.css'],
+  vite: {
+    plugins: [tailwindcss()],
+  },
   runtimeConfig: {
     public: {
       authApiBase: '/api/v1/auth',

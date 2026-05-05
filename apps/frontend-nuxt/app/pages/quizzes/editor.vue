@@ -1,6 +1,8 @@
 <script setup lang="ts">
 definePageMeta({
   middleware: 'auth',
+  layout: 'dashboard',
+  title: 'Редактор квиза',
 })
 
 useHead({

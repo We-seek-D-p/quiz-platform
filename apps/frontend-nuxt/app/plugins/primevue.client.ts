@@ -1,10 +1,13 @@
 import PrimeVue from 'primevue/config'
-import Aura from '@primevue/themes/aura'
+import { initThemeMode } from '~/theme/mode'
+import { AuraIndigoPreset } from '~/theme/preset'
 
 export default defineNuxtPlugin((nuxtApp) => {
+  initThemeMode()
+
   nuxtApp.vueApp.use(PrimeVue, {
     theme: {
-      preset: Aura,
+      preset: AuraIndigoPreset,
       options: {
         darkModeSelector: '.app-dark',
       },
