@@ -31,6 +31,7 @@ const quizzes = ref<QuizTableRow[]>([])
 const isLoading = ref(false)
 const errorMessage = ref('')
 const deletingQuizId = ref<string | null>(null)
+const creatingSessionQuizId = ref<string | null>(null)
 const quizPendingDeletion = ref<QuizTableRow | null>(null)
 
 const hasAccessContext = computed(() => {
@@ -101,6 +102,43 @@ const openCreateQuiz = async (): Promise<void> => {
 
 const editQuiz = async (quizId: string): Promise<void> => {
   await router.push(`/quizzes/editor?quiz=${quizId}`)
+}
+
+const launchQuizSession = async (quiz: QuizTableRow): Promise<void> => {
+  if (!authStore.accessToken || creatingSessionQuizId.value) {
+    return
+  }
+
+  creatingSessionQuizId.value = quiz.id
+
+  try {
+    const session = await managementApi.createSession({
+      quiz_id: quiz.id,
+    })
+
+    const query: Record<string, string> = {
+      session_id: session.id,
+    }
+
+    if (session.room_code) {
+      query.room_code = session.room_code
+    }
+
+    await router.push({
+      path: '/host',
+      query,
+    })
+  } catch (error: unknown) {
+    toast.add({
+      group: 'global',
+      severity: 'error',
+      summary: 'Не удалось создать сессию',
+      detail: getErrorMessage(error, 'Попробуйте снова'),
+      life: 3500,
+    })
+  } finally {
+    creatingSessionQuizId.value = null
+  }
 }
 
 const askDeleteQuiz = (quiz: QuizTableRow): void => {
@@ -194,6 +232,15 @@ useHead({
           <Column header-style="text-align: right" body-style="text-align: right">
             <template #body="slotProps">
               <div class="quizzes-table__actions">
+                <Button
+                  icon="pi pi-play"
+                  text
+                  severity="success"
+                  aria-label="Запустить игру"
+                  :loading="creatingSessionQuizId === slotProps.data.id"
+                  :disabled="Boolean(creatingSessionQuizId)"
+                  @click="launchQuizSession(slotProps.data)"
+                />
                 <Button
                   icon="pi pi-pencil"
                   text
