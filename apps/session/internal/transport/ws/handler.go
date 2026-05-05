@@ -95,6 +95,10 @@ type submitAnswerPayload struct {
 	SelectedOptionIDs []string `json:"selected_option_ids"`
 }
 
+type finishGamePayload struct {
+	SessionID string `json:"session_id"`
+}
+
 func (h *Handler) dispatchIncomingMessage(ctx context.Context, conn *Connection, envelope MessageEnvelope) error {
 	switch envelope.Type {
 	case "host_connect":
@@ -107,6 +111,8 @@ func (h *Handler) dispatchIncomingMessage(ctx context.Context, conn *Connection,
 		return h.handleStartGame(ctx, conn, envelope)
 	case "submit_answer":
 		return h.handleSubmitAnswer(ctx, conn, envelope)
+	case "finish_game":
+		return h.handleFinishGame(ctx, conn, envelope)
 	default:
 		return NewWSError(ErrCodeUnknownMessageType, "unknown message type")
 	}
@@ -413,6 +419,60 @@ func mapServiceSubmitAnswerError(err error) error {
 		return NewWSError("invalid_answer_payload", "invalid answer payload")
 	case errors.Is(err, sessionservice.ErrParticipantNotFound):
 		return NewWSError("participant_not_found", "participant not found")
+	default:
+		return NewWSError("internal_error", "internal error")
+	}
+}
+
+func (h *Handler) handleFinishGame(ctx context.Context, conn *Connection, envelope MessageEnvelope) error {
+	var payload finishGamePayload
+	if err := json.Unmarshal(envelope.Payload, &payload); err != nil {
+		return NewWSError(ErrCodeInvalidPayload, "invalid payload")
+	}
+
+	payload.SessionID = strings.TrimSpace(payload.SessionID)
+	if payload.SessionID == "" {
+		return NewWSError(ErrCodeInvalidPayload, "invalid payload")
+	}
+
+	h.log.DebugContext(ctx, "finish_game received", "connection_id", conn.ID(), "session_id", payload.SessionID)
+
+	result, err := h.service.FinishGame(ctx, sessionservice.FinishGameParams{
+		SessionID:  payload.SessionID,
+		HostUserID: conn.HostUserID(),
+	})
+	if err != nil {
+		wsErr := ToWSError(mapServiceFinishGameError(err))
+		h.log.WarnContext(ctx, "finish_game failed", "connection_id", conn.ID(), "session_id", payload.SessionID, "error_code", wsErr.Code)
+		return wsErr
+	}
+
+	if err := h.hub.BindHost(payload.SessionID, conn); err != nil {
+		h.log.WarnContext(ctx, "finish_game bind failed", "connection_id", conn.ID(), "session_id", payload.SessionID, "error", err)
+		return NewWSError("internal_error", "internal error")
+	}
+
+	finishedPayload, err := EncodeEnvelope("session_finished", result.SessionFinished)
+	if err != nil {
+		h.log.WarnContext(ctx, "finish_game encode session_finished failed", "connection_id", conn.ID(), "session_id", payload.SessionID, "error", err)
+		return NewWSError("internal_error", "internal error")
+	}
+	_ = h.hub.Broadcast(payload.SessionID, finishedPayload)
+
+	h.log.DebugContext(ctx, "finish_game success", "connection_id", conn.ID(), "session_id", payload.SessionID)
+	return nil
+}
+
+func mapServiceFinishGameError(err error) error {
+	switch {
+	case errors.Is(err, sessionservice.ErrForbidden):
+		return NewWSError("forbidden", "forbidden")
+	case errors.Is(err, sessionservice.ErrGameAlreadyFinished):
+		return NewWSError("game_already_finished", "game already finished")
+	case errors.Is(err, sessionservice.ErrInvalidStateTransition):
+		return NewWSError("invalid_state_transition", "invalid state transition")
+	case errors.Is(err, sessionservice.ErrInvalidParams):
+		return NewWSError(ErrCodeInvalidPayload, "invalid payload")
 	default:
 		return NewWSError("internal_error", "internal error")
 	}
