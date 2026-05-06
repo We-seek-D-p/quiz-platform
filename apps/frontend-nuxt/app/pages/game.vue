@@ -17,8 +17,12 @@ const router = useRouter()
 const toast = useToast()
 const sessionStore = useGameSessionStore()
 
+const PLAYER_TOKEN_STORAGE_KEY = 'quiz:player_token'
+const PLAYER_ROOM_CODE_STORAGE_KEY = 'quiz:room_code'
+
 const isBootstrapping = ref(true)
 const currentQuestion = computed(() => sessionStore.currentQuestion)
+const missingJoinContext = ref(false)
 
 const selectionTypeLabel = computed(() => {
   if (!sessionStore.currentQuestion) {
@@ -91,18 +95,29 @@ const startTimer = () => {
 const tryAutoConnect = async () => {
   const roomFromQuery = typeof route.query.room_code === 'string' ? route.query.room_code.trim() : ''
   const nicknameFromQuery = typeof route.query.nickname === 'string' ? route.query.nickname.trim() : ''
+  const hasStoredReconnect = import.meta.client
+    ? Boolean(localStorage.getItem(PLAYER_TOKEN_STORAGE_KEY) && localStorage.getItem(PLAYER_ROOM_CODE_STORAGE_KEY))
+    : false
+
+  if (!roomFromQuery && !hasStoredReconnect) {
+    missingJoinContext.value = true
+    return
+  }
 
   try {
     await sessionStore.playerReconnect(roomFromQuery || undefined)
+    missingJoinContext.value = false
     return
   } catch {
     if (!roomFromQuery || !nicknameFromQuery) {
+      missingJoinContext.value = true
       await router.replace('/')
       return
     }
 
     try {
       await sessionStore.playerJoin(roomFromQuery, nicknameFromQuery)
+      missingJoinContext.value = false
     } catch (error: unknown) {
       const detail = error instanceof Error ? error.message : 'Попробуйте снова'
       toast.add({
@@ -123,6 +138,15 @@ const retryConnection = async () => {
   }
 
   await tryAutoConnect()
+}
+
+const returnToJoin = async () => {
+  const query: Record<string, string> = {}
+  if (sessionStore.roomCode) {
+    query.room_code = sessionStore.roomCode
+  }
+
+  await router.replace({ path: '/', query })
 }
 
 const toggleOption = (optionId: string) => {
@@ -168,6 +192,15 @@ watch(
 
 onMounted(async () => {
   await tryAutoConnect()
+  if (missingJoinContext.value) {
+    toast.add({
+      group: 'global',
+      severity: 'warn',
+      summary: 'Нет данных для входа',
+      detail: 'Введите код комнаты и никнейм для подключения',
+      life: 3200,
+    })
+  }
   startTimer()
   isBootstrapping.value = false
 })
@@ -211,12 +244,20 @@ useHead({
           <p>Подключаемся к игровой сессии...</p>
         </div>
 
+        <div v-else-if="missingJoinContext" class="game-screen__state">
+          <p>Нет данных для входа в игру.</p>
+          <Button label="Перейти к входу" icon="pi pi-arrow-left" @click="returnToJoin" />
+        </div>
+
         <div
           v-else-if="sessionStore.connectionStatus === 'disconnected' && !sessionStore.shouldReturnToJoin"
           class="game-screen__state"
         >
           <p>Соединение потеряно. Попробуйте подключиться снова.</p>
-          <Button label="Переподключиться" icon="pi pi-refresh" @click="retryConnection" />
+          <div class="game-screen__actions">
+            <Button label="Переподключиться" icon="pi pi-refresh" @click="retryConnection" />
+            <Button label="К входу" text icon="pi pi-arrow-left" @click="returnToJoin" />
+          </div>
         </div>
 
         <div v-else-if="sessionStore.phase === 'lobby'" class="game-screen__state">
@@ -294,6 +335,12 @@ useHead({
           </ol>
 
           <div class="game-screen__actions">
+            <Button
+              v-if="sessionStore.roomCode"
+              label="Сыграть еще"
+              icon="pi pi-refresh"
+              @click="router.replace({ path: '/', query: { room_code: sessionStore.roomCode } })"
+            />
             <Button label="Вернуться на главную" outlined @click="router.replace('/')" />
           </div>
         </div>

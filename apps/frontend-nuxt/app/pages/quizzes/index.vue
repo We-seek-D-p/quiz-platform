@@ -116,12 +116,24 @@ const launchQuizSession = async (quiz: QuizTableRow): Promise<void> => {
       quiz_id: quiz.id,
     })
 
-    const query: Record<string, string> = {
-      session_id: session.id,
+    if (!session.id) {
+      throw new Error('Session id отсутствует в ответе сервера')
     }
 
-    if (session.room_code) {
-      query.room_code = session.room_code
+    if (!session.room_code) {
+      toast.add({
+        group: 'global',
+        severity: 'warn',
+        summary: 'Сессия не готова',
+        detail: 'Сервис не вернул room code. Попробуйте создать сессию снова.',
+        life: 3500,
+      })
+      return
+    }
+
+    const query: Record<string, string> = {
+      session_id: session.id,
+      room_code: session.room_code,
     }
 
     await router.push({

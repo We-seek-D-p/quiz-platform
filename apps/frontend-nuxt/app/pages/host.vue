@@ -22,6 +22,8 @@ const sessionStore = useGameSessionStore()
 
 const isBootstrapping = ref(true)
 const currentQuestion = computed(() => sessionStore.currentQuestion)
+const isStartPending = ref(false)
+const isFinishPending = ref(false)
 
 const timerProgress = ref(0)
 const timerLabel = ref('--')
@@ -136,7 +138,58 @@ const copyRoomCode = async () => {
   }
 }
 
-const runStartGame = () => {
+const joinLink = computed(() => {
+  if (!sessionStore.roomCode || !import.meta.client) {
+    return ''
+  }
+
+  const url = new URL(window.location.origin)
+  url.pathname = '/'
+  url.searchParams.set('room_code', sessionStore.roomCode)
+  return url.toString()
+})
+
+const shareJoinLink = async () => {
+  if (!joinLink.value) {
+    return
+  }
+
+  try {
+    if (navigator.share) {
+      await navigator.share({
+        title: 'Подключение к игре',
+        text: `Код комнаты: ${sessionStore.roomCode ?? ''}`,
+        url: joinLink.value,
+      })
+      return
+    }
+
+    await navigator.clipboard.writeText(joinLink.value)
+    toast.add({
+      group: 'global',
+      severity: 'success',
+      summary: 'Ссылка скопирована',
+      detail: 'Ссылка для игроков скопирована в буфер обмена',
+      life: 2200,
+    })
+  } catch {
+    toast.add({
+      group: 'global',
+      severity: 'warn',
+      summary: 'Не удалось поделиться ссылкой',
+      detail: 'Скопируйте ссылку вручную',
+      life: 2800,
+    })
+  }
+}
+
+const runStartGame = async () => {
+  if (!sessionStore.isConnected || isStartPending.value) {
+    return
+  }
+
+  isStartPending.value = true
+
   try {
     sessionStore.startGame()
   } catch (error: unknown) {
@@ -147,10 +200,18 @@ const runStartGame = () => {
       detail: error instanceof Error ? error.message : 'Попробуйте снова',
       life: 3000,
     })
+  } finally {
+    isStartPending.value = false
   }
 }
 
-const runFinishGame = () => {
+const runFinishGame = async () => {
+  if (!sessionStore.isConnected || isFinishPending.value) {
+    return
+  }
+
+  isFinishPending.value = true
+
   try {
     sessionStore.finishGame()
   } catch (error: unknown) {
@@ -161,6 +222,8 @@ const runFinishGame = () => {
       detail: error instanceof Error ? error.message : 'Попробуйте снова',
       life: 3000,
     })
+  } finally {
+    isFinishPending.value = false
   }
 }
 
@@ -217,6 +280,13 @@ useHead({
               text
               @click="copyRoomCode"
             />
+            <Button
+              v-if="sessionStore.roomCode"
+              label="Ссылка для игроков"
+              icon="pi pi-share-alt"
+              text
+              @click="shareJoinLink"
+            />
           </div>
         </div>
 
@@ -252,7 +322,8 @@ useHead({
             <Button
               label="Начать игру"
               icon="pi pi-play"
-              :disabled="!sessionStore.isConnected"
+              :disabled="!sessionStore.isConnected || isStartPending"
+              :loading="isStartPending"
               @click="runStartGame"
             />
           </div>
@@ -270,7 +341,14 @@ useHead({
           </p>
 
           <div class="host-runtime__actions">
-            <Button label="Завершить игру" severity="danger" icon="pi pi-stop" @click="runFinishGame" />
+            <Button
+              label="Завершить игру"
+              severity="danger"
+              icon="pi pi-stop"
+              :disabled="!sessionStore.isConnected || isFinishPending"
+              :loading="isFinishPending"
+              @click="runFinishGame"
+            />
           </div>
         </div>
 
@@ -286,7 +364,14 @@ useHead({
           </ol>
 
           <div class="host-runtime__actions">
-            <Button label="Завершить игру" severity="danger" icon="pi pi-stop" @click="runFinishGame" />
+            <Button
+              label="Завершить игру"
+              severity="danger"
+              icon="pi pi-stop"
+              :disabled="!sessionStore.isConnected || isFinishPending"
+              :loading="isFinishPending"
+              @click="runFinishGame"
+            />
           </div>
         </div>
 
