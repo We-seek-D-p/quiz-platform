@@ -2,9 +2,12 @@
 import Button from 'primevue/button'
 import Card from 'primevue/card'
 import Message from 'primevue/message'
-import ProgressBar from 'primevue/progressbar'
-import Tag from 'primevue/tag'
 import { useToast } from 'primevue/usetoast'
+import SessionConnectionBanner from '~/components/session/SessionConnectionBanner.vue'
+import SessionLeaderboard from '~/components/session/SessionLeaderboard.vue'
+import SessionNoticeStack from '~/components/session/SessionNoticeStack.vue'
+import SessionTimerBar from '~/components/session/SessionTimerBar.vue'
+import { usePhaseTimer } from '~/composables/session/usePhaseTimer'
 import { useGameSessionStore } from '~/stores/gameSession'
 
 definePageMeta({
@@ -34,63 +37,13 @@ const selectionTypeLabel = computed(() => {
     : 'Выберите один вариант'
 })
 
-const timerProgress = ref(0)
-const timerLabel = ref('--')
-
-let timerInterval: ReturnType<typeof setInterval> | null = null
-
-const clearTimer = () => {
-  if (!timerInterval) {
-    return
-  }
-
-  clearInterval(timerInterval)
-  timerInterval = null
-}
-
-const recomputeTimer = () => {
-  const countdownTarget =
-    sessionStore.phase === 'question_open'
-      ? sessionStore.deadlineAt
-      : sessionStore.phase === 'answer_reveal'
-        ? sessionStore.revealUntil
-        : null
-
-  if (!countdownTarget) {
-    timerProgress.value = 0
-    timerLabel.value = '--'
-    return
-  }
-
-  const endMs = new Date(countdownTarget).getTime()
-  const nowMs = Date.now()
-  const remainingMs = Math.max(0, endMs - nowMs)
-  const remainingSec = Math.ceil(remainingMs / 1000)
-  timerLabel.value = `${remainingSec}s`
-
-  if (sessionStore.phase === 'question_open' && currentQuestion.value?.time_limit_seconds) {
-    const total = Math.max(1, currentQuestion.value.time_limit_seconds)
-    timerProgress.value = Math.min(100, Math.max(0, (remainingSec / total) * 100))
-    return
-  }
-
-  if (sessionStore.phase === 'answer_reveal') {
-    const revealWindowMs = Math.max(1, sessionStore.revealDurationSec) * 1000
-    timerProgress.value = Math.min(100, Math.max(0, (remainingMs / revealWindowMs) * 100))
-    return
-  }
-
-  timerProgress.value = 0
-}
-
-const startTimer = () => {
-  clearTimer()
-  recomputeTimer()
-
-  timerInterval = setInterval(() => {
-    recomputeTimer()
-  }, 300)
-}
+const { timerLabel, timerProgress } = usePhaseTimer({
+  phase: toRef(sessionStore, 'phase'),
+  deadlineAt: toRef(sessionStore, 'deadlineAt'),
+  revealUntil: toRef(sessionStore, 'revealUntil'),
+  questionTimeLimitSeconds: computed(() => currentQuestion.value?.time_limit_seconds ?? null),
+  revealDurationSec: toRef(sessionStore, 'revealDurationSec'),
+})
 
 const tryAutoConnect = async () => {
   const roomFromQuery = typeof route.query.room_code === 'string' ? route.query.room_code.trim() : ''
@@ -183,13 +136,6 @@ watch(
   },
 )
 
-watch(
-  () => [sessionStore.phase, sessionStore.deadlineAt, sessionStore.revealUntil, currentQuestion.value?.time_limit_seconds] as const,
-  () => {
-    startTimer()
-  },
-)
-
 onMounted(async () => {
   await tryAutoConnect()
   if (missingJoinContext.value) {
@@ -201,12 +147,7 @@ onMounted(async () => {
       life: 3200,
     })
   }
-  startTimer()
   isBootstrapping.value = false
-})
-
-onBeforeUnmount(() => {
-  clearTimer()
 })
 
 useHead({
@@ -219,26 +160,15 @@ useHead({
     <Card class="game-screen__card">
       <template #content>
         <div class="game-screen__header">
-          <div class="game-screen__header-left">
-            <Tag
-              :severity="sessionStore.isConnected ? 'success' : sessionStore.isReconnecting ? 'warn' : 'danger'"
-              :value="sessionStore.isConnected ? 'Подключено' : sessionStore.isReconnecting ? 'Переподключение' : 'Не в сети'"
-            />
-            <span class="game-screen__room">Комната: {{ sessionStore.roomCode ?? '--------' }}</span>
-          </div>
-
-          <span class="game-screen__timer">{{ timerLabel }}</span>
+          <SessionConnectionBanner
+            :status="sessionStore.connectionStatus"
+            :room-code="sessionStore.roomCode"
+            room-prefix="Комната: "
+          />
         </div>
 
-        <ProgressBar :value="timerProgress" :show-value="false" class="game-screen__progress" />
-
-        <Message v-if="sessionStore.lastError" severity="warn" :closable="false">
-          {{ sessionStore.lastError }}
-        </Message>
-
-        <Message v-if="sessionStore.reconnectNotice" severity="success" :closable="false">
-          {{ sessionStore.reconnectNotice }}
-        </Message>
+        <SessionTimerBar :label="timerLabel" :progress="timerProgress" class="game-screen__progress" />
+        <SessionNoticeStack :error="sessionStore.lastError" :reconnect="sessionStore.reconnectNotice" />
 
         <div v-if="isBootstrapping" class="game-screen__state">
           <p>Подключаемся к игровой сессии...</p>
@@ -315,24 +245,14 @@ useHead({
             Ваш счет: {{ sessionStore.myScore }} · Место: {{ sessionStore.myRank ?? '-' }}
           </p>
 
-          <ol class="game-screen__leaderboard" v-if="sessionStore.leaderboardTop.length > 0">
-            <li v-for="entry in sessionStore.leaderboardTop" :key="`${entry.nickname}-${entry.rank}`">
-              <span>{{ entry.rank }}. {{ entry.nickname }}</span>
-              <strong>{{ entry.score }}</strong>
-            </li>
-          </ol>
+          <SessionLeaderboard :entries="sessionStore.leaderboardTop" />
         </div>
 
         <div v-else-if="sessionStore.phase === 'finished'" class="game-screen__state">
           <h1 class="game-screen__title">Игра завершена</h1>
           <p class="game-screen__subtitle">Финальный рейтинг</p>
 
-          <ol class="game-screen__leaderboard" v-if="sessionStore.leaderboardTop.length > 0">
-            <li v-for="entry in sessionStore.leaderboardTop" :key="`${entry.nickname}-${entry.rank}`">
-              <span>{{ entry.rank }}. {{ entry.nickname }}</span>
-              <strong>{{ entry.score }}</strong>
-            </li>
-          </ol>
+          <SessionLeaderboard :entries="sessionStore.leaderboardTop" />
 
           <div class="game-screen__actions">
             <Button
@@ -369,26 +289,9 @@ useHead({
   flex-wrap: wrap;
 }
 
-.game-screen__header-left {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.game-screen__room {
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.game-screen__timer {
-  font-weight: 700;
-}
-
 .game-screen__progress {
   margin-top: 0.75rem;
   margin-bottom: 1rem;
-  height: 0.625rem;
 }
 
 .game-screen__state,
@@ -456,24 +359,6 @@ useHead({
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
-}
-
-.game-screen__leaderboard {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.game-screen__leaderboard li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border: 1px solid var(--app-color-border);
-  border-radius: 0.75rem;
-  padding: 0.65rem 0.75rem;
 }
 
 @media (max-width: 768px) {

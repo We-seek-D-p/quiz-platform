@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
 import Card from 'primevue/card'
-import Message from 'primevue/message'
-import ProgressBar from 'primevue/progressbar'
-import Tag from 'primevue/tag'
 import { useToast } from 'primevue/usetoast'
+import SessionConnectionBanner from '~/components/session/SessionConnectionBanner.vue'
+import SessionLeaderboard from '~/components/session/SessionLeaderboard.vue'
+import SessionNoticeStack from '~/components/session/SessionNoticeStack.vue'
+import SessionTimerBar from '~/components/session/SessionTimerBar.vue'
+import { usePhaseTimer } from '~/composables/session/usePhaseTimer'
 import { useAuthStore } from '~/stores/auth'
 import { useGameSessionStore } from '~/stores/gameSession'
 
@@ -25,67 +27,17 @@ const currentQuestion = computed(() => sessionStore.currentQuestion)
 const isStartPending = ref(false)
 const isFinishPending = ref(false)
 
-const timerProgress = ref(0)
-const timerLabel = ref('--')
-
 const sessionIdFromQuery = computed(() => {
   return typeof route.query.session_id === 'string' ? route.query.session_id.trim() : ''
 })
 
-let timerInterval: ReturnType<typeof setInterval> | null = null
-
-const clearTimer = () => {
-  if (!timerInterval) {
-    return
-  }
-
-  clearInterval(timerInterval)
-  timerInterval = null
-}
-
-const recomputeTimer = () => {
-  const countdownTarget =
-    sessionStore.phase === 'question_open'
-      ? sessionStore.deadlineAt
-      : sessionStore.phase === 'answer_reveal'
-        ? sessionStore.revealUntil
-        : null
-
-  if (!countdownTarget) {
-    timerProgress.value = 0
-    timerLabel.value = '--'
-    return
-  }
-
-  const endMs = new Date(countdownTarget).getTime()
-  const nowMs = Date.now()
-  const remainingMs = Math.max(0, endMs - nowMs)
-  const remainingSec = Math.ceil(remainingMs / 1000)
-  timerLabel.value = `${remainingSec}s`
-
-  if (sessionStore.phase === 'question_open' && currentQuestion.value?.time_limit_seconds) {
-    const total = Math.max(1, currentQuestion.value.time_limit_seconds)
-    timerProgress.value = Math.min(100, Math.max(0, (remainingSec / total) * 100))
-    return
-  }
-
-  if (sessionStore.phase === 'answer_reveal') {
-    const revealWindowMs = Math.max(1, sessionStore.revealDurationSec) * 1000
-    timerProgress.value = Math.min(100, Math.max(0, (remainingMs / revealWindowMs) * 100))
-    return
-  }
-
-  timerProgress.value = 0
-}
-
-const startTimer = () => {
-  clearTimer()
-  recomputeTimer()
-
-  timerInterval = setInterval(() => {
-    recomputeTimer()
-  }, 300)
-}
+const { timerLabel, timerProgress } = usePhaseTimer({
+  phase: toRef(sessionStore, 'phase'),
+  deadlineAt: toRef(sessionStore, 'deadlineAt'),
+  revealUntil: toRef(sessionStore, 'revealUntil'),
+  questionTimeLimitSeconds: computed(() => currentQuestion.value?.time_limit_seconds ?? null),
+  revealDurationSec: toRef(sessionStore, 'revealDurationSec'),
+})
 
 const connectHost = async () => {
   if (!sessionIdFromQuery.value) {
@@ -227,30 +179,21 @@ const runFinishGame = async () => {
   }
 }
 
-watch(
-  () => [sessionStore.phase, sessionStore.deadlineAt, sessionStore.revealUntil, currentQuestion.value?.time_limit_seconds] as const,
-  () => {
-    startTimer()
-  },
-)
-
 onMounted(async () => {
   await authStore.initializeSession()
+
+  if (!sessionIdFromQuery.value) {
+    await router.replace('/quizzes')
+    return
+  }
 
   if (sessionStore.role && sessionStore.role !== 'host') {
     sessionStore.reset()
   }
 
-  if (sessionIdFromQuery.value) {
-    await connectHost()
-  }
+  await connectHost()
 
-  startTimer()
   isBootstrapping.value = false
-})
-
-onBeforeUnmount(() => {
-  clearTimer()
 })
 
 useHead({
@@ -263,16 +206,12 @@ useHead({
     <Card class="host-runtime__card">
       <template #content>
         <div class="host-runtime__header">
-          <div class="host-runtime__status">
-            <Tag
-              :severity="sessionStore.isConnected ? 'success' : sessionStore.isReconnecting ? 'warn' : 'danger'"
-              :value="sessionStore.isConnected ? 'Подключено' : sessionStore.isReconnecting ? 'Переподключение' : 'Не в сети'"
-            />
-            <span v-if="sessionStore.roomCode" class="host-runtime__room">{{ sessionStore.roomCode }}</span>
-          </div>
+          <SessionConnectionBanner
+            :status="sessionStore.connectionStatus"
+            :room-code="sessionStore.roomCode"
+          />
 
           <div class="host-runtime__header-actions">
-            <span class="host-runtime__timer">{{ timerLabel }}</span>
             <Button
               v-if="sessionStore.roomCode"
               label="Скопировать код"
@@ -290,12 +229,8 @@ useHead({
           </div>
         </div>
 
-        <ProgressBar :value="timerProgress" :show-value="false" class="host-runtime__progress" />
-
-        <Message v-if="sessionStore.lastError" severity="warn" :closable="false">{{ sessionStore.lastError }}</Message>
-        <Message v-if="sessionStore.reconnectNotice" severity="success" :closable="false">
-          {{ sessionStore.reconnectNotice }}
-        </Message>
+        <SessionTimerBar :label="timerLabel" :progress="timerProgress" class="host-runtime__progress" />
+        <SessionNoticeStack :error="sessionStore.lastError" :reconnect="sessionStore.reconnectNotice" />
 
         <div v-if="isBootstrapping" class="host-runtime__state">
           <p>Подготавливаем сессию...</p>
@@ -312,7 +247,10 @@ useHead({
           class="host-runtime__state"
         >
           <p>Соединение с Session Service потеряно.</p>
-          <Button label="Переподключиться" icon="pi pi-refresh" @click="retryConnection" />
+          <div class="host-runtime__actions">
+            <Button label="Переподключиться" icon="pi pi-refresh" @click="retryConnection" />
+            <Button label="К списку квизов" text icon="pi pi-list" @click="router.push('/quizzes')" />
+          </div>
         </div>
 
         <div v-else-if="sessionStore.phase === 'lobby'" class="host-runtime__state">
@@ -356,12 +294,7 @@ useHead({
           <h1 class="host-runtime__title">Промежуточный рейтинг</h1>
           <p class="host-runtime__subtitle">Следующий вопрос откроется автоматически</p>
 
-          <ol class="host-runtime__leaderboard" v-if="sessionStore.leaderboardTop.length > 0">
-            <li v-for="entry in sessionStore.leaderboardTop" :key="`${entry.nickname}-${entry.rank}`">
-              <span>{{ entry.rank }}. {{ entry.nickname }}</span>
-              <strong>{{ entry.score }}</strong>
-            </li>
-          </ol>
+          <SessionLeaderboard :entries="sessionStore.leaderboardTop" />
 
           <div class="host-runtime__actions">
             <Button
@@ -379,12 +312,7 @@ useHead({
           <h1 class="host-runtime__title">Игра завершена</h1>
           <p class="host-runtime__subtitle">Финальный leaderboard</p>
 
-          <ol class="host-runtime__leaderboard" v-if="sessionStore.leaderboardTop.length > 0">
-            <li v-for="entry in sessionStore.leaderboardTop" :key="`${entry.nickname}-${entry.rank}`">
-              <span>{{ entry.rank }}. {{ entry.nickname }}</span>
-              <strong>{{ entry.score }}</strong>
-            </li>
-          </ol>
+          <SessionLeaderboard :entries="sessionStore.leaderboardTop" />
 
           <div class="host-runtime__actions">
             <Button label="Новая сессия" icon="pi pi-plus" @click="router.push('/quizzes')" />
@@ -415,31 +343,14 @@ useHead({
   gap: 0.75rem;
 }
 
-.host-runtime__status {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.host-runtime__room {
-  font-size: clamp(1.2rem, 2.5vw, 1.8rem);
-  font-weight: 800;
-  letter-spacing: 0.08em;
-}
-
 .host-runtime__header-actions {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
 }
 
-.host-runtime__timer {
-  font-weight: 700;
-}
-
 .host-runtime__progress {
   margin: 0.75rem 0 1rem;
-  height: 0.625rem;
 }
 
 .host-runtime__state {
@@ -467,21 +378,4 @@ useHead({
   flex-wrap: wrap;
 }
 
-.host-runtime__leaderboard {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.host-runtime__leaderboard li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border: 1px solid var(--app-color-border);
-  border-radius: 0.75rem;
-  padding: 0.65rem 0.75rem;
-}
 </style>
