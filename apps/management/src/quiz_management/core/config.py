@@ -16,11 +16,16 @@ class Settings(BaseSettings):
     internal_allowed_services: str = "session"
     internal_token: str = "placeholder_token"  # noqa: S105
     session_internal_token: str = Field(
-        default="placeholder_token", validation_alias=AliasChoices("MANAGEMENT_SESSION_INTERNAL_TOKEN", "SESSION_INTERNAL_TOKEN")
+        default="placeholder_token",
+        validation_alias=AliasChoices(
+            "MANAGEMENT_SESSION_INTERNAL_TOKEN", "SESSION_INTERNAL_TOKEN"
+        ),
     )
     session_service_url: str = Field(
         default="http://session:8000",
-        validation_alias=AliasChoices("MANAGEMENT_SESSION_SERVICE_URL", "SESSION_MANAGEMENT_BASE_URL"),
+        validation_alias=AliasChoices(
+            "MANAGEMENT_SESSION_SERVICE_URL", "SESSION_MANAGEMENT_BASE_URL"
+        ),
     )
 
     model_config = SettingsConfigDict(
