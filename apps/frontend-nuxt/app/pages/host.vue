@@ -21,6 +21,7 @@ const authStore = useAuthStore()
 const sessionStore = useGameSessionStore()
 
 const isBootstrapping = ref(true)
+const currentQuestion = computed(() => sessionStore.currentQuestion)
 
 const timerProgress = ref(0)
 const timerLabel = ref('--')
@@ -60,14 +61,14 @@ const recomputeTimer = () => {
   const remainingSec = Math.ceil(remainingMs / 1000)
   timerLabel.value = `${remainingSec}s`
 
-  if (sessionStore.phase === 'question_open' && sessionStore.currentQuestion?.time_limit_seconds) {
-    const total = Math.max(1, sessionStore.currentQuestion.time_limit_seconds)
+  if (sessionStore.phase === 'question_open' && currentQuestion.value?.time_limit_seconds) {
+    const total = Math.max(1, currentQuestion.value.time_limit_seconds)
     timerProgress.value = Math.min(100, Math.max(0, (remainingSec / total) * 100))
     return
   }
 
   if (sessionStore.phase === 'answer_reveal') {
-    const revealWindowMs = 5000
+    const revealWindowMs = Math.max(1, sessionStore.revealDurationSec) * 1000
     timerProgress.value = Math.min(100, Math.max(0, (remainingMs / revealWindowMs) * 100))
     return
   }
@@ -164,7 +165,7 @@ const runFinishGame = () => {
 }
 
 watch(
-  () => [sessionStore.phase, sessionStore.deadlineAt, sessionStore.revealUntil, sessionStore.currentQuestion?.time_limit_seconds] as const,
+  () => [sessionStore.phase, sessionStore.deadlineAt, sessionStore.revealUntil, currentQuestion.value?.time_limit_seconds] as const,
   () => {
     startTimer()
   },
@@ -258,7 +259,7 @@ useHead({
         </div>
 
         <div v-else-if="sessionStore.phase === 'question_open'" class="host-runtime__state">
-          <h1 class="host-runtime__title" v-if="sessionStore.currentQuestion">{{ sessionStore.currentQuestion.text }}</h1>
+          <h1 class="host-runtime__title" v-if="currentQuestion">{{ currentQuestion.text }}</h1>
           <p class="host-runtime__subtitle">
             Вопрос {{ sessionStore.currentQuestionNumber }}
             <span v-if="sessionStore.totalQuestions">/ {{ sessionStore.totalQuestions }}</span>

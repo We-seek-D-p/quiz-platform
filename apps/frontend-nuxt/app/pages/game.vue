@@ -18,13 +18,14 @@ const toast = useToast()
 const sessionStore = useGameSessionStore()
 
 const isBootstrapping = ref(true)
+const currentQuestion = computed(() => sessionStore.currentQuestion)
 
 const selectionTypeLabel = computed(() => {
   if (!sessionStore.currentQuestion) {
     return ''
   }
 
-  return sessionStore.currentQuestion.selection_type === 'multiple'
+  return currentQuestion.value.selection_type === 'multiple'
     ? 'Выберите несколько вариантов'
     : 'Выберите один вариант'
 })
@@ -63,14 +64,14 @@ const recomputeTimer = () => {
   const remainingSec = Math.ceil(remainingMs / 1000)
   timerLabel.value = `${remainingSec}s`
 
-  if (sessionStore.phase === 'question_open' && sessionStore.currentQuestion?.time_limit_seconds) {
-    const total = Math.max(1, sessionStore.currentQuestion.time_limit_seconds)
+  if (sessionStore.phase === 'question_open' && currentQuestion.value?.time_limit_seconds) {
+    const total = Math.max(1, currentQuestion.value.time_limit_seconds)
     timerProgress.value = Math.min(100, Math.max(0, (remainingSec / total) * 100))
     return
   }
 
   if (sessionStore.phase === 'answer_reveal') {
-    const revealWindowMs = 5000
+    const revealWindowMs = Math.max(1, sessionStore.revealDurationSec) * 1000
     timerProgress.value = Math.min(100, Math.max(0, (remainingMs / revealWindowMs) * 100))
     return
   }
@@ -159,7 +160,7 @@ watch(
 )
 
 watch(
-  () => [sessionStore.phase, sessionStore.deadlineAt, sessionStore.revealUntil, sessionStore.currentQuestion?.time_limit_seconds] as const,
+  () => [sessionStore.phase, sessionStore.deadlineAt, sessionStore.revealUntil, currentQuestion.value?.time_limit_seconds] as const,
   () => {
     startTimer()
   },
@@ -224,7 +225,7 @@ useHead({
           <p class="game-screen__meta">Игроков в комнате: {{ sessionStore.playersCount }}</p>
         </div>
 
-        <div v-else-if="sessionStore.phase === 'question_open' && sessionStore.currentQuestion" class="game-screen__question">
+        <div v-else-if="sessionStore.phase === 'question_open' && currentQuestion" class="game-screen__question">
           <div class="game-screen__question-head">
             <p class="game-screen__meta">
               Вопрос {{ sessionStore.currentQuestionNumber }}
@@ -233,11 +234,11 @@ useHead({
             <p class="game-screen__subtitle">{{ selectionTypeLabel }}</p>
           </div>
 
-          <h1 class="game-screen__title">{{ sessionStore.currentQuestion.text }}</h1>
+          <h1 class="game-screen__title">{{ currentQuestion.text }}</h1>
 
           <div class="game-screen__options">
             <button
-              v-for="option in sessionStore.currentQuestion.options"
+              v-for="option in currentQuestion.options"
               :key="option.id"
               type="button"
               class="option-btn"
