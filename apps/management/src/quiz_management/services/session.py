@@ -132,11 +132,19 @@ class SessionService:
         return session
 
     async def update_session_status(self, session_id: UUID, data: SessionStatusUpdate) -> None:
+        if not data.event_id.strip():
+            raise ServiceException(400, "invalid_payload", "event_id is required")
+
         session = await self.repository.get_session_by_id(session_id)
         if not session:
             raise ServiceException(404, "session_not_found", "Session not found")
 
+        if session.status_event_id == data.event_id:
+            return
+
         if session.status == data.status:
+            session.status_event_id = data.event_id
+            await self.repository.save_session(session)
             return
 
         if session.status == SessionStatus.FINISHED:
@@ -144,19 +152,40 @@ class SessionService:
                 409, "already_finished", "Cannot change status of a finished session"
             )
 
+        if not self._is_valid_status_transition(session.status, data.status):
+            raise ServiceException(
+                409,
+                "invalid_state_transition",
+                f"Cannot transition status from {session.status} to {data.status}",
+            )
+
         session.status = data.status
+        session.status_event_id = data.event_id
         if data.status == SessionStatus.IN_PROGRESS and data.started_at:
             session.started_at = data.started_at
 
         await self.repository.save_session(session)
 
     async def finalize_session(self, session_id: UUID, data: SessionResultsUpdate) -> None:
+        if not data.event_id.strip():
+            raise ServiceException(400, "invalid_payload", "event_id is required")
+
         session = await self.repository.get_session_with_quiz(session_id)
         if not session:
             raise ServiceException(404, "session_not_found", "Session not found")
 
-        if session.status == SessionStatus.FINISHED:
+        if session.results_event_id == data.event_id:
             return
+
+        if session.status == SessionStatus.FINISHED:
+            raise ServiceException(409, "already_finished", "Session already finished")
+
+        if not self._is_valid_results_transition(session.status):
+            raise ServiceException(
+                409,
+                "invalid_state_transition",
+                f"Cannot finalize session from status {session.status}",
+            )
 
         participants = []
         for p_data in data.participants:
@@ -170,5 +199,22 @@ class SessionService:
 
         session.status = SessionStatus.FINISHED
         session.finished_at = data.finished_at
+        session.results_event_id = data.event_id
 
         await self.repository.save_results(session, participants)
+
+    @staticmethod
+    def _is_valid_status_transition(current: SessionStatus, target: SessionStatus) -> bool:
+        allowed_transitions = {
+            SessionStatus.INITIALIZING: {SessionStatus.LOBBY, SessionStatus.INIT_FAILED},
+            SessionStatus.LOBBY: {SessionStatus.IN_PROGRESS},
+            SessionStatus.IN_PROGRESS: {SessionStatus.FINISHED},
+            SessionStatus.FINISHED: set(),
+            SessionStatus.INIT_FAILED: set(),
+        }
+
+        return target in allowed_transitions.get(current, set())
+
+    @staticmethod
+    def _is_valid_results_transition(current: SessionStatus) -> bool:
+        return current in {SessionStatus.LOBBY, SessionStatus.IN_PROGRESS}
