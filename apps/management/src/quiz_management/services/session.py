@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 import httpx
@@ -210,10 +210,11 @@ class SessionService:
     @staticmethod
     def _is_valid_results_transition(current: SessionStatus) -> bool:
         return current in {SessionStatus.LOBBY, SessionStatus.IN_PROGRESS}
+
     @staticmethod
     def _to_naive_utc(value: datetime | None) -> datetime | None:
         if value is None:
             return None
         if value.tzinfo is None:
             return value
-        return value.astimezone(timezone.utc).replace(tzinfo=None)
+        return value.astimezone(UTC).replace(tzinfo=None)
