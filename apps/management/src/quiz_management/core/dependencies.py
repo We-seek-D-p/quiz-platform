@@ -7,6 +7,7 @@ from starlette import status
 
 from quiz_management.core.config import settings
 from quiz_management.core.database import get_session
+from quiz_management.core.exceptions import ServiceException
 from quiz_management.models.question import Question
 from quiz_management.models.quiz import Quiz
 from quiz_management.repositories.question_repository import QuestionRepository
@@ -21,7 +22,7 @@ async def get_current_user_id(
     user_id: Annotated[UUID | None, Header(alias="X-User-Id")] = None,
 ) -> UUID:
     if not user_id:
-        raise HTTPException(status_code=401, detail="X-User-Id header missing")
+        raise ServiceException(status_code=401, code="unauthorized", message="unauthorized")
     return user_id
 
 
@@ -75,8 +76,8 @@ async def verify_internal_auth(
     x_internal_token: Annotated[str, Header(alias="X-Internal-Token")],
 ) -> None:
     if x_internal_token != settings.internal_token:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid internal token")
+        raise ServiceException(status_code=401, code="unauthorized", message="unauthorized")
 
     allowed = settings.internal_allowed_services.split(",")
     if x_internal_service not in allowed:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Service not allowed")
+        raise ServiceException(status_code=403, code="forbidden", message="forbidden")

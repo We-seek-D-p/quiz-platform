@@ -20,7 +20,7 @@ STATUS_TO_CODE = {
     404: "not_found",
     405: "method_not_allowed",
     409: "conflict",
-    422: "validation_error",
+    422: "invalid_payload",
     429: "too_many_requests",
     500: "internal_error",
     503: "service_unavailable",
