@@ -212,11 +212,14 @@ function normalizeLobbyUpdatedPayload(raw: unknown): LobbyUpdatedPayload {
 
 function normalizeQuestionOpenedPayload(raw: unknown): QuestionOpenedPayload | null {
   const source = asRecord(raw)
-  const question = toQuizQuestion(source.question ?? source.Question)
+  const questionSource = asRecord(source.question ?? source.Question)
+  const question = toQuizQuestion(questionSource)
   const deadlineAt = pickString(source, ['deadline_at', 'DeadlineAt'])
   const questionIndex = pickNumber(source, ['question_index', 'QuestionIndex'])
   const totalQuestions = pickNumber(source, ['total_questions', 'TotalQuestions'])
-  const questionTimeLimitSeconds = pickNumber(source, ['time_limit_seconds', 'TimeLimitSeconds'])
+  const questionTimeLimitSeconds =
+    pickNumber(source, ['time_limit_seconds', 'TimeLimitSeconds']) ??
+    pickNumber(questionSource, ['time_limit_seconds', 'TimeLimitSeconds'])
 
   if (!question || !deadlineAt || questionIndex === undefined || totalQuestions === undefined) {
     return null
@@ -383,9 +386,13 @@ export const useGameSessionStore = defineStore('game-session', () => {
 
   const connectionStatus = ref<ConnectionStatus>('idle')
   const reconnectNotice = ref<string | null>(null)
+  const hostAccessToken = ref<string | null>(null)
 
   const hostWs = useSessionWs({
     mode: 'host',
+    queryParams: () => ({
+      access_token: hostAccessToken.value ?? undefined,
+    }),
     onMessage: (message) => handleMessage(message),
     onError: (message) => {
       lastError.value = message
@@ -511,6 +518,7 @@ export const useGameSessionStore = defineStore('game-session', () => {
     playersCount.value = 0
     connectionStatus.value = 'idle'
     reconnectNotice.value = null
+    hostAccessToken.value = null
     clearRuntimeView()
     clearSessionErrors()
   }
@@ -574,9 +582,10 @@ export const useGameSessionStore = defineStore('game-session', () => {
     })
   }
 
-  const hostConnect = async (targetSessionId: string) => {
+  const hostConnect = async (targetSessionId: string, accessToken?: string) => {
     role.value = 'host'
     sessionId.value = targetSessionId
+    hostAccessToken.value = accessToken?.trim() || null
     clearSessionErrors()
     reconnectNotice.value = null
 

@@ -3,6 +3,7 @@ package middleware
 import (
 	"log/slog"
 	"net/http"
+	"runtime/debug"
 )
 
 func Recoverer(log *slog.Logger) func(http.Handler) http.Handler {
@@ -21,6 +22,7 @@ func Recoverer(log *slog.Logger) func(http.Handler) http.Handler {
 					"method", r.Method,
 					"path", r.URL.Path,
 					"error", err,
+					"stack", string(debug.Stack()),
 				)
 
 				http.Error(w, "internal server error", http.StatusInternalServerError)

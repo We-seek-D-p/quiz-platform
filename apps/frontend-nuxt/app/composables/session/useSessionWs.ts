@@ -4,6 +4,7 @@ interface UseSessionWsOptions {
   mode: SessionWsMode
   onMessage?: (message: WsEnvelope) => void
   onError?: (message: string) => void
+  queryParams?: () => Record<string, string | undefined>
   reconnect?: {
     enabled?: boolean
     maxAttempts?: number
@@ -55,6 +56,7 @@ export function useSessionWs(options: UseSessionWsOptions) {
   let reconnectAttempts = 0
   let manualClose = false
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  let connectPromise: Promise<void> | null = null
 
   const clearReconnectTimer = () => {
     if (!reconnectTimer) {
@@ -105,22 +107,61 @@ export function useSessionWs(options: UseSessionWsOptions) {
       return
     }
 
-    if (socket.value && (socket.value.readyState === WebSocket.OPEN || socket.value.readyState === WebSocket.CONNECTING)) {
+    if (socket.value?.readyState === WebSocket.OPEN) {
+      return
+    }
+
+    if (connectPromise) {
+      return connectPromise
+    }
+
+    if (socket.value?.readyState === WebSocket.CONNECTING) {
       return
     }
 
     manualClose = false
     status.value = reconnectAttempts > 0 ? 'reconnecting' : 'connecting'
 
-    const url = resolveWebSocketUrl(options.mode)
-    const ws = new WebSocket(url)
+    const resolvedUrl = resolveWebSocketUrl(options.mode)
+    const url = new URL(resolvedUrl)
+    const queryParams = options.queryParams?.() ?? {}
+    Object.entries(queryParams).forEach(([key, value]) => {
+      if (!value) {
+        return
+      }
+      url.searchParams.set(key, value)
+    })
+
+    const ws = new WebSocket(url.toString())
     socket.value = ws
 
-    ws.onopen = () => {
-      connectedAt.value = new Date().toISOString()
-      status.value = 'connected'
-      resetReconnectState()
-    }
+    const opening = new Promise<void>((resolve, reject) => {
+      ws.onopen = () => {
+        connectedAt.value = new Date().toISOString()
+        status.value = 'connected'
+        resetReconnectState()
+        connectPromise = null
+        resolve()
+      }
+
+      ws.onerror = () => {
+        options.onError?.('Websocket transport error')
+      }
+
+      ws.onclose = () => {
+        lastDisconnectAt.value = new Date().toISOString()
+        socket.value = null
+
+        if (status.value !== 'connected') {
+          connectPromise = null
+          reject(new Error('Websocket connection closed before ready'))
+        }
+
+        scheduleReconnect()
+      }
+    })
+
+    connectPromise = opening
 
     ws.onmessage = (event) => {
       if (typeof event.data !== 'string') {
@@ -135,15 +176,7 @@ export function useSessionWs(options: UseSessionWsOptions) {
       options.onMessage?.(message)
     }
 
-    ws.onerror = () => {
-      options.onError?.('Websocket transport error')
-    }
-
-    ws.onclose = () => {
-      lastDisconnectAt.value = new Date().toISOString()
-      socket.value = null
-      scheduleReconnect()
-    }
+    return opening
   }
 
   const disconnect = () => {

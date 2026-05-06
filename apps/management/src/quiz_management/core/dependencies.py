@@ -32,7 +32,7 @@ async def get_valid_quiz(
     db: Annotated[AsyncSession, Depends(get_session)],
 ) -> Quiz:
     repo = QuizRepository(db)
-    quiz = await repo.get_by_id(quiz_id)
+    quiz = await repo.get_by_id_with_questions(quiz_id)
     if not quiz or quiz.owner_id != user_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Quiz not found")
     return quiz

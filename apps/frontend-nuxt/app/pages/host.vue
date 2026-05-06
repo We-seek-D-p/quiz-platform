@@ -45,7 +45,7 @@ const connectHost = async () => {
   }
 
   try {
-    await sessionStore.hostConnect(sessionIdFromQuery.value)
+    await sessionStore.hostConnect(sessionIdFromQuery.value, authStore.accessToken ?? undefined)
   } catch (error: unknown) {
     toast.add({
       group: 'global',
