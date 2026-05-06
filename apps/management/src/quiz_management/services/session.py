@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import UUID
 
 import httpx
@@ -139,11 +140,7 @@ class SessionService:
         if not session:
             raise ServiceException(404, "session_not_found", "Session not found")
 
-        if session.status_event_id == data.event_id:
-            return
-
         if session.status == data.status:
-            session.status_event_id = data.event_id
             await self.repository.save_session(session)
             return
 
@@ -160,9 +157,8 @@ class SessionService:
             )
 
         session.status = data.status
-        session.status_event_id = data.event_id
         if data.status == SessionStatus.IN_PROGRESS and data.started_at:
-            session.started_at = data.started_at
+            session.started_at = self._to_naive_utc(data.started_at)
 
         await self.repository.save_session(session)
 
@@ -173,9 +169,6 @@ class SessionService:
         session = await self.repository.get_session_with_quiz(session_id)
         if not session:
             raise ServiceException(404, "session_not_found", "Session not found")
-
-        if session.results_event_id == data.event_id:
-            return
 
         if session.status == SessionStatus.FINISHED:
             raise ServiceException(409, "already_finished", "Session already finished")
@@ -198,8 +191,7 @@ class SessionService:
             participants.append(participant)
 
         session.status = SessionStatus.FINISHED
-        session.finished_at = data.finished_at
-        session.results_event_id = data.event_id
+        session.finished_at = self._to_naive_utc(data.finished_at)
 
         await self.repository.save_results(session, participants)
 
@@ -218,3 +210,10 @@ class SessionService:
     @staticmethod
     def _is_valid_results_transition(current: SessionStatus) -> bool:
         return current in {SessionStatus.LOBBY, SessionStatus.IN_PROGRESS}
+    @staticmethod
+    def _to_naive_utc(value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            return value
+        return value.astimezone(timezone.utc).replace(tzinfo=None)

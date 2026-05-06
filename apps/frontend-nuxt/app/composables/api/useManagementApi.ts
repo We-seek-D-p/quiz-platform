@@ -18,10 +18,12 @@ export const useManagementApi = () => {
 
   const managementBase = config.public.managementApiBase
 
+  type ManagementRequestBody = BodyInit | Record<string, unknown> | null
+
   const authorizedRequest = async <T>(
     path: string,
     method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
-    body?: unknown,
+    body?: ManagementRequestBody,
     headers?: HeadersInit,
   ): Promise<T> => {
     const accessToken = authStore.accessToken
@@ -43,15 +45,24 @@ export const useManagementApi = () => {
 
       const refreshed = await authStore.refreshAccessToken()
       if (!refreshed || !authStore.accessToken) {
-        throw error
+        throw new ApiHttpError('Сессия истекла. Войдите снова.', 401, 'unauthorized')
       }
 
-      return request<T>(path, {
-        method,
-        body,
-        accessToken: authStore.accessToken,
-        headers,
-      })
+      try {
+        return await request<T>(path, {
+          method,
+          body,
+          accessToken: authStore.accessToken,
+          headers,
+        })
+      } catch (retryError: unknown) {
+        if (retryError instanceof ApiHttpError && retryError.status === 401) {
+          authStore.clearSession()
+          throw new ApiHttpError('Сессия истекла. Войдите снова.', 401, 'unauthorized')
+        }
+
+        throw retryError
+      }
     }
   }
 

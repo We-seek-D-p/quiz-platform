@@ -2,9 +2,12 @@
 import Button from 'primevue/button'
 import Card from 'primevue/card'
 import Message from 'primevue/message'
-import ProgressBar from 'primevue/progressbar'
-import Tag from 'primevue/tag'
 import { useToast } from 'primevue/usetoast'
+import SessionConnectionBanner from '~/components/session/SessionConnectionBanner.vue'
+import SessionLeaderboard from '~/components/session/SessionLeaderboard.vue'
+import SessionNoticeStack from '~/components/session/SessionNoticeStack.vue'
+import SessionTimerBar from '~/components/session/SessionTimerBar.vue'
+import { usePhaseTimer } from '~/composables/session/usePhaseTimer'
 import { useGameSessionStore } from '~/stores/gameSession'
 
 definePageMeta({
@@ -17,91 +20,57 @@ const router = useRouter()
 const toast = useToast()
 const sessionStore = useGameSessionStore()
 
+const PLAYER_TOKEN_STORAGE_KEY = 'quiz:player_token'
+const PLAYER_ROOM_CODE_STORAGE_KEY = 'quiz:room_code'
+
 const isBootstrapping = ref(true)
+const currentQuestion = computed(() => sessionStore.currentQuestion)
+const missingJoinContext = ref(false)
 
 const selectionTypeLabel = computed(() => {
   if (!sessionStore.currentQuestion) {
     return ''
   }
 
-  return sessionStore.currentQuestion.selection_type === 'multiple'
+  return currentQuestion.value.selection_type === 'multiple'
     ? 'Выберите несколько вариантов'
     : 'Выберите один вариант'
 })
 
-const timerProgress = ref(0)
-const timerLabel = ref('--')
-
-let timerInterval: ReturnType<typeof setInterval> | null = null
-
-const clearTimer = () => {
-  if (!timerInterval) {
-    return
-  }
-
-  clearInterval(timerInterval)
-  timerInterval = null
-}
-
-const recomputeTimer = () => {
-  const countdownTarget =
-    sessionStore.phase === 'question_open'
-      ? sessionStore.deadlineAt
-      : sessionStore.phase === 'answer_reveal'
-        ? sessionStore.revealUntil
-        : null
-
-  if (!countdownTarget) {
-    timerProgress.value = 0
-    timerLabel.value = '--'
-    return
-  }
-
-  const endMs = new Date(countdownTarget).getTime()
-  const nowMs = Date.now()
-  const remainingMs = Math.max(0, endMs - nowMs)
-  const remainingSec = Math.ceil(remainingMs / 1000)
-  timerLabel.value = `${remainingSec}s`
-
-  if (sessionStore.phase === 'question_open' && sessionStore.currentQuestion?.time_limit_seconds) {
-    const total = Math.max(1, sessionStore.currentQuestion.time_limit_seconds)
-    timerProgress.value = Math.min(100, Math.max(0, (remainingSec / total) * 100))
-    return
-  }
-
-  if (sessionStore.phase === 'answer_reveal') {
-    const revealWindowMs = 5000
-    timerProgress.value = Math.min(100, Math.max(0, (remainingMs / revealWindowMs) * 100))
-    return
-  }
-
-  timerProgress.value = 0
-}
-
-const startTimer = () => {
-  clearTimer()
-  recomputeTimer()
-
-  timerInterval = setInterval(() => {
-    recomputeTimer()
-  }, 300)
-}
+const { timerLabel, timerProgress } = usePhaseTimer({
+  phase: toRef(sessionStore, 'phase'),
+  deadlineAt: toRef(sessionStore, 'deadlineAt'),
+  revealUntil: toRef(sessionStore, 'revealUntil'),
+  questionTimeLimitSeconds: computed(() => currentQuestion.value?.time_limit_seconds ?? null),
+  revealDurationSec: toRef(sessionStore, 'revealDurationSec'),
+})
 
 const tryAutoConnect = async () => {
   const roomFromQuery = typeof route.query.room_code === 'string' ? route.query.room_code.trim() : ''
   const nicknameFromQuery = typeof route.query.nickname === 'string' ? route.query.nickname.trim() : ''
+  const hasStoredReconnect = import.meta.client
+    ? Boolean(localStorage.getItem(PLAYER_TOKEN_STORAGE_KEY) && localStorage.getItem(PLAYER_ROOM_CODE_STORAGE_KEY))
+    : false
+
+  if (!roomFromQuery && !hasStoredReconnect) {
+    missingJoinContext.value = true
+    return
+  }
 
   try {
     await sessionStore.playerReconnect(roomFromQuery || undefined)
+    missingJoinContext.value = false
     return
   } catch {
     if (!roomFromQuery || !nicknameFromQuery) {
+      missingJoinContext.value = true
       await router.replace('/')
       return
     }
 
     try {
       await sessionStore.playerJoin(roomFromQuery, nicknameFromQuery)
+      missingJoinContext.value = false
     } catch (error: unknown) {
       const detail = error instanceof Error ? error.message : 'Попробуйте снова'
       toast.add({
@@ -122,6 +91,15 @@ const retryConnection = async () => {
   }
 
   await tryAutoConnect()
+}
+
+const returnToJoin = async () => {
+  const query: Record<string, string> = {}
+  if (sessionStore.roomCode) {
+    query.room_code = sessionStore.roomCode
+  }
+
+  await router.replace({ path: '/', query })
 }
 
 const toggleOption = (optionId: string) => {
@@ -158,21 +136,18 @@ watch(
   },
 )
 
-watch(
-  () => [sessionStore.phase, sessionStore.deadlineAt, sessionStore.revealUntil, sessionStore.currentQuestion?.time_limit_seconds] as const,
-  () => {
-    startTimer()
-  },
-)
-
 onMounted(async () => {
   await tryAutoConnect()
-  startTimer()
+  if (missingJoinContext.value) {
+    toast.add({
+      group: 'global',
+      severity: 'warn',
+      summary: 'Нет данных для входа',
+      detail: 'Введите код комнаты и никнейм для подключения',
+      life: 3200,
+    })
+  }
   isBootstrapping.value = false
-})
-
-onBeforeUnmount(() => {
-  clearTimer()
 })
 
 useHead({
@@ -185,29 +160,23 @@ useHead({
     <Card class="game-screen__card">
       <template #content>
         <div class="game-screen__header">
-          <div class="game-screen__header-left">
-            <Tag
-              :severity="sessionStore.isConnected ? 'success' : sessionStore.isReconnecting ? 'warn' : 'danger'"
-              :value="sessionStore.isConnected ? 'Подключено' : sessionStore.isReconnecting ? 'Переподключение' : 'Не в сети'"
-            />
-            <span class="game-screen__room">Комната: {{ sessionStore.roomCode ?? '--------' }}</span>
-          </div>
-
-          <span class="game-screen__timer">{{ timerLabel }}</span>
+          <SessionConnectionBanner
+            :status="sessionStore.connectionStatus"
+            :room-code="sessionStore.roomCode"
+            room-prefix="Комната: "
+          />
         </div>
 
-        <ProgressBar :value="timerProgress" :show-value="false" class="game-screen__progress" />
-
-        <Message v-if="sessionStore.lastError" severity="warn" :closable="false">
-          {{ sessionStore.lastError }}
-        </Message>
-
-        <Message v-if="sessionStore.reconnectNotice" severity="success" :closable="false">
-          {{ sessionStore.reconnectNotice }}
-        </Message>
+        <SessionTimerBar :label="timerLabel" :progress="timerProgress" class="game-screen__progress" />
+        <SessionNoticeStack :error="sessionStore.lastError" :reconnect="sessionStore.reconnectNotice" />
 
         <div v-if="isBootstrapping" class="game-screen__state">
           <p>Подключаемся к игровой сессии...</p>
+        </div>
+
+        <div v-else-if="missingJoinContext" class="game-screen__state">
+          <p>Нет данных для входа в игру.</p>
+          <Button label="Перейти к входу" icon="pi pi-arrow-left" @click="returnToJoin" />
         </div>
 
         <div
@@ -215,7 +184,10 @@ useHead({
           class="game-screen__state"
         >
           <p>Соединение потеряно. Попробуйте подключиться снова.</p>
-          <Button label="Переподключиться" icon="pi pi-refresh" @click="retryConnection" />
+          <div class="game-screen__actions">
+            <Button label="Переподключиться" icon="pi pi-refresh" @click="retryConnection" />
+            <Button label="К входу" text icon="pi pi-arrow-left" @click="returnToJoin" />
+          </div>
         </div>
 
         <div v-else-if="sessionStore.phase === 'lobby'" class="game-screen__state">
@@ -224,7 +196,7 @@ useHead({
           <p class="game-screen__meta">Игроков в комнате: {{ sessionStore.playersCount }}</p>
         </div>
 
-        <div v-else-if="sessionStore.phase === 'question_open' && sessionStore.currentQuestion" class="game-screen__question">
+        <div v-else-if="sessionStore.phase === 'question_open' && currentQuestion" class="game-screen__question">
           <div class="game-screen__question-head">
             <p class="game-screen__meta">
               Вопрос {{ sessionStore.currentQuestionNumber }}
@@ -233,11 +205,11 @@ useHead({
             <p class="game-screen__subtitle">{{ selectionTypeLabel }}</p>
           </div>
 
-          <h1 class="game-screen__title">{{ sessionStore.currentQuestion.text }}</h1>
+          <h1 class="game-screen__title">{{ currentQuestion.text }}</h1>
 
           <div class="game-screen__options">
             <button
-              v-for="option in sessionStore.currentQuestion.options"
+              v-for="option in currentQuestion.options"
               :key="option.id"
               type="button"
               class="option-btn"
@@ -273,26 +245,22 @@ useHead({
             Ваш счет: {{ sessionStore.myScore }} · Место: {{ sessionStore.myRank ?? '-' }}
           </p>
 
-          <ol class="game-screen__leaderboard" v-if="sessionStore.leaderboardTop.length > 0">
-            <li v-for="entry in sessionStore.leaderboardTop" :key="`${entry.nickname}-${entry.rank}`">
-              <span>{{ entry.rank }}. {{ entry.nickname }}</span>
-              <strong>{{ entry.score }}</strong>
-            </li>
-          </ol>
+          <SessionLeaderboard :entries="sessionStore.leaderboardTop" />
         </div>
 
         <div v-else-if="sessionStore.phase === 'finished'" class="game-screen__state">
           <h1 class="game-screen__title">Игра завершена</h1>
           <p class="game-screen__subtitle">Финальный рейтинг</p>
 
-          <ol class="game-screen__leaderboard" v-if="sessionStore.leaderboardTop.length > 0">
-            <li v-for="entry in sessionStore.leaderboardTop" :key="`${entry.nickname}-${entry.rank}`">
-              <span>{{ entry.rank }}. {{ entry.nickname }}</span>
-              <strong>{{ entry.score }}</strong>
-            </li>
-          </ol>
+          <SessionLeaderboard :entries="sessionStore.leaderboardTop" />
 
           <div class="game-screen__actions">
+            <Button
+              v-if="sessionStore.roomCode"
+              label="Сыграть еще"
+              icon="pi pi-refresh"
+              @click="router.replace({ path: '/', query: { room_code: sessionStore.roomCode } })"
+            />
             <Button label="Вернуться на главную" outlined @click="router.replace('/')" />
           </div>
         </div>
@@ -321,26 +289,9 @@ useHead({
   flex-wrap: wrap;
 }
 
-.game-screen__header-left {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.game-screen__room {
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.game-screen__timer {
-  font-weight: 700;
-}
-
 .game-screen__progress {
   margin-top: 0.75rem;
   margin-bottom: 1rem;
-  height: 0.625rem;
 }
 
 .game-screen__state,
@@ -408,24 +359,6 @@ useHead({
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
-}
-
-.game-screen__leaderboard {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.game-screen__leaderboard li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border: 1px solid var(--app-color-border);
-  border-radius: 0.75rem;
-  padding: 0.65rem 0.75rem;
 }
 
 @media (max-width: 768px) {

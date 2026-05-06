@@ -3,9 +3,10 @@ from enum import StrEnum
 from uuid import UUID, uuid7
 
 from pydantic import BaseModel
+from sqlalchemy import String
 from sqlmodel import Field, Relationship, SQLModel
 
-from quiz_management.models.quiz import Quiz, QuizPublic
+from quiz_management.models.quiz import Quiz
 
 
 def get_utc_now():
@@ -27,7 +28,10 @@ class GameSession(SQLModel, table=True):
     quiz_id: UUID = Field(foreign_key="management.quizzes.id")
     room_code: str | None = Field(default=None, max_length=8)
     host_id: UUID
-    status: SessionStatus = Field(default=SessionStatus.INITIALIZING)
+    status: SessionStatus = Field(
+        default=SessionStatus.INITIALIZING,
+        sa_type=String,
+    )
 
     created_at: datetime = Field(default_factory=get_utc_now)
     started_at: datetime | None = None
@@ -61,9 +65,40 @@ class SessionPublic(SQLModel):
     host_id: UUID
 
 
+class SessionBootstrapPublic(SQLModel):
+    session_id: UUID
+    quiz_id: UUID
+    room_code: str | None
+    status: SessionStatus
+    host_id: UUID
+
+
+class OptionSnapshotPublic(SQLModel):
+    id: UUID
+    text: str
+    order_index: int
+    is_correct: bool
+
+
+class QuestionSnapshotPublic(SQLModel):
+    id: UUID
+    text: str
+    selection_type: str
+    time_limit_seconds: int
+    order_index: int
+    options: list[OptionSnapshotPublic]
+
+
+class QuizSnapshotPublic(SQLModel):
+    id: UUID
+    title: str
+    description: str
+    questions: list[QuestionSnapshotPublic]
+
+
 class SessionBootstrap(SQLModel):
-    session: SessionPublic
-    quiz_snapshot: QuizPublic
+    session: SessionBootstrapPublic
+    quiz_snapshot: QuizSnapshotPublic
 
 
 class SessionStatusUpdate(SQLModel):

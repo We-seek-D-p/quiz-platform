@@ -56,6 +56,287 @@ type ReconnectContext = {
   participantToken: string
 }
 
+type UnknownRecord = Record<string, unknown>
+
+function asRecord(value: unknown): UnknownRecord {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {}
+  }
+
+  return value as UnknownRecord
+}
+
+function pickString(record: UnknownRecord, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = record[key]
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value
+    }
+  }
+
+  return undefined
+}
+
+function pickNumber(record: UnknownRecord, keys: string[]): number | undefined {
+  for (const key of keys) {
+    const value = record[key]
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value
+    }
+  }
+
+  return undefined
+}
+
+function pickArray(record: UnknownRecord, keys: string[]): unknown[] | undefined {
+  for (const key of keys) {
+    const value = record[key]
+    if (Array.isArray(value)) {
+      return value
+    }
+  }
+
+  return undefined
+}
+
+function toLeaderboardEntries(raw: unknown): LeaderboardEntryView[] {
+  const rows = Array.isArray(raw) ? raw : []
+  const mapped: LeaderboardEntryView[] = []
+
+  for (const row of rows) {
+    const source = asRecord(row)
+    const nickname = pickString(source, ['nickname', 'Nickname'])
+    const score = pickNumber(source, ['score', 'Score'])
+    const rank = pickNumber(source, ['rank', 'Rank'])
+
+    if (!nickname || score === undefined || rank === undefined) {
+      continue
+    }
+
+    mapped.push({ nickname, score, rank })
+  }
+
+  return mapped
+}
+
+function toQuizQuestion(raw: unknown): QuizQuestionView | null {
+  const source = asRecord(raw)
+  const id = pickString(source, ['id', 'ID'])
+  const text = pickString(source, ['text', 'Text'])
+  const selectionType = pickString(source, ['selection_type', 'SelectionType'])
+  const optionsRaw = pickArray(source, ['options', 'Options']) ?? []
+
+  if (!id || !text || (selectionType !== 'single' && selectionType !== 'multiple')) {
+    return null
+  }
+
+  const options: QuizQuestionView['options'] = optionsRaw
+    .map((option) => {
+      const optionSource = asRecord(option)
+      const optionId = pickString(optionSource, ['id', 'ID'])
+      const optionText = pickString(optionSource, ['text', 'Text'])
+      if (!optionId || !optionText) {
+        return null
+      }
+
+      return {
+        id: optionId,
+        text: optionText,
+      }
+    })
+    .filter((option): option is { id: string; text: string } => option !== null)
+
+  const question: QuizQuestionView = {
+    id,
+    text,
+    selection_type: selectionType,
+    options,
+  }
+
+  return question
+}
+
+function normalizeSnapshotPayload(raw: unknown): SessionSnapshotPayload {
+  const source = asRecord(raw)
+  const statusRaw = pickString(source, ['status', 'Status'])
+  const status: SessionPhase =
+    statusRaw === 'question_open' || statusRaw === 'answer_reveal' || statusRaw === 'finished'
+      ? statusRaw
+      : 'lobby'
+  const participants = pickArray(source, ['participants', 'Participants']) ?? []
+  const currentQuestion = toQuizQuestion(source.question ?? source.Question ?? source.current_question ?? source.CurrentQuestion)
+  const revealData = asRecord(source.current_question_reveal ?? source.CurrentQuestionReveal)
+
+  const payload: SessionSnapshotPayload = {
+    status,
+    session_id: pickString(source, ['session_id', 'SessionID']) ?? '',
+    room_code: pickString(source, ['room_code', 'RoomCode']) ?? '',
+    players_count: pickNumber(source, ['players_count', 'PlayersCount']) ?? participants.length,
+    question_index:
+      pickNumber(source, ['question_index', 'QuestionIndex']) ??
+      pickNumber(source, ['current_question_index', 'CurrentQuestionIndex']),
+    total_questions: pickNumber(source, ['total_questions', 'TotalQuestions']),
+    question: currentQuestion ?? undefined,
+    deadline_at: pickString(source, ['deadline_at', 'DeadlineAt']),
+    reveal_until: pickString(source, ['reveal_until', 'RevealUntil']),
+    reveal_duration_sec:
+      pickNumber(revealData, ['reveal_duration_sec', 'RevealDurationSec']) ??
+      pickNumber(revealData, ['reveal_duration', 'RevealDuration']),
+    leaderboard_top: toLeaderboardEntries(source.leaderboard_top ?? source.LeaderboardTop),
+  }
+
+  if (!payload.reveal_until && status === 'answer_reveal') {
+    payload.reveal_until = pickString(revealData, ['reveal_until', 'RevealUntil'])
+  }
+
+  return payload
+}
+
+function normalizeJoinedLobbyPayload(raw: unknown): JoinedLobbyPayload {
+  const source = asRecord(raw)
+  return {
+    participant_id: pickString(source, ['participant_id', 'ParticipantID']) ?? '',
+    participant_token: pickString(source, ['participant_token', 'ParticipantToken']) ?? '',
+    nickname: pickString(source, ['nickname', 'Nickname']) ?? '',
+    room_code: pickString(source, ['room_code', 'RoomCode']) ?? '',
+    status: (pickString(source, ['status', 'Status']) as SessionPhase | undefined) ?? 'lobby',
+  }
+}
+
+function normalizeLobbyUpdatedPayload(raw: unknown): LobbyUpdatedPayload {
+  const source = asRecord(raw)
+  return {
+    players_count: pickNumber(source, ['players_count', 'PlayersCount']) ?? 0,
+  }
+}
+
+function normalizeQuestionOpenedPayload(raw: unknown): QuestionOpenedPayload | null {
+  const source = asRecord(raw)
+  const questionSource = asRecord(source.question ?? source.Question)
+  const question = toQuizQuestion(questionSource)
+  const deadlineAt = pickString(source, ['deadline_at', 'DeadlineAt'])
+  const questionIndex = pickNumber(source, ['question_index', 'QuestionIndex'])
+  const totalQuestions = pickNumber(source, ['total_questions', 'TotalQuestions'])
+  const questionTimeLimitSeconds =
+    pickNumber(source, ['time_limit_seconds', 'TimeLimitSeconds']) ??
+    pickNumber(questionSource, ['time_limit_seconds', 'TimeLimitSeconds'])
+
+  if (!question || !deadlineAt || questionIndex === undefined || totalQuestions === undefined) {
+    return null
+  }
+
+  return {
+    question_index: questionIndex,
+    total_questions: totalQuestions,
+    question:
+      questionTimeLimitSeconds !== undefined
+        ? {
+            ...question,
+            time_limit_seconds: questionTimeLimitSeconds,
+          }
+        : question,
+    deadline_at: deadlineAt,
+  }
+}
+
+function normalizeQuestionProgressPayload(raw: unknown): QuestionProgressPayload | null {
+  const source = asRecord(raw)
+  const questionId = pickString(source, ['question_id', 'QuestionID'])
+  const answeredCount = pickNumber(source, ['answered_count', 'AnsweredCount'])
+  const totalPlayers = pickNumber(source, ['total_players', 'TotalPlayers'])
+
+  if (!questionId || answeredCount === undefined || totalPlayers === undefined) {
+    return null
+  }
+
+  return {
+    question_id: questionId,
+    answered_count: answeredCount,
+    total_players: totalPlayers,
+  }
+}
+
+function normalizeAnswerAcceptedPayload(raw: unknown): AnswerAcceptedPayload | null {
+  const source = asRecord(raw)
+  const questionId = pickString(source, ['question_id', 'QuestionID'])
+  const acceptedAt = pickString(source, ['accepted_at', 'AcceptedAt'])
+
+  if (!questionId || !acceptedAt) {
+    return null
+  }
+
+  return {
+    question_id: questionId,
+    accepted_at: acceptedAt,
+  }
+}
+
+function normalizeAnswerRevealPayload(raw: unknown): AnswerRevealPayload | null {
+  const source = asRecord(raw)
+  const questionId = pickString(source, ['question_id', 'QuestionID'])
+  const yourResult = pickString(source, ['your_result', 'YourResult'])
+  const revealUntil = pickString(source, ['reveal_until', 'RevealUntil'])
+  const scoreDelta = pickNumber(source, ['score_delta', 'ScoreDelta'])
+  const totalScore = pickNumber(source, ['total_score', 'TotalScore'])
+  const yourRank = pickNumber(source, ['your_rank', 'YourRank'])
+  const revealDurationSec = pickNumber(source, ['reveal_duration_sec', 'RevealDurationSec'])
+
+  if (!questionId || !yourResult || !revealUntil || scoreDelta === undefined || totalScore === undefined || yourRank === undefined || revealDurationSec === undefined) {
+    return null
+  }
+
+  return {
+    question_id: questionId,
+    correct_option_ids: (pickArray(source, ['correct_option_ids', 'CorrectOptionIDs']) ?? []).filter((item): item is string => typeof item === 'string'),
+    your_selected_option_ids: (pickArray(source, ['your_selected_option_ids', 'YourSelectedOptionIDs']) ?? []).filter((item): item is string => typeof item === 'string'),
+    your_result: yourResult,
+    score_delta: scoreDelta,
+    total_score: totalScore,
+    your_rank: yourRank,
+    leaderboard_top: toLeaderboardEntries(source.leaderboard_top ?? source.LeaderboardTop),
+    reveal_duration_sec: revealDurationSec,
+    reveal_until: revealUntil,
+  }
+}
+
+function normalizeQuestionRevealHostPayload(raw: unknown): QuestionRevealHostPayload | null {
+  const source = asRecord(raw)
+  const questionId = pickString(source, ['question_id', 'QuestionID'])
+  const answeredCount = pickNumber(source, ['answered_count', 'AnsweredCount'])
+  const totalPlayers = pickNumber(source, ['total_players', 'TotalPlayers'])
+  const revealDurationSec = pickNumber(source, ['reveal_duration_sec', 'RevealDurationSec'])
+  const revealUntil = pickString(source, ['reveal_until', 'RevealUntil'])
+
+  if (!questionId || answeredCount === undefined || totalPlayers === undefined || revealDurationSec === undefined || !revealUntil) {
+    return null
+  }
+
+  return {
+    question_id: questionId,
+    correct_option_ids: (pickArray(source, ['correct_option_ids', 'CorrectOptionIDs']) ?? []).filter((item): item is string => typeof item === 'string'),
+    answered_count: answeredCount,
+    total_players: totalPlayers,
+    leaderboard_top: toLeaderboardEntries(source.leaderboard_top ?? source.LeaderboardTop),
+    reveal_duration_sec: revealDurationSec,
+    reveal_until: revealUntil,
+  }
+}
+
+function normalizeSessionFinishedPayload(raw: unknown): SessionFinishedPayload {
+  const source = asRecord(raw)
+  return {
+    leaderboard_top: toLeaderboardEntries(source.leaderboard_top ?? source.LeaderboardTop),
+  }
+}
+
+function normalizeErrorPayload(raw: unknown): WsErrorPayload {
+  const source = asRecord(raw)
+  return {
+    code: pickString(source, ['code', 'Code']) ?? 'internal_error',
+    message: pickString(source, ['message', 'Message']) ?? 'internal error',
+  }
+}
+
 function getErrorMessage(payload: WsErrorPayload): string {
   if (ERROR_MESSAGE_DICTIONARY[payload.code]) {
     return ERROR_MESSAGE_DICTIONARY[payload.code]
@@ -83,6 +364,7 @@ export const useGameSessionStore = defineStore('game-session', () => {
   const totalQuestions = ref<number | null>(null)
   const deadlineAt = ref<string | null>(null)
   const revealUntil = ref<string | null>(null)
+  const revealDurationSec = ref(5)
 
   const playersCount = ref(0)
   const answeredCount = ref<number | null>(null)
@@ -104,9 +386,13 @@ export const useGameSessionStore = defineStore('game-session', () => {
 
   const connectionStatus = ref<ConnectionStatus>('idle')
   const reconnectNotice = ref<string | null>(null)
+  const hostAccessToken = ref<string | null>(null)
 
   const hostWs = useSessionWs({
     mode: 'host',
+    queryParams: () => ({
+      access_token: hostAccessToken.value ?? undefined,
+    }),
     onMessage: (message) => handleMessage(message),
     onError: (message) => {
       lastError.value = message
@@ -203,6 +489,7 @@ export const useGameSessionStore = defineStore('game-session', () => {
     totalQuestions.value = null
     deadlineAt.value = null
     revealUntil.value = null
+    revealDurationSec.value = 5
     answeredCount.value = null
     totalPlayers.value = null
     leaderboardTop.value = []
@@ -231,6 +518,7 @@ export const useGameSessionStore = defineStore('game-session', () => {
     playersCount.value = 0
     connectionStatus.value = 'idle'
     reconnectNotice.value = null
+    hostAccessToken.value = null
     clearRuntimeView()
     clearSessionErrors()
   }
@@ -294,9 +582,10 @@ export const useGameSessionStore = defineStore('game-session', () => {
     })
   }
 
-  const hostConnect = async (targetSessionId: string) => {
+  const hostConnect = async (targetSessionId: string, accessToken?: string) => {
     role.value = 'host'
     sessionId.value = targetSessionId
+    hostAccessToken.value = accessToken?.trim() || null
     clearSessionErrors()
     reconnectNotice.value = null
 
@@ -479,6 +768,7 @@ export const useGameSessionStore = defineStore('game-session', () => {
     currentQuestion.value = payload.question ?? null
     deadlineAt.value = payload.deadline_at ?? null
     revealUntil.value = payload.reveal_until ?? null
+    revealDurationSec.value = payload.reveal_duration_sec ?? revealDurationSec.value
     leaderboardTop.value = payload.leaderboard_top ?? []
 
     if (payload.status !== 'question_open') {
@@ -511,6 +801,7 @@ export const useGameSessionStore = defineStore('game-session', () => {
     currentQuestion.value = payload.question
     deadlineAt.value = payload.deadline_at
     revealUntil.value = null
+    revealDurationSec.value = 5
     answeredCount.value = null
     totalPlayers.value = null
     clearAnswerUi()
@@ -531,6 +822,7 @@ export const useGameSessionStore = defineStore('game-session', () => {
   const onAnswerReveal = (payload: AnswerRevealPayload) => {
     phase.value = 'answer_reveal'
     revealUntil.value = payload.reveal_until
+    revealDurationSec.value = payload.reveal_duration_sec
     leaderboardTop.value = payload.leaderboard_top
     myScore.value = payload.total_score
     myRank.value = payload.your_rank
@@ -542,6 +834,7 @@ export const useGameSessionStore = defineStore('game-session', () => {
   const onQuestionRevealHost = (payload: QuestionRevealHostPayload) => {
     phase.value = 'answer_reveal'
     revealUntil.value = payload.reveal_until
+    revealDurationSec.value = payload.reveal_duration_sec
     leaderboardTop.value = payload.leaderboard_top
     answeredCount.value = payload.answered_count
     totalPlayers.value = payload.total_players
@@ -554,6 +847,7 @@ export const useGameSessionStore = defineStore('game-session', () => {
     currentQuestion.value = null
     deadlineAt.value = null
     revealUntil.value = null
+    revealDurationSec.value = 5
     leaderboardTop.value = payload.leaderboard_top
     clearAnswerUi()
     clearPlayerAuth()
@@ -597,34 +891,54 @@ export const useGameSessionStore = defineStore('game-session', () => {
   const handleMessage = (message: WsEnvelope) => {
     switch (message.type) {
       case 'session_snapshot':
-        applySessionSnapshot(message.payload as SessionSnapshotPayload)
+        applySessionSnapshot(normalizeSnapshotPayload(message.payload))
         break
       case 'joined_lobby':
-        onJoinedLobby(message.payload as JoinedLobbyPayload)
+        onJoinedLobby(normalizeJoinedLobbyPayload(message.payload))
         break
       case 'lobby_updated':
-        onLobbyUpdated(message.payload as LobbyUpdatedPayload)
+        onLobbyUpdated(normalizeLobbyUpdatedPayload(message.payload))
         break
-      case 'question_opened':
-        onQuestionOpened(message.payload as QuestionOpenedPayload)
+      case 'question_opened': {
+        const payload = normalizeQuestionOpenedPayload(message.payload)
+        if (payload) {
+          onQuestionOpened(payload)
+        }
         break
-      case 'question_progress':
-        onQuestionProgress(message.payload as QuestionProgressPayload)
+      }
+      case 'question_progress': {
+        const payload = normalizeQuestionProgressPayload(message.payload)
+        if (payload) {
+          onQuestionProgress(payload)
+        }
         break
-      case 'answer_accepted':
-        onAnswerAccepted(message.payload as AnswerAcceptedPayload)
+      }
+      case 'answer_accepted': {
+        const payload = normalizeAnswerAcceptedPayload(message.payload)
+        if (payload) {
+          onAnswerAccepted(payload)
+        }
         break
-      case 'answer_reveal':
-        onAnswerReveal(message.payload as AnswerRevealPayload)
+      }
+      case 'answer_reveal': {
+        const payload = normalizeAnswerRevealPayload(message.payload)
+        if (payload) {
+          onAnswerReveal(payload)
+        }
         break
-      case 'question_reveal_host':
-        onQuestionRevealHost(message.payload as QuestionRevealHostPayload)
+      }
+      case 'question_reveal_host': {
+        const payload = normalizeQuestionRevealHostPayload(message.payload)
+        if (payload) {
+          onQuestionRevealHost(payload)
+        }
         break
+      }
       case 'session_finished':
-        onSessionFinished(message.payload as SessionFinishedPayload)
+        onSessionFinished(normalizeSessionFinishedPayload(message.payload))
         break
       case 'error':
-        onSocketError(message.payload as WsErrorPayload)
+        onSocketError(normalizeErrorPayload(message.payload))
         break
       default:
         break
@@ -644,6 +958,7 @@ export const useGameSessionStore = defineStore('game-session', () => {
     totalQuestions,
     deadlineAt,
     revealUntil,
+    revealDurationSec,
     playersCount,
     answeredCount,
     totalPlayers,

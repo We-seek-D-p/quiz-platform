@@ -11,7 +11,7 @@ class SessionServiceClient:
         self.base_url = settings.session_service_url
         self.headers = {
             "X-Internal-Service": settings.internal_service_name,
-            "X-Internal-Token": settings.internal_token,
+            "X-Internal-Token": settings.session_internal_token,
         }
 
     async def init_session(

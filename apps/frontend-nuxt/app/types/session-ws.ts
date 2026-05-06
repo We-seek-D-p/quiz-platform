@@ -40,6 +40,7 @@ export interface SessionSnapshotPayload {
   question?: QuizQuestionView
   deadline_at?: string
   reveal_until?: string
+  reveal_duration_sec?: number
   leaderboard_top?: LeaderboardEntryView[]
 }
 

@@ -10,15 +10,19 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 
-const roomCode = ref(typeof route.query.room_code === 'string' ? route.query.room_code : '')
+const PLAYER_TOKEN_STORAGE_KEY = 'quiz:player_token'
+const PLAYER_ROOM_CODE_STORAGE_KEY = 'quiz:room_code'
+
+const roomCode = ref(typeof route.query.room_code === 'string' ? route.query.room_code.replace(/\D/g, '') : '')
 const nickname = ref('')
+const hasReconnectContext = ref(false)
 
 const isJoinDisabled = computed(() => {
   return roomCode.value.trim().length !== 8 || nickname.value.trim().length < 2
 })
 
 const handleJoin = async () => {
-  const normalizedCode = roomCode.value.trim()
+  const normalizedCode = roomCode.value.replace(/\D/g, '').trim()
   const normalizedNickname = nickname.value.trim()
 
   if (normalizedCode.length !== 8) {
@@ -51,6 +55,39 @@ const handleJoin = async () => {
     },
   })
 }
+
+const continueLastGame = async () => {
+  const storedRoomCode = import.meta.client ? (localStorage.getItem(PLAYER_ROOM_CODE_STORAGE_KEY) ?? '') : ''
+  const normalizedCode = storedRoomCode.replace(/\D/g, '').trim()
+
+  if (!normalizedCode || normalizedCode.length !== 8) {
+    toast.add({
+      group: 'global',
+      severity: 'warn',
+      summary: 'Нет данных для возврата',
+      detail: 'Не найдена предыдущая игровая сессия',
+      life: 3000,
+    })
+    return
+  }
+
+  await router.push({
+    path: '/game',
+    query: {
+      room_code: normalizedCode,
+    },
+  })
+}
+
+onMounted(() => {
+  if (!import.meta.client) {
+    return
+  }
+
+  const storedToken = localStorage.getItem(PLAYER_TOKEN_STORAGE_KEY)
+  const storedRoomCode = localStorage.getItem(PLAYER_ROOM_CODE_STORAGE_KEY)
+  hasReconnectContext.value = Boolean(storedToken && storedRoomCode)
+})
 
 useHead({
   title: 'Вход в игру',
@@ -87,6 +124,9 @@ useHead({
       <template #footer>
         <div class="home-entry__actions">
           <Button label="Подключиться" :disabled="isJoinDisabled" @click="handleJoin" />
+        </div>
+        <div v-if="hasReconnectContext" class="home-entry__actions">
+          <Button label="Продолжить прошлую игру" text icon="pi pi-history" @click="continueLastGame" />
         </div>
       </template>
     </Card>
