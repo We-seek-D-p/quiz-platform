@@ -8,10 +8,10 @@ from quiz_management.core.config import settings
 
 class SessionServiceClient:
     def __init__(self):
-        self.base_url = settings.management_service_url
+        self.base_url = settings.session_service_url
         self.headers = {
-            "X-Internal-Service": settings.management_service_name,
-            "X-Internal-Token": settings.management_internal_token,
+            "X-Internal-Service": settings.internal_service_name,
+            "X-Internal-Token": settings.session_internal_token,
         }
 
     async def init_session(

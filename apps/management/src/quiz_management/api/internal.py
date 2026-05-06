@@ -23,7 +23,16 @@ async def get_bootstrap(
 ):
     session = await service.get_bootstrap_data(session_id)
 
-    return {"session": session, "quiz_snapshot": session.quiz}
+    return {
+        "session": {
+            "session_id": session.id,
+            "quiz_id": session.quiz_id,
+            "room_code": session.room_code,
+            "status": session.status,
+            "host_id": session.host_id,
+        },
+        "quiz_snapshot": session.quiz,
+    }
 
 
 @router.patch("/{session_id}/status", status_code=status.HTTP_204_NO_CONTENT)

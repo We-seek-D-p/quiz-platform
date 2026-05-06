@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/config"
+	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/http/response"
 )
 
 const (
@@ -20,12 +21,12 @@ func InternalAuth(cfg config.Internal) func(http.Handler) http.Handler {
 			token := strings.TrimSpace(r.Header.Get(InternalTokenHeader))
 
 			if !cfg.Allows(service) {
-				http.Error(w, "forbidden", http.StatusForbidden)
+				response.Error(w, http.StatusForbidden, "forbidden", "forbidden")
 				return
 			}
 
 			if subtle.ConstantTimeCompare([]byte(token), []byte(cfg.Token)) != 1 {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				response.Error(w, http.StatusUnauthorized, "unauthorized", "unauthorized")
 				return
 			}
 

@@ -31,6 +31,7 @@ const quizzes = ref<QuizTableRow[]>([])
 const isLoading = ref(false)
 const errorMessage = ref('')
 const deletingQuizId = ref<string | null>(null)
+const creatingSessionQuizId = ref<string | null>(null)
 const quizPendingDeletion = ref<QuizTableRow | null>(null)
 
 const hasAccessContext = computed(() => {
@@ -45,9 +46,32 @@ const formatDate = (value: string): string => {
   return new Date(value).toLocaleDateString()
 }
 
+const ERROR_CODE_MESSAGES: Record<string, string> = {
+  unauthorized: 'Сессия истекла. Войдите снова',
+  forbidden: 'Недостаточно прав для этого действия',
+  quiz_not_ready: 'Добавьте вопросы перед запуском сессии',
+  session_provider_unavailable: 'Session Service временно недоступен',
+  session_provider_error: 'Не удалось инициализировать игровую сессию',
+}
+
+const handleUnauthorizedError = async (error: unknown) => {
+  if (!(error instanceof ApiHttpError) || error.status !== 401) {
+    return false
+  }
+
+  await router.push('/login')
+  return true
+}
+
 const getErrorMessage = (error: unknown, fallback: string): string => {
-  if (error instanceof ApiHttpError && error.message.trim().length > 0) {
-    return error.message
+  if (error instanceof ApiHttpError) {
+    if (error.code && ERROR_CODE_MESSAGES[error.code]) {
+      return ERROR_CODE_MESSAGES[error.code]
+    }
+
+    if (error.message.trim().length > 0) {
+      return error.message
+    }
   }
 
   if (error instanceof Error && error.message.trim().length > 0) {
@@ -88,6 +112,12 @@ const fetchQuizzes = async (): Promise<void> => {
       }
     })
   } catch (error: unknown) {
+    if (await handleUnauthorizedError(error)) {
+      errorMessage.value = 'Сессия истекла. Войдите снова'
+      quizzes.value = []
+      return
+    }
+
     errorMessage.value = getErrorMessage(error, 'Не удалось загрузить список квизов')
     quizzes.value = []
   } finally {
@@ -101,6 +131,59 @@ const openCreateQuiz = async (): Promise<void> => {
 
 const editQuiz = async (quizId: string): Promise<void> => {
   await router.push(`/quizzes/editor?quiz=${quizId}`)
+}
+
+const launchQuizSession = async (quiz: QuizTableRow): Promise<void> => {
+  if (!authStore.accessToken || creatingSessionQuizId.value) {
+    return
+  }
+
+  creatingSessionQuizId.value = quiz.id
+
+  try {
+    const session = await managementApi.createSession({
+      quiz_id: quiz.id,
+    })
+
+    if (!session.id) {
+      throw new Error('Session id отсутствует в ответе сервера')
+    }
+
+    if (!session.room_code) {
+      toast.add({
+        group: 'global',
+        severity: 'warn',
+        summary: 'Сессия не готова',
+        detail: 'Сервис не вернул room code. Попробуйте создать сессию снова.',
+        life: 3500,
+      })
+      return
+    }
+
+    const query: Record<string, string> = {
+      session_id: session.id,
+      room_code: session.room_code,
+    }
+
+    await router.push({
+      path: '/host',
+      query,
+    })
+  } catch (error: unknown) {
+    if (await handleUnauthorizedError(error)) {
+      return
+    }
+
+    toast.add({
+      group: 'global',
+      severity: 'error',
+      summary: 'Не удалось создать сессию',
+      detail: getErrorMessage(error, 'Попробуйте снова'),
+      life: 3500,
+    })
+  } finally {
+    creatingSessionQuizId.value = null
+  }
 }
 
 const askDeleteQuiz = (quiz: QuizTableRow): void => {
@@ -136,6 +219,10 @@ const confirmDeleteQuiz = async (): Promise<void> => {
       life: 2500,
     })
   } catch (error: unknown) {
+    if (await handleUnauthorizedError(error)) {
+      return
+    }
+
     toast.add({
       group: 'global',
       severity: 'error',
@@ -194,6 +281,15 @@ useHead({
           <Column header-style="text-align: right" body-style="text-align: right">
             <template #body="slotProps">
               <div class="quizzes-table__actions">
+                <Button
+                  icon="pi pi-play"
+                  text
+                  severity="success"
+                  aria-label="Запустить игру"
+                  :loading="creatingSessionQuizId === slotProps.data.id"
+                  :disabled="Boolean(creatingSessionQuizId)"
+                  @click="launchQuizSession(slotProps.data)"
+                />
                 <Button
                   icon="pi pi-pencil"
                   text

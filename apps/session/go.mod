@@ -3,6 +3,7 @@ module github.com/We-seek-D-p/quiz-platform/apps/session
 go 1.26.2
 
 require (
+	github.com/coder/websocket v1.8.14
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/google/uuid v1.6.0
 	github.com/ilyakaznacheev/cleanenv v1.5.0

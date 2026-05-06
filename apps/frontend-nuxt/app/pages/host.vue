@@ -1,164 +1,381 @@
 <script setup lang="ts">
+import Button from 'primevue/button'
 import Card from 'primevue/card'
-import Message from 'primevue/message'
-import Skeleton from 'primevue/skeleton'
-import { ApiHttpError } from '~/composables/api/useApiClient'
-import { useManagementApi } from '~/composables/api/useManagementApi'
+import { useToast } from 'primevue/usetoast'
+import SessionConnectionBanner from '~/components/session/SessionConnectionBanner.vue'
+import SessionLeaderboard from '~/components/session/SessionLeaderboard.vue'
+import SessionNoticeStack from '~/components/session/SessionNoticeStack.vue'
+import SessionTimerBar from '~/components/session/SessionTimerBar.vue'
+import { usePhaseTimer } from '~/composables/session/usePhaseTimer'
 import { useAuthStore } from '~/stores/auth'
-import type { QuizPublic } from '~/types/management'
+import { useGameSessionStore } from '~/stores/gameSession'
 
 definePageMeta({
   middleware: 'auth',
-  layout: 'dashboard',
-  title: 'Панель управления',
+  layout: 'game',
+  title: 'Хост сессии',
 })
 
+const route = useRoute()
+const router = useRouter()
+const toast = useToast()
 const authStore = useAuthStore()
-const managementApi = useManagementApi()
+const sessionStore = useGameSessionStore()
 
-const quizzes = ref<QuizPublic[]>([])
-const isLoading = ref(false)
-const errorMessage = ref('')
+const isBootstrapping = ref(true)
+const currentQuestion = computed(() => sessionStore.currentQuestion)
+const isStartPending = ref(false)
+const isFinishPending = ref(false)
 
-const lastUpdatedQuiz = computed(() => {
-  if (quizzes.value.length === 0) {
-    return null
-  }
-
-  return [...quizzes.value].sort((a, b) => {
-    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-  })[0]
+const sessionIdFromQuery = computed(() => {
+  return typeof route.query.session_id === 'string' ? route.query.session_id.trim() : ''
 })
 
-const getErrorMessage = (error: unknown): string => {
-  if (error instanceof ApiHttpError && error.message.trim().length > 0) {
-    return error.message
-  }
+const { timerLabel, timerProgress } = usePhaseTimer({
+  phase: toRef(sessionStore, 'phase'),
+  deadlineAt: toRef(sessionStore, 'deadlineAt'),
+  revealUntil: toRef(sessionStore, 'revealUntil'),
+  questionTimeLimitSeconds: computed(() => currentQuestion.value?.time_limit_seconds ?? null),
+  revealDurationSec: toRef(sessionStore, 'revealDurationSec'),
+})
 
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message
-  }
-
-  return 'Не удалось загрузить данные панели.'
-}
-
-const loadDashboard = async (): Promise<void> => {
-  if (!authStore.accessToken) {
-    errorMessage.value = 'Сессия недоступна. Выполните вход снова.'
-    quizzes.value = []
+const connectHost = async () => {
+  if (!sessionIdFromQuery.value) {
     return
   }
 
-  isLoading.value = true
-  errorMessage.value = ''
-
   try {
-    quizzes.value = await managementApi.getQuizzes()
+    await sessionStore.hostConnect(sessionIdFromQuery.value, authStore.accessToken ?? undefined)
   } catch (error: unknown) {
-    errorMessage.value = getErrorMessage(error)
-    quizzes.value = []
-  } finally {
-    isLoading.value = false
+    toast.add({
+      group: 'global',
+      severity: 'error',
+      summary: 'Не удалось подключиться к сессии',
+      detail: error instanceof Error ? error.message : 'Попробуйте снова',
+      life: 3500,
+    })
   }
 }
 
-onMounted(loadDashboard)
+const retryConnection = async () => {
+  if (!sessionIdFromQuery.value) {
+    return
+  }
+
+  await connectHost()
+}
+
+const copyRoomCode = async () => {
+  if (!sessionStore.roomCode) {
+    return
+  }
+
+  try {
+    await navigator.clipboard.writeText(sessionStore.roomCode)
+    toast.add({
+      group: 'global',
+      severity: 'success',
+      summary: 'Скопировано',
+      detail: `Код ${sessionStore.roomCode} скопирован`,
+      life: 2200,
+    })
+  } catch {
+    toast.add({
+      group: 'global',
+      severity: 'warn',
+      summary: 'Не удалось скопировать',
+      detail: 'Скопируйте код вручную',
+      life: 2500,
+    })
+  }
+}
+
+const joinLink = computed(() => {
+  if (!sessionStore.roomCode || !import.meta.client) {
+    return ''
+  }
+
+  const url = new URL(window.location.origin)
+  url.pathname = '/'
+  url.searchParams.set('room_code', sessionStore.roomCode)
+  return url.toString()
+})
+
+const shareJoinLink = async () => {
+  if (!joinLink.value) {
+    return
+  }
+
+  try {
+    if (navigator.share) {
+      await navigator.share({
+        title: 'Подключение к игре',
+        text: `Код комнаты: ${sessionStore.roomCode ?? ''}`,
+        url: joinLink.value,
+      })
+      return
+    }
+
+    await navigator.clipboard.writeText(joinLink.value)
+    toast.add({
+      group: 'global',
+      severity: 'success',
+      summary: 'Ссылка скопирована',
+      detail: 'Ссылка для игроков скопирована в буфер обмена',
+      life: 2200,
+    })
+  } catch {
+    toast.add({
+      group: 'global',
+      severity: 'warn',
+      summary: 'Не удалось поделиться ссылкой',
+      detail: 'Скопируйте ссылку вручную',
+      life: 2800,
+    })
+  }
+}
+
+const runStartGame = async () => {
+  if (!sessionStore.isConnected || isStartPending.value) {
+    return
+  }
+
+  isStartPending.value = true
+
+  try {
+    sessionStore.startGame()
+  } catch (error: unknown) {
+    toast.add({
+      group: 'global',
+      severity: 'error',
+      summary: 'Не удалось начать игру',
+      detail: error instanceof Error ? error.message : 'Попробуйте снова',
+      life: 3000,
+    })
+  } finally {
+    isStartPending.value = false
+  }
+}
+
+const runFinishGame = async () => {
+  if (!sessionStore.isConnected || isFinishPending.value) {
+    return
+  }
+
+  isFinishPending.value = true
+
+  try {
+    sessionStore.finishGame()
+  } catch (error: unknown) {
+    toast.add({
+      group: 'global',
+      severity: 'error',
+      summary: 'Не удалось завершить игру',
+      detail: error instanceof Error ? error.message : 'Попробуйте снова',
+      life: 3000,
+    })
+  } finally {
+    isFinishPending.value = false
+  }
+}
+
+onMounted(async () => {
+  await authStore.initializeSession()
+
+  if (!sessionIdFromQuery.value) {
+    await router.replace('/quizzes')
+    return
+  }
+
+  if (sessionStore.role && sessionStore.role !== 'host') {
+    sessionStore.reset()
+  }
+
+  await connectHost()
+
+  isBootstrapping.value = false
+})
 
 useHead({
-  title: 'Панель управления',
+  title: 'Хост сессии',
 })
 </script>
 
 <template>
-  <section class="host-dashboard">
-    <header class="host-dashboard__header">
-      <p class="host-dashboard__greeting">Здравствуйте, {{ authStore.user?.nickname ?? 'хост' }}.</p>
-      <p class="host-dashboard__subtitle">Обзор квизов и последних изменений.</p>
-    </header>
+  <section class="host-runtime">
+    <Card class="host-runtime__card">
+      <template #content>
+        <div class="host-runtime__header">
+          <SessionConnectionBanner
+            :status="sessionStore.connectionStatus"
+            :room-code="sessionStore.roomCode"
+          />
 
-    <Message v-if="errorMessage" severity="error" :closable="false">{{ errorMessage }}</Message>
+          <div class="host-runtime__header-actions">
+            <Button
+              v-if="sessionStore.roomCode"
+              label="Скопировать код"
+              icon="pi pi-copy"
+              text
+              @click="copyRoomCode"
+            />
+            <Button
+              v-if="sessionStore.roomCode"
+              label="Ссылка для игроков"
+              icon="pi pi-share-alt"
+              text
+              @click="shareJoinLink"
+            />
+          </div>
+        </div>
 
-    <div class="host-dashboard__grid" v-if="isLoading">
-      <Card>
-        <template #content>
-          <Skeleton width="100%" height="5rem" />
-        </template>
-      </Card>
-      <Card>
-        <template #content>
-          <Skeleton width="100%" height="5rem" />
-        </template>
-      </Card>
-    </div>
+        <SessionTimerBar :label="timerLabel" :progress="timerProgress" class="host-runtime__progress" />
+        <SessionNoticeStack :error="sessionStore.lastError" :reconnect="sessionStore.reconnectNotice" />
 
-    <div class="host-dashboard__grid" v-else>
-      <Card>
-        <template #title>Всего квизов</template>
-        <template #content>
-          <p class="host-dashboard__metric">{{ quizzes.length }}</p>
-        </template>
-      </Card>
+        <div v-if="isBootstrapping" class="host-runtime__state">
+          <p>Подготавливаем сессию...</p>
+        </div>
 
-      <Card>
-        <template #title>Последнее обновление</template>
-        <template #content>
-          <p class="host-dashboard__metric host-dashboard__metric--small">
-            {{ lastUpdatedQuiz ? lastUpdatedQuiz.title : 'Квизы еще не созданы' }}
+        <div v-else-if="!sessionIdFromQuery" class="host-runtime__state">
+          <h1 class="host-runtime__title">Сессия не выбрана</h1>
+          <p class="host-runtime__subtitle">Перейдите в список квизов и создайте сессию для запуска игры.</p>
+          <Button label="К списку квизов" icon="pi pi-list" @click="router.push('/quizzes')" />
+        </div>
+
+        <div
+          v-else-if="sessionStore.connectionStatus === 'disconnected'"
+          class="host-runtime__state"
+        >
+          <p>Соединение с Session Service потеряно.</p>
+          <div class="host-runtime__actions">
+            <Button label="Переподключиться" icon="pi pi-refresh" @click="retryConnection" />
+            <Button label="К списку квизов" text icon="pi pi-list" @click="router.push('/quizzes')" />
+          </div>
+        </div>
+
+        <div v-else-if="sessionStore.phase === 'lobby'" class="host-runtime__state">
+          <h1 class="host-runtime__title">Лобби</h1>
+          <p class="host-runtime__subtitle">Игроков подключено: {{ sessionStore.playersCount }}</p>
+          <div class="host-runtime__actions">
+            <Button
+              label="Начать игру"
+              icon="pi pi-play"
+              :disabled="!sessionStore.isConnected || isStartPending"
+              :loading="isStartPending"
+              @click="runStartGame"
+            />
+          </div>
+        </div>
+
+        <div v-else-if="sessionStore.phase === 'question_open'" class="host-runtime__state">
+          <h1 class="host-runtime__title" v-if="currentQuestion">{{ currentQuestion.text }}</h1>
+          <p class="host-runtime__subtitle">
+            Вопрос {{ sessionStore.currentQuestionNumber }}
+            <span v-if="sessionStore.totalQuestions">/ {{ sessionStore.totalQuestions }}</span>
           </p>
-        </template>
-      </Card>
-    </div>
+
+          <p class="host-runtime__meta" v-if="sessionStore.answeredCount !== null">
+            Ответов: {{ sessionStore.answeredCount }} / {{ sessionStore.totalPlayers ?? sessionStore.playersCount }}
+          </p>
+
+          <div class="host-runtime__actions">
+            <Button
+              label="Завершить игру"
+              severity="danger"
+              icon="pi pi-stop"
+              :disabled="!sessionStore.isConnected || isFinishPending"
+              :loading="isFinishPending"
+              @click="runFinishGame"
+            />
+          </div>
+        </div>
+
+        <div v-else-if="sessionStore.phase === 'answer_reveal'" class="host-runtime__state">
+          <h1 class="host-runtime__title">Промежуточный рейтинг</h1>
+          <p class="host-runtime__subtitle">Следующий вопрос откроется автоматически</p>
+
+          <SessionLeaderboard :entries="sessionStore.leaderboardTop" />
+
+          <div class="host-runtime__actions">
+            <Button
+              label="Завершить игру"
+              severity="danger"
+              icon="pi pi-stop"
+              :disabled="!sessionStore.isConnected || isFinishPending"
+              :loading="isFinishPending"
+              @click="runFinishGame"
+            />
+          </div>
+        </div>
+
+        <div v-else-if="sessionStore.phase === 'finished'" class="host-runtime__state">
+          <h1 class="host-runtime__title">Игра завершена</h1>
+          <p class="host-runtime__subtitle">Финальный leaderboard</p>
+
+          <SessionLeaderboard :entries="sessionStore.leaderboardTop" />
+
+          <div class="host-runtime__actions">
+            <Button label="Новая сессия" icon="pi pi-plus" @click="router.push('/quizzes')" />
+          </div>
+        </div>
+      </template>
+    </Card>
   </section>
 </template>
 
 <style scoped>
-.host-dashboard {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+.host-runtime {
+  display: grid;
+  min-height: calc(100dvh - 1.5rem);
+  place-items: center;
 }
 
-.host-dashboard__header {
+.host-runtime__card {
+  width: min(100%, 56rem);
+  border-radius: 1.25rem;
+}
+
+.host-runtime__header {
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.host-runtime__header-actions {
+  display: inline-flex;
+  align-items: center;
   gap: 0.25rem;
 }
 
-.host-dashboard__greeting {
-  margin: 0;
-  font-size: 2rem;
-  font-weight: 700;
-  line-height: 1.15;
+.host-runtime__progress {
+  margin: 0.75rem 0 1rem;
 }
 
-.host-dashboard__subtitle {
+.host-runtime__state {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.host-runtime__title {
+  margin: 0;
+  font-size: clamp(1.4rem, 2.2vw, 2rem);
+  line-height: 1.25;
+}
+
+.host-runtime__subtitle,
+.host-runtime__meta {
   margin: 0;
   color: var(--app-color-text-muted);
 }
 
-.host-dashboard__grid {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
+.host-runtime__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
-.host-dashboard__metric {
-  margin: 0;
-  font-size: 2.25rem;
-  font-weight: 700;
-}
-
-.host-dashboard__metric--small {
-  font-size: 1.125rem;
-}
-
-@media (min-width: 900px) {
-  .host-dashboard__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .host-dashboard__greeting {
-    font-size: 2.25rem;
-  }
-}
 </style>

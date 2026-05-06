@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from uuid import UUID
 
+from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -13,6 +14,15 @@ class QuizRepository:
 
     async def get_by_id(self, quiz_id: UUID) -> Quiz | None:
         statement = select(Quiz).where(Quiz.id == quiz_id, Quiz.deleted_at == None)  # noqa: E711
+        result = await self.db.exec(statement)
+        return result.first()
+
+    async def get_by_id_with_questions(self, quiz_id: UUID) -> Quiz | None:
+        statement = (
+            select(Quiz)
+            .options(selectinload(Quiz.questions))
+            .where(Quiz.id == quiz_id, Quiz.deleted_at == None)  # noqa: E711
+        )
         result = await self.db.exec(statement)
         return result.first()
 

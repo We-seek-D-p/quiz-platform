@@ -4,6 +4,7 @@ on:
   workflow_run:
     workflows:
       - Python CI
+      - Go CI
     types:
       - completed
     branches:
@@ -48,6 +49,11 @@ jobs:
             context: ./infra/nginx
             dockerfile: ./infra/nginx/Dockerfile
             cache_scope: nginx
+
+          - image: quiz-session
+            context: ./apps/session
+            dockerfile: ./apps/session/Dockerfile
+            cache_scope: session
 
     steps:
       - name: Checkout

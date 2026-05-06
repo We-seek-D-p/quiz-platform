@@ -4,6 +4,8 @@ import type {
   QuestionCreate,
   QuestionPublic,
   QuestionUpdate,
+  SessionCreate,
+  SessionPublic,
   QuizCreate,
   QuizPublic,
   QuizUpdate,
@@ -16,7 +18,14 @@ export const useManagementApi = () => {
 
   const managementBase = config.public.managementApiBase
 
-  const authorizedRequest = async <T>(path: string, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', body?: unknown): Promise<T> => {
+  type ManagementRequestBody = BodyInit | Record<string, unknown> | null
+
+  const authorizedRequest = async <T>(
+    path: string,
+    method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+    body?: ManagementRequestBody,
+    headers?: HeadersInit,
+  ): Promise<T> => {
     const accessToken = authStore.accessToken
     if (!accessToken) {
       throw new ApiHttpError('Сессия недоступна. Выполните вход снова.', 401)
@@ -27,6 +36,7 @@ export const useManagementApi = () => {
         method,
         body,
         accessToken,
+        headers,
       })
     } catch (error: unknown) {
       if (!(error instanceof ApiHttpError) || error.status !== 401) {
@@ -35,14 +45,24 @@ export const useManagementApi = () => {
 
       const refreshed = await authStore.refreshAccessToken()
       if (!refreshed || !authStore.accessToken) {
-        throw error
+        throw new ApiHttpError('Сессия истекла. Войдите снова.', 401, 'unauthorized')
       }
 
-      return request<T>(path, {
-        method,
-        body,
-        accessToken: authStore.accessToken,
-      })
+      try {
+        return await request<T>(path, {
+          method,
+          body,
+          accessToken: authStore.accessToken,
+          headers,
+        })
+      } catch (retryError: unknown) {
+        if (retryError instanceof ApiHttpError && retryError.status === 401) {
+          authStore.clearSession()
+          throw new ApiHttpError('Сессия истекла. Войдите снова.', 401, 'unauthorized')
+        }
+
+        throw retryError
+      }
     }
   }
 
@@ -57,6 +77,17 @@ export const useManagementApi = () => {
 
     getQuiz: async (quizId: string): Promise<QuizPublic> => {
       return authorizedRequest<QuizPublic>(`${managementBase}/quizzes/${quizId}`, 'GET')
+    },
+
+    createSession: async (payload: SessionCreate): Promise<SessionPublic> => {
+      return authorizedRequest<SessionPublic>(
+        `${managementBase}/sessions/`,
+        'POST',
+        payload,
+        {
+          'Idempotency-Key': crypto.randomUUID(),
+        },
+      )
     },
 
     createQuiz: async (payload: QuizCreate): Promise<QuizPublic> => {

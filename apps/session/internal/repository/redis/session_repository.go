@@ -155,6 +155,10 @@ func (r *SessionRepository) GetSnapshot(ctx context.Context, sessionID string) (
 func (r *SessionRepository) Delete(ctx context.Context, sessionID string) error {
 	metaKey := sessionMetaKey(sessionID)
 	snapshotKey := sessionQuizSnapshotKey(sessionID)
+	participantsKey := sessionParticipantsKey(sessionID)
+	tokenIndexKey := sessionParticipantTokenIndexKey(sessionID)
+	nicknameIndexKey := sessionParticipantNicknameIndexKey(sessionID)
+	leaderboardKey := sessionLeaderboardKey(sessionID)
 
 	meta, err := r.client.HGetAll(ctx, metaKey).Result()
 	if err != nil {
@@ -162,15 +166,113 @@ func (r *SessionRepository) Delete(ctx context.Context, sessionID string) error 
 	}
 
 	roomCode := meta["room_code"]
+	answerKeys, err := r.scanAnswerKeys(ctx, sessionID)
+	if err != nil {
+		return err
+	}
 
 	pipe := r.client.TxPipeline()
 	pipe.Del(ctx, metaKey)
 	pipe.Del(ctx, snapshotKey)
+	pipe.Del(ctx, participantsKey)
+	pipe.Del(ctx, tokenIndexKey)
+	pipe.Del(ctx, nicknameIndexKey)
+	pipe.Del(ctx, leaderboardKey)
+	for _, answerKey := range answerKeys {
+		pipe.Del(ctx, answerKey)
+	}
 	if roomCode != "" {
 		pipe.Del(ctx, roomCodeKey(roomCode))
 	}
 
 	if _, err := pipe.Exec(ctx); err != nil {
+		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+	}
+
+	return nil
+}
+
+func (r *SessionRepository) scanAnswerKeys(ctx context.Context, sessionID string) ([]string, error) {
+	pattern := sessionAnswersKey(sessionID, "*")
+	answerKeys := make([]string, 0)
+	var cursor uint64
+
+	for {
+		keys, nextCursor, err := r.client.Scan(ctx, cursor, pattern, 100).Result()
+		if err != nil {
+			return nil, fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		}
+
+		answerKeys = append(answerKeys, keys...)
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
+	}
+
+	return answerKeys, nil
+}
+
+func (r *SessionRepository) UpdateRuntime(ctx context.Context, runtime domain.SessionRuntime) error {
+	metaKey := sessionMetaKey(runtime.SessionID)
+
+	exists, err := r.client.Exists(ctx, metaKey).Result()
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+	}
+	if exists == 0 {
+		return ErrSessionNotFound
+	}
+
+	update := map[string]any{
+		"session_id":             runtime.SessionID,
+		"quiz_id":                runtime.QuizID,
+		"host_id":                runtime.HostID,
+		"room_code":              runtime.RoomCode,
+		"status":                 string(runtime.Status),
+		"initialized_at":         runtime.InitializedAt.UTC().Format(time.RFC3339Nano),
+		"current_question_index": runtime.Progress.CurrentQuestionIndex,
+		"total_questions":        runtime.Progress.TotalQuestions,
+		"started_at":             formatOptionalTime(runtime.Progress.StartedAt),
+		"finished_at":            formatOptionalTime(runtime.Progress.FinishedAt),
+		"deadline_at":            formatOptionalTime(runtime.Progress.DeadlineAt),
+		"reveal_until":           formatOptionalTime(runtime.Progress.RevealUntil),
+	}
+
+	if err := r.client.HSet(ctx, metaKey, update).Err(); err != nil {
+		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+	}
+
+	return nil
+}
+
+func (r *SessionRepository) SetStatusAndProgress(
+	ctx context.Context,
+	sessionID string,
+	status domain.RuntimeStatus,
+	progress domain.RuntimeProgress,
+) error {
+	metaKey := sessionMetaKey(sessionID)
+
+	exists, err := r.client.Exists(ctx, metaKey).Result()
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+	}
+	if exists == 0 {
+		return ErrSessionNotFound
+	}
+
+	update := map[string]any{
+		"status":                 string(status),
+		"current_question_index": progress.CurrentQuestionIndex,
+		"total_questions":        progress.TotalQuestions,
+		"started_at":             formatOptionalTime(progress.StartedAt),
+		"finished_at":            formatOptionalTime(progress.FinishedAt),
+		"deadline_at":            formatOptionalTime(progress.DeadlineAt),
+		"reveal_until":           formatOptionalTime(progress.RevealUntil),
+	}
+
+	if err := r.client.HSet(ctx, metaKey, update).Err(); err != nil {
 		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
 	}
 
