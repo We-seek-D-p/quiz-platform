@@ -46,9 +46,32 @@ const formatDate = (value: string): string => {
   return new Date(value).toLocaleDateString()
 }
 
+const ERROR_CODE_MESSAGES: Record<string, string> = {
+  unauthorized: 'Сессия истекла. Войдите снова',
+  forbidden: 'Недостаточно прав для этого действия',
+  quiz_not_ready: 'Добавьте вопросы перед запуском сессии',
+  session_provider_unavailable: 'Session Service временно недоступен',
+  session_provider_error: 'Не удалось инициализировать игровую сессию',
+}
+
+const handleUnauthorizedError = async (error: unknown) => {
+  if (!(error instanceof ApiHttpError) || error.status !== 401) {
+    return false
+  }
+
+  await router.push('/login')
+  return true
+}
+
 const getErrorMessage = (error: unknown, fallback: string): string => {
-  if (error instanceof ApiHttpError && error.message.trim().length > 0) {
-    return error.message
+  if (error instanceof ApiHttpError) {
+    if (error.code && ERROR_CODE_MESSAGES[error.code]) {
+      return ERROR_CODE_MESSAGES[error.code]
+    }
+
+    if (error.message.trim().length > 0) {
+      return error.message
+    }
   }
 
   if (error instanceof Error && error.message.trim().length > 0) {
@@ -89,6 +112,12 @@ const fetchQuizzes = async (): Promise<void> => {
       }
     })
   } catch (error: unknown) {
+    if (await handleUnauthorizedError(error)) {
+      errorMessage.value = 'Сессия истекла. Войдите снова'
+      quizzes.value = []
+      return
+    }
+
     errorMessage.value = getErrorMessage(error, 'Не удалось загрузить список квизов')
     quizzes.value = []
   } finally {
@@ -141,6 +170,10 @@ const launchQuizSession = async (quiz: QuizTableRow): Promise<void> => {
       query,
     })
   } catch (error: unknown) {
+    if (await handleUnauthorizedError(error)) {
+      return
+    }
+
     toast.add({
       group: 'global',
       severity: 'error',
@@ -186,6 +219,10 @@ const confirmDeleteQuiz = async (): Promise<void> => {
       life: 2500,
     })
   } catch (error: unknown) {
+    if (await handleUnauthorizedError(error)) {
+      return
+    }
+
     toast.add({
       group: 'global',
       severity: 'error',
