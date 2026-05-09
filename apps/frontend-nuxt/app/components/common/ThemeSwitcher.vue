@@ -1,14 +1,8 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
-import {
-  getCurrentThemeMode,
-  getStoredThemeMode,
-  initThemeMode,
-  toggleThemeMode,
-  type ThemeMode,
-} from '~/theme/mode'
+import { useThemeMode } from '~/composables/useThemeMode'
 
-const mode = ref<ThemeMode>('system')
+const { mode, toggle, syncFromRuntime } = useThemeMode()
 
 const icon = computed(() => {
   if (mode.value === 'dark') {
@@ -22,14 +16,8 @@ const icon = computed(() => {
   return 'pi pi-desktop'
 })
 
-const toggleTheme = () => {
-  mode.value = toggleThemeMode()
-}
-
 onMounted(() => {
-  mode.value = getStoredThemeMode()
-  initThemeMode()
-  mode.value = getCurrentThemeMode()
+  syncFromRuntime()
 })
 </script>
 
@@ -39,6 +27,6 @@ onMounted(() => {
     text
     severity="secondary"
     :aria-label="`Тема: ${mode}`"
-    @click="toggleTheme"
+    @click="toggle"
   />
 </template>
