@@ -17,7 +17,33 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Detect changed Python apps
+    runs-on: ubuntu-latest
+
+    outputs:
+      auth: ${{ steps.filter.outputs.auth }}
+      management: ${{ steps.filter.outputs.management }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Detect changes
+        id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            auth:
+              - 'apps/auth/**'
+            management:
+              - 'apps/management/**'
+
   checks:
+    needs: changes
+    if: >-
+      github.event_name == 'push' ||
+      needs.changes.outputs[matrix.service] == 'true'
     name: ${{ matrix.service }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
