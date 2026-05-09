@@ -206,19 +206,10 @@ useHead({
     <Card class="host-runtime__card">
       <template #content>
         <div class="host-runtime__header">
-          <SessionConnectionBanner
-            :status="sessionStore.connectionStatus"
-            :room-code="sessionStore.roomCode"
-          />
+          <SessionConnectionBanner :status="sessionStore.connectionStatus" :room-code="sessionStore.roomCode" />
 
           <div class="host-runtime__header-actions">
-            <Button
-              v-if="sessionStore.roomCode"
-              label="Скопировать код"
-              icon="pi pi-copy"
-              text
-              @click="copyRoomCode"
-            />
+            <Button v-if="sessionStore.roomCode" label="Скопировать код" icon="pi pi-copy" text @click="copyRoomCode" />
             <Button
               v-if="sessionStore.roomCode"
               label="Ссылка для игроков"
@@ -242,10 +233,7 @@ useHead({
           <Button label="К списку квизов" icon="pi pi-list" @click="router.push('/quizzes')" />
         </div>
 
-        <div
-          v-else-if="sessionStore.connectionStatus === 'disconnected'"
-          class="host-runtime__state"
-        >
+        <div v-else-if="sessionStore.connectionStatus === 'disconnected'" class="host-runtime__state">
           <p>Соединение с Session Service потеряно.</p>
           <div class="host-runtime__actions">
             <Button label="Переподключиться" icon="pi pi-refresh" @click="retryConnection" />
@@ -377,5 +365,4 @@ useHead({
   gap: 0.5rem;
   flex-wrap: wrap;
 }
-
 </style>

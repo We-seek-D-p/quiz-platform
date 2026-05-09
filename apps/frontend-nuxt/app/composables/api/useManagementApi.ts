@@ -80,14 +80,9 @@ export const useManagementApi = () => {
     },
 
     createSession: async (payload: SessionCreate): Promise<SessionPublic> => {
-      return authorizedRequest<SessionPublic>(
-        `${managementBase}/sessions/`,
-        'POST',
-        payload,
-        {
-          'Idempotency-Key': crypto.randomUUID(),
-        },
-      )
+      return authorizedRequest<SessionPublic>(`${managementBase}/sessions/`, 'POST', payload, {
+        'Idempotency-Key': crypto.randomUUID(),
+      })
     },
 
     createQuiz: async (payload: QuizCreate): Promise<QuizPublic> => {
@@ -106,11 +101,7 @@ export const useManagementApi = () => {
       return authorizedRequest<QuestionPublic>(`${managementBase}/quizzes/${quizId}/questions/`, 'POST', payload)
     },
 
-    updateQuestion: async (
-      quizId: string,
-      questionId: string,
-      payload: QuestionUpdate,
-    ): Promise<QuestionPublic> => {
+    updateQuestion: async (quizId: string, questionId: string, payload: QuestionUpdate): Promise<QuestionPublic> => {
       return authorizedRequest<QuestionPublic>(
         `${managementBase}/quizzes/${quizId}/questions/${questionId}`,
         'PATCH',

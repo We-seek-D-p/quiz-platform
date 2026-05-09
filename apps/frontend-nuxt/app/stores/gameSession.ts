@@ -160,11 +160,11 @@ function normalizeSnapshotPayload(raw: unknown): SessionSnapshotPayload {
   const source = asRecord(raw)
   const statusRaw = pickString(source, ['status', 'Status'])
   const status: SessionPhase =
-    statusRaw === 'question_open' || statusRaw === 'answer_reveal' || statusRaw === 'finished'
-      ? statusRaw
-      : 'lobby'
+    statusRaw === 'question_open' || statusRaw === 'answer_reveal' || statusRaw === 'finished' ? statusRaw : 'lobby'
   const participants = pickArray(source, ['participants', 'Participants']) ?? []
-  const currentQuestion = toQuizQuestion(source.question ?? source.Question ?? source.current_question ?? source.CurrentQuestion)
+  const currentQuestion = toQuizQuestion(
+    source.question ?? source.Question ?? source.current_question ?? source.CurrentQuestion,
+  )
   const revealData = asRecord(source.current_question_reveal ?? source.CurrentQuestionReveal)
 
   const payload: SessionSnapshotPayload = {
@@ -281,14 +281,26 @@ function normalizeAnswerRevealPayload(raw: unknown): AnswerRevealPayload | null 
   const yourRank = pickNumber(source, ['your_rank', 'YourRank'])
   const revealDurationSec = pickNumber(source, ['reveal_duration_sec', 'RevealDurationSec'])
 
-  if (!questionId || !yourResult || !revealUntil || scoreDelta === undefined || totalScore === undefined || yourRank === undefined || revealDurationSec === undefined) {
+  if (
+    !questionId ||
+    !yourResult ||
+    !revealUntil ||
+    scoreDelta === undefined ||
+    totalScore === undefined ||
+    yourRank === undefined ||
+    revealDurationSec === undefined
+  ) {
     return null
   }
 
   return {
     question_id: questionId,
-    correct_option_ids: (pickArray(source, ['correct_option_ids', 'CorrectOptionIDs']) ?? []).filter((item): item is string => typeof item === 'string'),
-    your_selected_option_ids: (pickArray(source, ['your_selected_option_ids', 'YourSelectedOptionIDs']) ?? []).filter((item): item is string => typeof item === 'string'),
+    correct_option_ids: (pickArray(source, ['correct_option_ids', 'CorrectOptionIDs']) ?? []).filter(
+      (item): item is string => typeof item === 'string',
+    ),
+    your_selected_option_ids: (pickArray(source, ['your_selected_option_ids', 'YourSelectedOptionIDs']) ?? []).filter(
+      (item): item is string => typeof item === 'string',
+    ),
     your_result: yourResult,
     score_delta: scoreDelta,
     total_score: totalScore,
@@ -307,13 +319,21 @@ function normalizeQuestionRevealHostPayload(raw: unknown): QuestionRevealHostPay
   const revealDurationSec = pickNumber(source, ['reveal_duration_sec', 'RevealDurationSec'])
   const revealUntil = pickString(source, ['reveal_until', 'RevealUntil'])
 
-  if (!questionId || answeredCount === undefined || totalPlayers === undefined || revealDurationSec === undefined || !revealUntil) {
+  if (
+    !questionId ||
+    answeredCount === undefined ||
+    totalPlayers === undefined ||
+    revealDurationSec === undefined ||
+    !revealUntil
+  ) {
     return null
   }
 
   return {
     question_id: questionId,
-    correct_option_ids: (pickArray(source, ['correct_option_ids', 'CorrectOptionIDs']) ?? []).filter((item): item is string => typeof item === 'string'),
+    correct_option_ids: (pickArray(source, ['correct_option_ids', 'CorrectOptionIDs']) ?? []).filter(
+      (item): item is string => typeof item === 'string',
+    ),
     answered_count: answeredCount,
     total_players: totalPlayers,
     leaderboard_top: toLeaderboardEntries(source.leaderboard_top ?? source.LeaderboardTop),

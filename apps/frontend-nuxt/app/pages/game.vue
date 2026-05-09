@@ -32,9 +32,7 @@ const selectionTypeLabel = computed(() => {
     return ''
   }
 
-  return currentQuestion.value.selection_type === 'multiple'
-    ? 'Выберите несколько вариантов'
-    : 'Выберите один вариант'
+  return currentQuestion.value.selection_type === 'multiple' ? 'Выберите несколько вариантов' : 'Выберите один вариант'
 })
 
 const { timerLabel, timerProgress } = usePhaseTimer({

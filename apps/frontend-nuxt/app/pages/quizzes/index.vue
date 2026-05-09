@@ -246,17 +246,10 @@ useHead({
   <section class="quizzes-page">
     <div class="quizzes-page__header">
       <div>
-        <p class="quizzes-page__subtitle">
-          Управляйте контентом и переходите в редактор одним кликом.
-        </p>
+        <p class="quizzes-page__subtitle">Управляйте контентом и переходите в редактор одним кликом.</p>
       </div>
 
-      <Button
-        label="Новый квиз"
-        icon="pi pi-plus"
-        :disabled="!hasAccessContext"
-        @click="openCreateQuiz"
-      />
+      <Button label="Новый квиз" icon="pi pi-plus" :disabled="!hasAccessContext" @click="openCreateQuiz" />
     </div>
 
     <Message v-if="errorMessage" severity="error" :closable="false">{{ errorMessage }}</Message>
@@ -309,9 +302,7 @@ useHead({
           </Column>
 
           <template #empty>
-            <div class="quizzes-table__empty" v-if="isEmpty">
-              У вас пока нет квизов. Создайте первый квиз.
-            </div>
+            <div class="quizzes-table__empty" v-if="isEmpty">У вас пока нет квизов. Создайте первый квиз.</div>
           </template>
         </DataTable>
       </template>
@@ -333,12 +324,7 @@ useHead({
 
       <template #footer>
         <div class="quizzes-page__delete-actions">
-          <Button
-            label="Отмена"
-            text
-            :disabled="Boolean(deletingQuizId)"
-            @click="closeDeleteDialog"
-          />
+          <Button label="Отмена" text :disabled="Boolean(deletingQuizId)" @click="closeDeleteDialog" />
           <Button
             label="Удалить"
             severity="danger"

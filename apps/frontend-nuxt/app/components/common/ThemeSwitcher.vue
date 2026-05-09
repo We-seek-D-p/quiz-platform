@@ -22,11 +22,5 @@ onMounted(() => {
 </script>
 
 <template>
-  <Button
-    :icon="icon"
-    text
-    severity="secondary"
-    :aria-label="`Тема: ${mode}`"
-    @click="toggle"
-  />
+  <Button :icon="icon" text severity="secondary" :aria-label="`Тема: ${mode}`" @click="toggle" />
 </template>

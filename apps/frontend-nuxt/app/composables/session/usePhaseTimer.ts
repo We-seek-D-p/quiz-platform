@@ -63,13 +63,14 @@ export function usePhaseTimer(options: UsePhaseTimerOptions) {
   }
 
   watch(
-    () => [
-      options.phase.value,
-      options.deadlineAt.value,
-      options.revealUntil.value,
-      options.questionTimeLimitSeconds.value,
-      options.revealDurationSec.value,
-    ] as const,
+    () =>
+      [
+        options.phase.value,
+        options.deadlineAt.value,
+        options.revealUntil.value,
+        options.questionTimeLimitSeconds.value,
+        options.revealDurationSec.value,
+      ] as const,
     () => {
       startTimer()
     },

@@ -10,8 +10,16 @@
 .game-layout {
   min-height: 100dvh;
   background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--app-color-primary) 10%, transparent), transparent 48%),
-    radial-gradient(circle at bottom left, color-mix(in srgb, var(--app-color-primary-hover) 10%, transparent), transparent 52%),
+    radial-gradient(
+      circle at top right,
+      color-mix(in srgb, var(--app-color-primary) 10%, transparent),
+      transparent 48%
+    ),
+    radial-gradient(
+      circle at bottom left,
+      color-mix(in srgb, var(--app-color-primary-hover) 10%, transparent),
+      transparent 52%
+    ),
     var(--app-color-bg);
 }
 

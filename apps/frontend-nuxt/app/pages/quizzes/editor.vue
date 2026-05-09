@@ -365,9 +365,7 @@ const handleSave = async (): Promise<void> => {
   }
 
   isSaving.value = true
-  const normalizedQuestions = quiz.value.questions.map((question, index) =>
-    normalizeQuestion(question, index),
-  )
+  const normalizedQuestions = quiz.value.questions.map((question, index) => normalizeQuestion(question, index))
 
   try {
     const quizPayload: QuizUpdate = {
@@ -380,12 +378,10 @@ const handleSave = async (): Promise<void> => {
     if (targetQuizId) {
       await managementApi.updateQuiz(targetQuizId, quizPayload)
     } else {
-      const createdQuiz = await managementApi.createQuiz(
-        {
-          title: quizPayload.title ?? '',
-          description: quizPayload.description ?? '',
-        },
-      )
+      const createdQuiz = await managementApi.createQuiz({
+        title: quizPayload.title ?? '',
+        description: quizPayload.description ?? '',
+      })
 
       targetQuizId = createdQuiz.id
       quiz.value.id = createdQuiz.id
@@ -400,9 +396,7 @@ const handleSave = async (): Promise<void> => {
         .map((question) => question.id)
         .filter((questionId): questionId is string => Boolean(questionId)),
     )
-    const deletedQuestionIds = [...initialQuestionIds.value].filter(
-      (questionId) => !currentExistingIds.has(questionId),
-    )
+    const deletedQuestionIds = [...initialQuestionIds.value].filter((questionId) => !currentExistingIds.has(questionId))
 
     for (const deletedQuestionId of deletedQuestionIds) {
       await managementApi.deleteQuestion(targetQuizId, deletedQuestionId)
@@ -410,16 +404,9 @@ const handleSave = async (): Promise<void> => {
 
     for (const question of normalizedQuestions) {
       if (question.id) {
-        await managementApi.updateQuestion(
-          targetQuizId,
-          question.id,
-          buildQuestionUpdatePayload(question),
-        )
+        await managementApi.updateQuestion(targetQuizId, question.id, buildQuestionUpdatePayload(question))
       } else {
-        await managementApi.createQuestion(
-          targetQuizId,
-          buildQuestionCreatePayload(question),
-        )
+        await managementApi.createQuestion(targetQuizId, buildQuestionCreatePayload(question))
       }
     }
 
@@ -474,12 +461,7 @@ useHead({
         <div class="quiz-editor__meta">
           <div class="quiz-editor__field">
             <label for="quiz_title" class="quiz-editor__label">Название</label>
-            <InputText
-              id="quiz_title"
-              v-model="quiz.title"
-              placeholder="Введите название квиза"
-              class="w-full"
-            />
+            <InputText id="quiz_title" v-model="quiz.title" placeholder="Введите название квиза" class="w-full" />
           </div>
           <div class="quiz-editor__field">
             <label for="quiz_description" class="quiz-editor__label">Описание</label>
@@ -512,12 +494,7 @@ useHead({
                 />
                 <div class="question-card__timer">
                   <i class="pi pi-clock" />
-                  <InputNumber
-                    v-model="question.time_limit_seconds"
-                    :min="5"
-                    :max="120"
-                    suffix=" сек"
-                  />
+                  <InputNumber v-model="question.time_limit_seconds" :min="5" :max="120" suffix=" сек" />
                 </div>
               </div>
 
@@ -568,13 +545,7 @@ useHead({
       </Card>
     </VueDraggable>
 
-    <Button
-      label="Добавить вопрос"
-      icon="pi pi-plus"
-      outlined
-      class="quiz-editor__add"
-      @click="addQuestion"
-    />
+    <Button label="Добавить вопрос" icon="pi pi-plus" outlined class="quiz-editor__add" @click="addQuestion" />
 
     <Dialog v-model:visible="showCancelDialog" modal header="Отменить изменения" :draggable="false">
       <p class="quiz-editor__cancel-text">Есть несохраненные изменения. Выйти без сохранения?</p>

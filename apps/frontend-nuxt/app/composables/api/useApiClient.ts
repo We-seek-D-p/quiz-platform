@@ -92,11 +92,7 @@ export const useApiClient = () => {
   const request = async <T>(path: string, options: ApiRequestOptions = {}): Promise<T> => {
     const headers = new Headers(options.headers)
 
-    if (
-      !headers.has('Content-Type') &&
-      options.body !== undefined &&
-      !(options.body instanceof FormData)
-    ) {
+    if (!headers.has('Content-Type') && options.body !== undefined && !(options.body instanceof FormData)) {
       headers.set('Content-Type', 'application/json')
     }
 

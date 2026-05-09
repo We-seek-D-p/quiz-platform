@@ -130,12 +130,7 @@ useHead({
         </FloatLabel>
 
         <div class="auth-form__actions">
-          <Button
-            label="Зарегистрироваться"
-            :loading="isSubmitting"
-            :disabled="isSubmitting"
-            @click="handleRegister"
-          />
+          <Button label="Зарегистрироваться" :loading="isSubmitting" :disabled="isSubmitting" @click="handleRegister" />
         </div>
       </div>
     </template>
