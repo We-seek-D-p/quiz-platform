@@ -5,6 +5,7 @@ import { primeVueOptions } from './app/theme/primevue-options'
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+  ssr: false,
   modules: ['@pinia/nuxt', '@primevue/nuxt-module'],
   css: ['~/assets/styles/index.css', 'primeicons/primeicons.css'],
   vite: {

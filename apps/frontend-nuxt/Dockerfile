@@ -1,4 +1,4 @@
-FROM oven/bun:1.2.5-alpine AS builder
+FROM oven/bun:1.2.13-alpine AS builder
 
 WORKDIR /workspace
 
@@ -9,20 +9,15 @@ RUN --mount=type=cache,target=/root/.bun \
 
 COPY . .
 
-RUN bun run build
+RUN bun run generate
 
-FROM oven/bun:1.2.5-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.29.8-alpine AS runtime
 
 WORKDIR /app
 
-COPY --from=builder /workspace/.output ./.output
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder --chown=101:101 /workspace/.output/public /usr/share/nginx/html
 
-ENV NODE_ENV=production
-ENV HOST=0.0.0.0
-ENV NITRO_HOST=0.0.0.0
-ENV PORT=8080
-ENV NITRO_PORT=8080
+USER 101
 
 EXPOSE 8080
-
-CMD ["bun", ".output/server/index.mjs"]
