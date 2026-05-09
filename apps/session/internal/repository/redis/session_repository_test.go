@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func createTestRuntime(sessionID string) domain.SessionRuntime {
+func createTestRuntime() domain.SessionRuntime {
 	return domain.SessionRuntime{
-		SessionID:     sessionID,
+		SessionID:     "session-1",
 		QuizID:        "quiz-123",
 		HostID:        "host-456",
 		RoomCode:      "12345678",
@@ -45,12 +45,15 @@ func createTestQuizSnapshot() domain.QuizSnapshot {
 func TestSessionRepository_Create(t *testing.T) {
 	t.Run("creates meta and quiz snapshot keys", func(t *testing.T) {
 		mr, client := setupTestRedis(t)
-		defer mr.Close()
+		defer func() {
+			mr.Close()
+			_ = client.Close()
+		}()
 
 		repo := NewSessionRepository(client)
 		ctx := context.Background()
 
-		runtime := createTestRuntime("session-1")
+		runtime := createTestRuntime()
 		quiz := createTestQuizSnapshot()
 
 		err := repo.Create(ctx, runtime, quiz)
@@ -80,20 +83,23 @@ func TestSessionRepository_Create(t *testing.T) {
 
 	t.Run("returns conflict for existing runtime", func(t *testing.T) {
 		mr, client := setupTestRedis(t)
-		defer mr.Close()
+		defer func() {
+			mr.Close()
+			_ = client.Close()
+		}()
 
 		repo := NewSessionRepository(client)
 		ctx := context.Background()
 
-		runtime := createTestRuntime("session-1")
+		runtime := createTestRuntime()
 		quiz := createTestQuizSnapshot()
 
 		err := repo.Create(ctx, runtime, quiz)
 		require.NoError(t, err)
 
 		err = repo.Create(ctx, runtime, quiz)
-		assert.Error(t, err)
-		assert.ErrorIs(t, err, ErrSessionConflict)
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrSessionConflict)
 	})
 
 	t.Run("maps redis unavailable error", func(t *testing.T) {
@@ -104,30 +110,33 @@ func TestSessionRepository_Create(t *testing.T) {
 			MaxRetries:  1,
 			DialTimeout: 100 * time.Millisecond,
 		})
-		defer client.Close()
+		defer func() { _ = client.Close() }()
 
 		repo := NewSessionRepository(client)
 		ctx := context.Background()
 
-		runtime := createTestRuntime("session-1")
+		runtime := createTestRuntime()
 		quiz := createTestQuizSnapshot()
 
 		err := repo.Create(ctx, runtime, quiz)
 
-		assert.Error(t, err)
-		assert.ErrorIs(t, err, ErrRedisUnavailable)
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrRedisUnavailable)
 	})
 }
 
 func TestSessionRepository_Get(t *testing.T) {
 	t.Run("returns runtime from stored meta", func(t *testing.T) {
 		mr, client := setupTestRedis(t)
-		defer mr.Close()
+		defer func() {
+			mr.Close()
+			_ = client.Close()
+		}()
 
 		repo := NewSessionRepository(client)
 		ctx := context.Background()
 
-		expectedRuntime := createTestRuntime("session-1")
+		expectedRuntime := createTestRuntime()
 		quiz := createTestQuizSnapshot()
 
 		err := repo.Create(ctx, expectedRuntime, quiz)
@@ -146,19 +155,25 @@ func TestSessionRepository_Get(t *testing.T) {
 
 	t.Run("returns not found for missing runtime", func(t *testing.T) {
 		mr, client := setupTestRedis(t)
-		defer mr.Close()
+		defer func() {
+			mr.Close()
+			_ = client.Close()
+		}()
 
 		repo := NewSessionRepository(client)
 		ctx := context.Background()
 
 		_, err := repo.Get(ctx, "non-existent-session")
-		assert.Error(t, err)
-		assert.ErrorIs(t, err, ErrSessionNotFound)
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrSessionNotFound)
 	})
 
 	t.Run("maps parse errors from invalid timestamps", func(t *testing.T) {
 		mr, client := setupTestRedis(t)
-		defer mr.Close()
+		defer func() {
+			mr.Close()
+			_ = client.Close()
+		}()
 
 		repo := NewSessionRepository(client)
 		ctx := context.Background()
@@ -175,7 +190,7 @@ func TestSessionRepository_Get(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = repo.Get(ctx, "invalid-session")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "parse initialized_at")
 	})
 }
@@ -183,12 +198,15 @@ func TestSessionRepository_Get(t *testing.T) {
 func TestSessionRepository_Delete(t *testing.T) {
 	t.Run("deletes meta and snapshot keys", func(t *testing.T) {
 		mr, client := setupTestRedis(t)
-		defer mr.Close()
+		defer func() {
+			mr.Close()
+			_ = client.Close()
+		}()
 
 		repo := NewSessionRepository(client)
 		ctx := context.Background()
 
-		runtime := createTestRuntime("session-1")
+		runtime := createTestRuntime()
 		quiz := createTestQuizSnapshot()
 
 		err := repo.Create(ctx, runtime, quiz)
@@ -196,36 +214,32 @@ func TestSessionRepository_Delete(t *testing.T) {
 
 		metaKey := "session:session-1:meta"
 		snapshotKey := "session:session-1:quiz_snapshot"
-
-		exists, err := client.Exists(ctx, metaKey).Result()
-		require.NoError(t, err)
+		exists, _ := client.Exists(ctx, metaKey).Result()
 		assert.Equal(t, int64(1), exists)
-
-		exists, err = client.Exists(ctx, snapshotKey).Result()
-		require.NoError(t, err)
+		exists, _ = client.Exists(ctx, snapshotKey).Result()
 		assert.Equal(t, int64(1), exists)
 
 		err = repo.Delete(ctx, "session-1")
 		require.NoError(t, err)
 
-		exists, err = client.Exists(ctx, metaKey).Result()
-		require.NoError(t, err)
+		exists, _ = client.Exists(ctx, metaKey).Result()
 		assert.Equal(t, int64(0), exists)
-
-		exists, err = client.Exists(ctx, snapshotKey).Result()
-		require.NoError(t, err)
+		exists, _ = client.Exists(ctx, snapshotKey).Result()
 		assert.Equal(t, int64(0), exists)
 	})
 
 	t.Run("deletes room code index when present", func(t *testing.T) {
 		mr, client := setupTestRedis(t)
-		defer mr.Close()
+		defer func() {
+			mr.Close()
+			_ = client.Close()
+		}()
 
 		repo := NewSessionRepository(client)
 		roomCodeRepo := NewRoomCodeRepository(client)
 		ctx := context.Background()
 
-		runtime := createTestRuntime("session-1")
+		runtime := createTestRuntime()
 		quiz := createTestQuizSnapshot()
 
 		reserved, err := roomCodeRepo.Reserve(ctx, runtime.RoomCode, runtime.SessionID)
@@ -250,7 +264,10 @@ func TestSessionRepository_Delete(t *testing.T) {
 
 	t.Run("is idempotent for missing runtime keys", func(t *testing.T) {
 		mr, client := setupTestRedis(t)
-		defer mr.Close()
+		defer func() {
+			mr.Close()
+			_ = client.Close()
+		}()
 
 		repo := NewSessionRepository(client)
 		ctx := context.Background()
@@ -264,7 +281,10 @@ func TestSessionRepository_Delete(t *testing.T) {
 
 	t.Run("handles session without room code", func(t *testing.T) {
 		mr, client := setupTestRedis(t)
-		defer mr.Close()
+		defer func() {
+			mr.Close()
+			_ = client.Close()
+		}()
 
 		repo := NewSessionRepository(client)
 		ctx := context.Background()
@@ -287,13 +307,9 @@ func TestSessionRepository_Delete(t *testing.T) {
 
 		metaKey := "session:session-no-roomcode:meta"
 		snapshotKey := "session:session-no-roomcode:quiz_snapshot"
-
-		exists, err := client.Exists(ctx, metaKey).Result()
-		require.NoError(t, err)
+		exists, _ := client.Exists(ctx, metaKey).Result()
 		assert.Equal(t, int64(0), exists)
-
-		exists, err = client.Exists(ctx, snapshotKey).Result()
-		require.NoError(t, err)
+		exists, _ = client.Exists(ctx, snapshotKey).Result()
 		assert.Equal(t, int64(0), exists)
 	})
 }

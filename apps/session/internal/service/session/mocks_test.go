@@ -44,9 +44,12 @@ func (m *managementRepositoryMock) ReportSessionResults(ctx context.Context, ses
 }
 
 type runtimeRepositoryMock struct {
-	CreateFn func(ctx context.Context, runtime domain.SessionRuntime, quiz domain.QuizSnapshot) error
-	GetFn    func(ctx context.Context, sessionID string) (domain.SessionRuntime, error)
-	DeleteFn func(ctx context.Context, sessionID string) error
+	CreateFn               func(ctx context.Context, runtime domain.SessionRuntime, quiz domain.QuizSnapshot) error
+	GetFn                  func(ctx context.Context, sessionID string) (domain.SessionRuntime, error)
+	GetSnapshotFn          func(ctx context.Context, sessionID string) (domain.SessionSnapshot, error)
+	SetStatusAndProgressFn func(ctx context.Context, sessionID string, status domain.RuntimeStatus, progress domain.RuntimeProgress) error
+	UpdateRuntimeFn        func(ctx context.Context, runtime domain.SessionRuntime) error
+	DeleteFn               func(ctx context.Context, sessionID string) error
 }
 
 func (m *runtimeRepositoryMock) Create(ctx context.Context, runtime domain.SessionRuntime, quiz domain.QuizSnapshot) error {
@@ -65,6 +68,30 @@ func (m *runtimeRepositoryMock) Get(ctx context.Context, sessionID string) (doma
 	return domain.SessionRuntime{}, nil
 }
 
+func (m *runtimeRepositoryMock) GetSnapshot(ctx context.Context, sessionID string) (domain.SessionSnapshot, error) {
+	if m.GetSnapshotFn != nil {
+		return m.GetSnapshotFn(ctx, sessionID)
+	}
+
+	return domain.SessionSnapshot{}, nil
+}
+
+func (m *runtimeRepositoryMock) SetStatusAndProgress(ctx context.Context, sessionID string, status domain.RuntimeStatus, progress domain.RuntimeProgress) error {
+	if m.SetStatusAndProgressFn != nil {
+		return m.SetStatusAndProgressFn(ctx, sessionID, status, progress)
+	}
+
+	return nil
+}
+
+func (m *runtimeRepositoryMock) UpdateRuntime(ctx context.Context, runtime domain.SessionRuntime) error {
+	if m.UpdateRuntimeFn != nil {
+		return m.UpdateRuntimeFn(ctx, runtime)
+	}
+
+	return nil
+}
+
 func (m *runtimeRepositoryMock) Delete(ctx context.Context, sessionID string) error {
 	if m.DeleteFn != nil {
 		return m.DeleteFn(ctx, sessionID)
@@ -74,11 +101,12 @@ func (m *runtimeRepositoryMock) Delete(ctx context.Context, sessionID string) er
 }
 
 type roomCodeRepositoryMock struct {
-	ReserveFn func(ctx context.Context, roomCode string, sessionID string) (bool, error)
-	ReleaseFn func(ctx context.Context, roomCode string) error
+	ReserveFn      func(ctx context.Context, roomCode, sessionID string) (bool, error)
+	ReleaseFn      func(ctx context.Context, roomCode string) error
+	GetSessionIDFn func(ctx context.Context, code string) (string, error)
 }
 
-func (m *roomCodeRepositoryMock) Reserve(ctx context.Context, roomCode string, sessionID string) (bool, error) {
+func (m *roomCodeRepositoryMock) Reserve(ctx context.Context, roomCode, sessionID string) (bool, error) {
 	if m.ReserveFn != nil {
 		return m.ReserveFn(ctx, roomCode, sessionID)
 	}
@@ -92,6 +120,14 @@ func (m *roomCodeRepositoryMock) Release(ctx context.Context, roomCode string) e
 	}
 
 	return nil
+}
+
+func (m *roomCodeRepositoryMock) GetSessionID(ctx context.Context, code string) (string, error) {
+	if m.GetSessionIDFn != nil {
+		return m.GetSessionIDFn(ctx, code)
+	}
+
+	return "", nil
 }
 
 type roomCodeGeneratorMock struct {

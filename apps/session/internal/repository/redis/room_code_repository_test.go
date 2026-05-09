@@ -13,7 +13,10 @@ import (
 func TestRoomCodeRepository_Reserve(t *testing.T) {
 	t.Run("reserves unique code", func(t *testing.T) {
 		mr, client := setupTestRedis(t)
-		defer mr.Close()
+		defer func() {
+			mr.Close()
+			_ = client.Close()
+		}()
 
 		repo := NewRoomCodeRepository(client)
 		ctx := context.Background()
@@ -30,7 +33,10 @@ func TestRoomCodeRepository_Reserve(t *testing.T) {
 
 	t.Run("returns false on duplicate code", func(t *testing.T) {
 		mr, client := setupTestRedis(t)
-		defer mr.Close()
+		defer func() {
+			mr.Close()
+			_ = client.Close()
+		}()
 
 		repo := NewRoomCodeRepository(client)
 		ctx := context.Background()
@@ -56,15 +62,15 @@ func TestRoomCodeRepository_Reserve(t *testing.T) {
 			MaxRetries:  1,
 			DialTimeout: 100 * time.Millisecond,
 		})
-		defer client.Close()
+		defer func() { _ = client.Close() }()
 
 		repo := NewRoomCodeRepository(client)
 		ctx := context.Background()
 
 		ok, err := repo.Reserve(ctx, "12345678", "session-1")
 
-		assert.Error(t, err)
-		assert.ErrorIs(t, err, ErrRedisUnavailable)
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrRedisUnavailable)
 		assert.False(t, ok)
 	})
 }
@@ -72,7 +78,10 @@ func TestRoomCodeRepository_Reserve(t *testing.T) {
 func TestRoomCodeRepository_Release(t *testing.T) {
 	t.Run("releases existing room code key", func(t *testing.T) {
 		mr, client := setupTestRedis(t)
-		defer mr.Close()
+		defer func() {
+			mr.Close()
+			_ = client.Close()
+		}()
 
 		repo := NewRoomCodeRepository(client)
 		ctx := context.Background()
@@ -95,7 +104,10 @@ func TestRoomCodeRepository_Release(t *testing.T) {
 
 	t.Run("is idempotent for missing key", func(t *testing.T) {
 		mr, client := setupTestRedis(t)
-		defer mr.Close()
+		defer func() {
+			mr.Close()
+			_ = client.Close()
+		}()
 
 		repo := NewRoomCodeRepository(client)
 		ctx := context.Background()
@@ -115,14 +127,14 @@ func TestRoomCodeRepository_Release(t *testing.T) {
 			MaxRetries:  1,
 			DialTimeout: 100 * time.Millisecond,
 		})
-		defer client.Close()
+		defer func() { _ = client.Close() }()
 
 		repo := NewRoomCodeRepository(client)
 		ctx := context.Background()
 
 		err := repo.Release(ctx, "12345678")
 
-		assert.Error(t, err)
-		assert.ErrorIs(t, err, ErrRedisUnavailable)
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrRedisUnavailable)
 	})
 }

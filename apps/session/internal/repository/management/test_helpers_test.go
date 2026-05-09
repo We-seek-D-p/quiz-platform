@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-func testNewRequest(repo *Repository, ctx context.Context, method string, path string, payload any) (*http.Request, error) {
+func testNewRequest(ctx context.Context, repo *Repository, method, path string, payload any) (*http.Request, error) {
 	body := &bytes.Buffer{}
 
 	if payload != nil {

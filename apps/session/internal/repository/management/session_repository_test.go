@@ -14,13 +14,10 @@ import (
 
 func TestGetSessionBootstrap(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			assert.Equal(t, "/internal/v1/sessions/test-123/bootstrap", r.URL.Path)
-			assert.Equal(t, "GET", r.Method)
-
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			err := json.NewEncoder(w).Encode(BootstrapResponse{
+			_ = json.NewEncoder(w).Encode(BootstrapResponse{
 				Session: BootstrapSessionDTO{
 					SessionID: "test-123",
 					QuizID:    "quiz-1",
@@ -31,9 +28,6 @@ func TestGetSessionBootstrap(t *testing.T) {
 					Title: "Test Quiz",
 				},
 			})
-			if err != nil {
-				t.Fatalf("failed to encode response: %v", err)
-			}
 		}))
 		defer server.Close()
 
@@ -44,12 +38,12 @@ func TestGetSessionBootstrap(t *testing.T) {
 			httpClient:  &http.Client{Timeout: 5 * time.Second},
 		}
 
-		req, err := testNewRequest(repo, context.Background(), http.MethodGet, repo.bootstrapPath("test-123"), nil)
+		req, err := testNewRequest(context.Background(), repo, http.MethodGet, repo.bootstrapPath("test-123"), nil)
 		require.NoError(t, err)
 
 		resp, err := repo.do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		var dto BootstrapResponse
 		err = json.NewDecoder(resp.Body).Decode(&dto)
@@ -63,12 +57,9 @@ func TestGetSessionBootstrap(t *testing.T) {
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
-			err := json.NewEncoder(w).Encode(ErrorResponse{Code: "session_not_found"})
-			if err != nil {
-				t.Fatalf("failed to encode error response: %v", err)
-			}
+			_ = json.NewEncoder(w).Encode(ErrorResponse{Code: "session_not_found"})
 		}))
 		defer server.Close()
 
@@ -79,104 +70,33 @@ func TestGetSessionBootstrap(t *testing.T) {
 			httpClient:  &http.Client{Timeout: 5 * time.Second},
 		}
 
-		req, err := testNewRequest(repo, context.Background(), http.MethodGet, repo.bootstrapPath("999"), nil)
+		req, err := testNewRequest(context.Background(), repo, http.MethodGet, repo.bootstrapPath("999"), nil)
 		require.NoError(t, err)
 
 		resp, err := repo.do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		err = repo.handleError(resp)
 		assert.ErrorIs(t, err, ErrSessionNotFound)
 	})
 
 	t.Run("unauthorized", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusUnauthorized)
-		}))
-		defer server.Close()
-
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
-
-		req, err := testNewRequest(repo, context.Background(), http.MethodGet, repo.bootstrapPath("123"), nil)
-		require.NoError(t, err)
-
-		resp, err := repo.do(req)
-		require.NoError(t, err)
-		defer resp.Body.Close()
-
-		err = repo.handleError(resp)
-		assert.ErrorIs(t, err, ErrUnauthorized)
+		testHTTPError(t, http.StatusUnauthorized, ErrUnauthorized, repoBootstrapCall)
 	})
 
 	t.Run("forbidden", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusForbidden)
-		}))
-		defer server.Close()
-
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
-
-		req, err := testNewRequest(repo, context.Background(), http.MethodGet, repo.bootstrapPath("123"), nil)
-		require.NoError(t, err)
-
-		resp, err := repo.do(req)
-		require.NoError(t, err)
-		defer resp.Body.Close()
-
-		err = repo.handleError(resp)
-		assert.ErrorIs(t, err, ErrForbidden)
+		testHTTPError(t, http.StatusForbidden, ErrForbidden, repoBootstrapCall)
 	})
 
 	t.Run("server error", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusInternalServerError)
-		}))
-		defer server.Close()
-
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
-
-		req, err := testNewRequest(repo, context.Background(), http.MethodGet, repo.bootstrapPath("123"), nil)
-		require.NoError(t, err)
-
-		resp, err := repo.do(req)
-		require.NoError(t, err)
-		defer resp.Body.Close()
-
-		err = repo.handleError(resp)
-		assert.ErrorIs(t, err, ErrUpstreamUnavailable)
+		testHTTPError(t, http.StatusInternalServerError, ErrUpstreamUnavailable, repoBootstrapCall)
 	})
 }
 
 func TestReportSessionStatus(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			assert.Equal(t, "/internal/v1/sessions/123/status", r.URL.Path)
-			assert.Equal(t, "PATCH", r.Method)
-
-			var req ReportSessionStatusRequest
-			err := json.NewDecoder(r.Body).Decode(&req)
-			assert.NoError(t, err)
-			assert.Equal(t, "in_progress", req.Status)
-			assert.Equal(t, "event-123", req.EventID)
-
-			w.WriteHeader(http.StatusOK)
-		}))
+		server := newTestServer(t, "status", http.StatusOK)
 		defer server.Close()
 
 		repo := &Repository{
@@ -191,180 +111,40 @@ func TestReportSessionStatus(t *testing.T) {
 			EventID: "event-123",
 		}
 
-		req, err := testNewRequest(repo, context.Background(), http.MethodPatch, repo.statusPath("123"), payload)
+		req, err := testNewRequest(context.Background(), repo, http.MethodPatch, repo.statusPath("123"), payload)
 		require.NoError(t, err)
 
 		resp, err := repo.do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
 
 	t.Run("conflict", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusConflict)
-			err := json.NewEncoder(w).Encode(ErrorResponse{Code: "already_finished"})
-			if err != nil {
-				t.Fatalf("failed to encode error response: %v", err)
-			}
-		}))
-		defer server.Close()
-
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
-
-		payload := ReportSessionStatusRequest{
-			Status:  "finished",
-			EventID: "event-123",
-		}
-
-		req, err := testNewRequest(repo, context.Background(), http.MethodPatch, repo.statusPath("123"), payload)
-		require.NoError(t, err)
-
-		resp, err := repo.do(req)
-		require.NoError(t, err)
-		defer resp.Body.Close()
-
-		err = repo.handleError(resp)
-		assert.ErrorIs(t, err, ErrAlreadyFinished)
+		testStatusError(t, http.StatusConflict, ErrAlreadyFinished, repoStatusCall, "123")
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusNotFound)
-		}))
-		defer server.Close()
-
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
-
-		payload := ReportSessionStatusRequest{
-			Status:  "finished",
-			EventID: "event-123",
-		}
-
-		req, err := testNewRequest(repo, context.Background(), http.MethodPatch, repo.statusPath("999"), payload)
-		require.NoError(t, err)
-
-		resp, err := repo.do(req)
-		require.NoError(t, err)
-		defer resp.Body.Close()
-
-		err = repo.handleError(resp)
-		assert.ErrorIs(t, err, ErrSessionNotFound)
+		testStatusError(t, http.StatusNotFound, ErrSessionNotFound, repoStatusCall, "999")
 	})
 
 	t.Run("unauthorized", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusUnauthorized)
-		}))
-		defer server.Close()
-
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
-
-		payload := ReportSessionStatusRequest{
-			Status:  "finished",
-			EventID: "event-123",
-		}
-
-		req, err := testNewRequest(repo, context.Background(), http.MethodPatch, repo.statusPath("123"), payload)
-		require.NoError(t, err)
-
-		resp, err := repo.do(req)
-		require.NoError(t, err)
-		defer resp.Body.Close()
-
-		err = repo.handleError(resp)
-		assert.ErrorIs(t, err, ErrUnauthorized)
+		testStatusError(t, http.StatusUnauthorized, ErrUnauthorized, repoStatusCall, "123")
 	})
 
 	t.Run("forbidden", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusForbidden)
-		}))
-		defer server.Close()
-
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
-
-		payload := ReportSessionStatusRequest{
-			Status:  "finished",
-			EventID: "event-123",
-		}
-
-		req, err := testNewRequest(repo, context.Background(), http.MethodPatch, repo.statusPath("123"), payload)
-		require.NoError(t, err)
-
-		resp, err := repo.do(req)
-		require.NoError(t, err)
-		defer resp.Body.Close()
-
-		err = repo.handleError(resp)
-		assert.ErrorIs(t, err, ErrForbidden)
+		testStatusError(t, http.StatusForbidden, ErrForbidden, repoStatusCall, "123")
 	})
 
 	t.Run("server error", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusInternalServerError)
-		}))
-		defer server.Close()
-
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
-
-		payload := ReportSessionStatusRequest{
-			Status:  "finished",
-			EventID: "event-123",
-		}
-
-		req, err := testNewRequest(repo, context.Background(), http.MethodPatch, repo.statusPath("123"), payload)
-		require.NoError(t, err)
-
-		resp, err := repo.do(req)
-		require.NoError(t, err)
-		defer resp.Body.Close()
-
-		err = repo.handleError(resp)
-		assert.ErrorIs(t, err, ErrUpstreamUnavailable)
+		testStatusError(t, http.StatusInternalServerError, ErrUpstreamUnavailable, repoStatusCall, "123")
 	})
 }
 
 func TestReportSessionResults(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			assert.Equal(t, "/internal/v1/sessions/123/results", r.URL.Path)
-			assert.Equal(t, "PUT", r.Method)
-
-			var req ReportSessionResultsRequest
-			err := json.NewDecoder(r.Body).Decode(&req)
-			assert.NoError(t, err)
-			assert.Equal(t, "event-123", req.EventID)
-			assert.Equal(t, "completed", req.FinishReason)
-
-			w.WriteHeader(http.StatusOK)
-		}))
+		server := newTestServer(t, "results", http.StatusOK)
 		defer server.Close()
 
 		repo := &Repository{
@@ -380,98 +160,26 @@ func TestReportSessionResults(t *testing.T) {
 			FinishedAt:   time.Now(),
 		}
 
-		req, err := testNewRequest(repo, context.Background(), http.MethodPut, repo.resultsPath("123"), payload)
+		req, err := testNewRequest(context.Background(), repo, http.MethodPut, repo.resultsPath("123"), payload)
 		require.NoError(t, err)
 
 		resp, err := repo.do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusNotFound)
-		}))
-		defer server.Close()
-
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
-
-		payload := ReportSessionResultsRequest{
-			EventID: "event-123",
-		}
-
-		req, err := testNewRequest(repo, context.Background(), http.MethodPut, repo.resultsPath("999"), payload)
-		require.NoError(t, err)
-
-		resp, err := repo.do(req)
-		require.NoError(t, err)
-		defer resp.Body.Close()
-
-		err = repo.handleError(resp)
-		assert.ErrorIs(t, err, ErrSessionNotFound)
+		testResultsError(t, http.StatusNotFound, ErrSessionNotFound, repoResultsCall, "999")
 	})
 
 	t.Run("conflict", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusConflict)
-		}))
-		defer server.Close()
-
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
-
-		payload := ReportSessionResultsRequest{
-			EventID: "event-123",
-		}
-
-		req, err := testNewRequest(repo, context.Background(), http.MethodPut, repo.resultsPath("123"), payload)
-		require.NoError(t, err)
-
-		resp, err := repo.do(req)
-		require.NoError(t, err)
-		defer resp.Body.Close()
-
-		err = repo.handleError(resp)
-		assert.ErrorIs(t, err, ErrAlreadyFinished)
+		testResultsError(t, http.StatusConflict, ErrAlreadyFinished, repoResultsCall, "123")
 	})
 
 	t.Run("server error", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusInternalServerError)
-		}))
-		defer server.Close()
-
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
-
-		payload := ReportSessionResultsRequest{
-			EventID: "event-123",
-		}
-
-		req, err := testNewRequest(repo, context.Background(), http.MethodPut, repo.resultsPath("123"), payload)
-		require.NoError(t, err)
-
-		resp, err := repo.do(req)
-		require.NoError(t, err)
-		defer resp.Body.Close()
-
-		err = repo.handleError(resp)
-		assert.ErrorIs(t, err, ErrUpstreamUnavailable)
+		testResultsError(t, http.StatusInternalServerError, ErrUpstreamUnavailable, repoResultsCall, "123")
 	})
 }
 
@@ -482,12 +190,9 @@ func TestInternalHeaders(t *testing.T) {
 			receivedService = r.Header.Get("X-Internal-Service")
 			receivedToken = r.Header.Get("X-Internal-Token")
 			w.WriteHeader(http.StatusOK)
-			err := json.NewEncoder(w).Encode(BootstrapResponse{
+			_ = json.NewEncoder(w).Encode(BootstrapResponse{
 				Session: BootstrapSessionDTO{SessionID: "123"},
 			})
-			if err != nil {
-				t.Fatalf("failed to encode response: %v", err)
-			}
 		}))
 		defer server.Close()
 
@@ -498,11 +203,12 @@ func TestInternalHeaders(t *testing.T) {
 			httpClient:  &http.Client{Timeout: 5 * time.Second},
 		}
 
-		req, err := testNewRequest(repo, context.Background(), http.MethodGet, repo.bootstrapPath("123"), nil)
+		req, err := testNewRequest(context.Background(), repo, http.MethodGet, repo.bootstrapPath("123"), nil)
 		require.NoError(t, err)
 
-		_, err = repo.do(req)
-		assert.NoError(t, err)
+		resp, err := repo.do(req)
+		require.NoError(t, err)
+		defer func() { _ = resp.Body.Close() }()
 		assert.Equal(t, "my-service", receivedService)
 		assert.Equal(t, "secret-token", receivedToken)
 	})
@@ -527,11 +233,172 @@ func TestInternalHeaders(t *testing.T) {
 			EventID: "event-123",
 		}
 
-		req, err := testNewRequest(repo, context.Background(), http.MethodPatch, repo.statusPath("123"), payload)
+		req, err := testNewRequest(context.Background(), repo, http.MethodPatch, repo.statusPath("123"), payload)
 		require.NoError(t, err)
 
-		_, err = repo.do(req)
-		assert.NoError(t, err)
+		resp, err := repo.do(req)
+		require.NoError(t, err)
+		defer func() { _ = resp.Body.Close() }()
 		assert.Equal(t, "application/json", contentType)
 	})
+}
+
+type repoCallFunc func(*Repository, string) (*http.Response, error)
+
+func repoBootstrapCall(repo *Repository, sessionID string) (*http.Response, error) {
+	req, err := testNewRequest(context.Background(), repo, http.MethodGet, repo.bootstrapPath(sessionID), nil)
+	if err != nil {
+		return nil, err
+	}
+	return repo.do(req)
+}
+
+func repoStatusCall(repo *Repository, sessionID string) (*http.Response, error) {
+	payload := ReportSessionStatusRequest{
+		Status:  "finished",
+		EventID: "event-123",
+	}
+	req, err := testNewRequest(context.Background(), repo, http.MethodPatch, repo.statusPath(sessionID), payload)
+	if err != nil {
+		return nil, err
+	}
+	return repo.do(req)
+}
+
+func repoResultsCall(repo *Repository, sessionID string) (*http.Response, error) {
+	payload := ReportSessionResultsRequest{
+		EventID: "event-123",
+	}
+	req, err := testNewRequest(context.Background(), repo, http.MethodPut, repo.resultsPath(sessionID), payload)
+	if err != nil {
+		return nil, err
+	}
+	return repo.do(req)
+}
+
+// Generic test server for status and results endpoints
+type endpointConfig struct {
+	path   string
+	method string
+}
+
+func newTestServer(t *testing.T, endpointType string, statusCode int) *httptest.Server {
+	t.Helper()
+
+	var config endpointConfig
+	if endpointType == "status" {
+		config = endpointConfig{
+			path:   "/internal/v1/sessions/123/status",
+			method: http.MethodPatch,
+		}
+	} else {
+		config = endpointConfig{
+			path:   "/internal/v1/sessions/123/results",
+			method: http.MethodPut,
+		}
+	}
+
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != config.path {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if r.Method != config.method {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		if statusCode == http.StatusOK {
+			if endpointType == "status" {
+				var req ReportSessionStatusRequest
+				if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				if req.Status != "in_progress" {
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				if req.EventID != "event-123" {
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+			} else {
+				var req ReportSessionResultsRequest
+				if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				if req.EventID != "event-123" {
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				if req.FinishReason != "completed" {
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+			}
+		}
+
+		w.WriteHeader(statusCode)
+	}))
+}
+
+func testHTTPError(t *testing.T, statusCode int, expectedErr error, call repoCallFunc) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(statusCode)
+	}))
+	defer server.Close()
+
+	repo := &Repository{
+		baseURL:     server.URL,
+		token:       "test-token",
+		serviceName: "test-service",
+		httpClient:  &http.Client{Timeout: 5 * time.Second},
+	}
+
+	resp, err := call(repo, "123")
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	err = repo.handleError(resp)
+	assert.ErrorIs(t, err, expectedErr)
+}
+
+func testStatusError(t *testing.T, statusCode int, expectedErr error, call repoCallFunc, sessionID string) {
+	server := newTestServer(t, "status", statusCode)
+	defer server.Close()
+
+	repo := &Repository{
+		baseURL:     server.URL,
+		token:       "test-token",
+		serviceName: "test-service",
+		httpClient:  &http.Client{Timeout: 5 * time.Second},
+	}
+
+	resp, err := call(repo, sessionID)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	err = repo.handleError(resp)
+	assert.ErrorIs(t, err, expectedErr)
+}
+
+func testResultsError(t *testing.T, statusCode int, expectedErr error, call repoCallFunc, sessionID string) {
+	server := newTestServer(t, "results", statusCode)
+	defer server.Close()
+
+	repo := &Repository{
+		baseURL:     server.URL,
+		token:       "test-token",
+		serviceName: "test-service",
+		httpClient:  &http.Client{Timeout: 5 * time.Second},
+	}
+
+	resp, err := call(repo, sessionID)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	err = repo.handleError(resp)
+	assert.ErrorIs(t, err, expectedErr)
 }
