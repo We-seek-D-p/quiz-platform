@@ -43,8 +43,13 @@ def question_service(mock_db: AsyncMock) -> QuestionService:
 
 
 @pytest.fixture
-def session_service(mock_db: AsyncMock) -> SessionService:
-    return SessionService(mock_db)
+def mock_session_client() -> AsyncMock:
+    return AsyncMock()
+
+
+@pytest.fixture
+def session_service(mock_db: AsyncMock, mock_session_client: AsyncMock) -> SessionService:
+    return SessionService(mock_db, mock_session_client)
 
 
 @pytest.fixture

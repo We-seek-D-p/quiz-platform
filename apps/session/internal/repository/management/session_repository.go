@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -60,7 +61,7 @@ func (r *Repository) GetSessionBootstrap(ctx context.Context, sessionID string) 
 
 	var dto BootstrapResponse
 	if err := json.NewDecoder(resp.Body).Decode(&dto); err != nil {
-		return domain.SessionBootstrap{}, fmt.Errorf("%w: %v", ErrInvalidResponse, err)
+		return domain.SessionBootstrap{}, fmt.Errorf("%w: %w", ErrInvalidResponse, err)
 	}
 
 	return r.mapBootstrapToDomain(dto), nil
@@ -147,14 +148,15 @@ func (r *Repository) resultsPath(sessionID string) string {
 	return fmt.Sprintf("%s/sessions/%s/results", internalAPIPrefix, url.PathEscape(sessionID))
 }
 
-func (r *Repository) newRequest(ctx context.Context, method string, path string, payload any) (*http.Request, error) {
-	var body *bytes.Buffer
+func (r *Repository) newRequest(ctx context.Context, method, path string, payload any) (*http.Request, error) {
+	var body io.Reader
 
 	if payload != nil {
-		body = bytes.NewBuffer(nil)
-		if err := json.NewEncoder(body).Encode(payload); err != nil {
+		buffer := bytes.NewBuffer(nil)
+		if err := json.NewEncoder(buffer).Encode(payload); err != nil {
 			return nil, fmt.Errorf("encode request body: %w", err)
 		}
+		body = buffer
 	}
 
 	req, err := http.NewRequestWithContext(ctx, method, r.baseURL+path, body)
@@ -173,9 +175,9 @@ func (r *Repository) newRequest(ctx context.Context, method string, path string,
 }
 
 func (r *Repository) do(req *http.Request) (*http.Response, error) {
-	resp, err := r.httpClient.Do(req)
+	resp, err := r.httpClient.Do(req) // #nosec G704 -- trusted internal service call to configured Management base URL
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrUpstreamUnavailable, err)
+		return nil, fmt.Errorf("%w: %w", ErrUpstreamUnavailable, err)
 	}
 
 	return resp, nil

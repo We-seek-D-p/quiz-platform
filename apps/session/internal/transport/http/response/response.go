@@ -18,7 +18,7 @@ func JSON(w http.ResponseWriter, status int, value any) {
 	_ = json.NewEncoder(w).Encode(value)
 }
 
-func Error(w http.ResponseWriter, status int, code string, message string) {
+func Error(w http.ResponseWriter, status int, code, message string) {
 	JSON(w, status, dto.ErrorResponse{
 		Code:    code,
 		Message: message,

@@ -1,16 +1,16 @@
 package session
 
-import (
-	"context"
-
-	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/domain"
-)
+import "time"
 
 type Service struct {
-	managementRepository ManagementRepository
-	runtimeRepository    RuntimeRepository
-	roomCodeRepository   RoomCodeRepository
-	roomCodeGenerator    RoomCodeGenerator
+	managementRepository  ManagementRepository
+	runtimeRepository     RuntimeRepository
+	roomCodeRepository    RoomCodeRepository
+	roomCodeGenerator     RoomCodeGenerator
+	participantRepository ParticipantRepository
+	answersRepository     AnswerRepository
+	leaderboardRepository LeaderboardRepository
+	revealDuration        time.Duration
 }
 
 func NewService(
@@ -18,23 +18,19 @@ func NewService(
 	runtimeRepository RuntimeRepository,
 	roomCodeRepository RoomCodeRepository,
 	roomCodeGenerator RoomCodeGenerator,
+	participantRepository ParticipantRepository,
+	answersRepository AnswerRepository,
+	leaderboardRepository LeaderboardRepository,
+	revealDuration time.Duration,
 ) *Service {
 	return &Service{
-		managementRepository: managementRepository,
-		runtimeRepository:    runtimeRepository,
-		roomCodeRepository:   roomCodeRepository,
-		roomCodeGenerator:    roomCodeGenerator,
+		managementRepository:  managementRepository,
+		runtimeRepository:     runtimeRepository,
+		roomCodeRepository:    roomCodeRepository,
+		roomCodeGenerator:     roomCodeGenerator,
+		participantRepository: participantRepository,
+		answersRepository:     answersRepository,
+		leaderboardRepository: leaderboardRepository,
+		revealDuration:        revealDuration,
 	}
-}
-
-func (s *Service) InitSession(ctx context.Context, cmd InitSessionParams) (domain.SessionRuntime, error) {
-	return domain.SessionRuntime{}, ErrNotImplemented
-}
-
-func (s *Service) GetSessionRuntime(ctx context.Context, cmd GetSessionRuntimeParams) (domain.SessionRuntime, error) {
-	return domain.SessionRuntime{}, ErrNotImplemented
-}
-
-func (s *Service) DeleteSessionRuntime(ctx context.Context, cmd DeleteSessionRuntimeParams) error {
-	return ErrNotImplemented
 }

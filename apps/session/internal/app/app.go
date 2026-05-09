@@ -14,12 +14,14 @@ import (
 	sessionservice "github.com/We-seek-D-p/quiz-platform/apps/session/internal/service/session"
 	httptransport "github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/http"
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/http/handler"
+	wstransport "github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/ws"
 )
 
 type App struct {
-	cfg    *config.Config
-	log    *slog.Logger
-	server *httptransport.Server
+	cfg       *config.Config
+	log       *slog.Logger
+	server    *httptransport.Server
+	wsHandler *wstransport.Handler
 }
 
 func New(cfg *config.Config, log *slog.Logger) *App {
@@ -27,31 +29,46 @@ func New(cfg *config.Config, log *slog.Logger) *App {
 	runtimeRepository := redisrepo.NewSessionRepository(redisClient)
 	roomCodeRepository := redisrepo.NewRoomCodeRepository(redisClient)
 	roomCodeGenerator := redisrepo.NewRandomRoomCodeGenerator()
+	participantRepository := redisrepo.NewParticipantRepository(redisClient)
+	answersRepository := redisrepo.NewAnswersRepository(redisClient)
+	leaderboardRepository := redisrepo.NewLeaderboardRepository(redisClient)
 	managementRepository := managementrepo.NewRepository(cfg)
-	svc := sessionservice.NewService(managementRepository, runtimeRepository, roomCodeRepository, roomCodeGenerator)
+	svc := sessionservice.NewService(
+		managementRepository,
+		runtimeRepository,
+		roomCodeRepository,
+		roomCodeGenerator,
+		participantRepository,
+		answersRepository,
+		leaderboardRepository,
+		cfg.Game.RevealDuration(),
+	)
 	internalSessionHandler := handler.NewInternalSessionHandler(svc)
+	wsHandler := wstransport.NewHandler(cfg, log, svc)
 
-	router := httptransport.NewRouter(cfg, log, internalSessionHandler)
+	router := httptransport.NewRouter(cfg, log, internalSessionHandler, wsHandler)
 	server := httptransport.NewServer(cfg.HTTP.Address(), router)
 
 	return &App{
-		cfg:    cfg,
-		log:    log,
-		server: server,
+		cfg:       cfg,
+		log:       log,
+		server:    server,
+		wsHandler: wsHandler,
 	}
 }
 
 func (a *App) Run(ctx context.Context) error {
 	serverErrCh := make(chan error, 1)
 
-	a.log.Info("starting http server", "addr", a.cfg.HTTP.Address())
+	a.log.InfoContext(ctx, "starting http server", "addr", a.cfg.HTTP.Address())
+	a.wsHandler.StartTimerLoop(ctx)
 	go func() {
 		serverErrCh <- a.server.Run()
 	}()
 
 	select {
 	case <-ctx.Done():
-		a.log.Info("shutting down server")
+		a.log.InfoContext(ctx, "shutting down server")
 
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer shutdownCancel()
@@ -59,13 +76,13 @@ func (a *App) Run(ctx context.Context) error {
 		if err := a.server.Shutdown(shutdownCtx); err != nil {
 			return fmt.Errorf("shutdown http server: %w", err)
 		}
-		a.log.Info("http server stopped")
+		a.log.InfoContext(ctx, "http server stopped")
 
 		return nil
 
 	case err := <-serverErrCh:
 		if errors.Is(err, http.ErrServerClosed) {
-			a.log.Info("http server stopped")
+			a.log.InfoContext(ctx, "http server stopped")
 			return nil
 		}
 

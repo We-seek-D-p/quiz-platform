@@ -166,26 +166,6 @@ const removeQuestion = (localId: string) => {
     }))
 }
 
-const addOption = (question: QuestionDraft) => {
-  question.options.push({
-    localId: generateLocalId(),
-    text: '',
-    is_correct: false,
-    order_index: question.options.length,
-  })
-}
-
-const removeOption = (question: QuestionDraft, optionId: string) => {
-  if (question.options.length > 2) {
-    question.options = question.options
-      .filter((option) => option.localId !== optionId)
-      .map((option, index) => ({
-        ...option,
-        order_index: index,
-      }))
-  }
-}
-
 const toggleCorrect = (question: QuestionDraft, option: OptionDraft) => {
   if (question.selection_type === 'single') {
     question.options.forEach((opt) => {
@@ -233,8 +213,8 @@ const validateQuizDraft = (): string | null => {
       return `Заполните текст вопроса #${questionIndex + 1}`
     }
 
-    if (question.options.length < 2) {
-      return `В вопросе #${questionIndex + 1} должно быть минимум 2 варианта`
+    if (!question.options.some(opt => opt.is_correct)) {
+      return `Выберите хотя бы один правильный ответ в вопросе #${questionIndex + 1}`
     }
 
     for (const [optionIndex, option] of question.options.entries()) {
@@ -476,7 +456,6 @@ onMounted(loadQuiz)
                     v-if="question.selection_type === 'single'"
                     :model-value="question.options.find(o => o.is_correct)"
                     :value="option"
-                    severity="success"
                     @update:model-value="toggleCorrect(question, option)"
                   />
                   <Checkbox
@@ -485,26 +464,13 @@ onMounted(loadQuiz)
                     binary
                     severity="success"
                   />
-                  <InputText v-model="option.text" placeholder="Ответ" class="w-full border-none bg-transparent shadow-none p-0 focus:ring-0" />
-
-                  <Button
-                    v-if="question.options.length > 2"
-                    icon="pi pi-times"
-                    severity="danger"
-                    text
-                    rounded
-                    class="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 p-0"
-                    @click="removeOption(question, option.localId)"
+                  <InputText 
+                    v-model="option.text" 
+                    placeholder="Ответ" 
+                    class="w-full border-none bg-transparent shadow-none p-0 focus:ring-0" 
                   />
                 </div>
               </VueDraggable>
-              <button
-                class="mt-2 flex items-center justify-center gap-2 p-3 border border-dashed rounded-xl opacity-50 hover:opacity-100 transition-all text-sm font-medium w-full"
-                @click="addOption(question)"
-              >
-                <i class="pi pi-plus text-xs" />
-                Добавить вариант
-              </button>
             </div>
           </div>
         </template>

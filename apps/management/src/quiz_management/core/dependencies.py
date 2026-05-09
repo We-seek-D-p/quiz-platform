@@ -5,7 +5,9 @@ from fastapi import Depends, Header, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 
+from quiz_management.core.config import settings
 from quiz_management.core.database import get_session
+from quiz_management.core.exceptions import ServiceException
 from quiz_management.models.question import Question
 from quiz_management.models.quiz import Quiz
 from quiz_management.repositories.question_repository import QuestionRepository
@@ -13,13 +15,14 @@ from quiz_management.repositories.quiz_repository import QuizRepository
 from quiz_management.services.question import QuestionService
 from quiz_management.services.quiz import QuizService
 from quiz_management.services.session import SessionService
+from quiz_management.services.session_client import SessionServiceClient
 
 
 async def get_current_user_id(
     user_id: Annotated[UUID | None, Header(alias="X-User-Id")] = None,
 ) -> UUID:
     if not user_id:
-        raise HTTPException(status_code=401, detail="X-User-Id header missing")
+        raise ServiceException(status_code=401, code="unauthorized", message="unauthorized")
     return user_id
 
 
@@ -29,7 +32,7 @@ async def get_valid_quiz(
     db: Annotated[AsyncSession, Depends(get_session)],
 ) -> Quiz:
     repo = QuizRepository(db)
-    quiz = await repo.get_by_id(quiz_id)
+    quiz = await repo.get_by_id_with_questions(quiz_id)
     if not quiz or quiz.owner_id != user_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Quiz not found")
     return quiz
@@ -59,5 +62,22 @@ async def get_question_service(
 
 async def get_session_service(
     db: Annotated[AsyncSession, Depends(get_session)],
+    client: Annotated[SessionServiceClient, Depends(get_session_client)],
 ) -> SessionService:
-    return SessionService(db)
+    return SessionService(db, client)
+
+
+def get_session_client() -> SessionServiceClient:
+    return SessionServiceClient()
+
+
+async def verify_internal_auth(
+    x_internal_service: Annotated[str, Header(alias="X-Internal-Service")],
+    x_internal_token: Annotated[str, Header(alias="X-Internal-Token")],
+) -> None:
+    if x_internal_token != settings.internal_token:
+        raise ServiceException(status_code=401, code="unauthorized", message="unauthorized")
+
+    allowed = settings.internal_allowed_services.split(",")
+    if x_internal_service not in allowed:
+        raise ServiceException(status_code=403, code="forbidden", message="forbidden")

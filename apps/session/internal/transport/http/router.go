@@ -10,9 +10,15 @@ import (
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/http/handler"
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/http/middleware"
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/http/response"
+	wstransport "github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/ws"
 )
 
-func NewRouter(cfg *config.Config, log *slog.Logger, internalSessionHandler *handler.InternalSessionHandler) http.Handler {
+func NewRouter(
+	cfg *config.Config,
+	log *slog.Logger,
+	internalSessionHandler *handler.InternalSessionHandler,
+	wsHandler *wstransport.Handler,
+) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
@@ -30,6 +36,9 @@ func NewRouter(cfg *config.Config, log *slog.Logger, internalSessionHandler *han
 		_, _ = w.Write([]byte("ready"))
 	})
 
+	r.Get("/api/v1/ws/host", wsHandler.Host)
+	r.Get("/api/v1/ws/player", wsHandler.Player)
+
 	r.Route("/internal/v1", func(r chi.Router) {
 		r.Use(middleware.InternalAuth(cfg.Internal))
 
@@ -39,7 +48,8 @@ func NewRouter(cfg *config.Config, log *slog.Logger, internalSessionHandler *han
 	})
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
-		log.Warn(
+		log.WarnContext(
+			r.Context(),
 			"route not found",
 			"request_id", middleware.RequestIDFromContext(r.Context()),
 			"method", r.Method,
