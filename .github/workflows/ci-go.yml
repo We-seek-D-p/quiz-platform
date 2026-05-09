@@ -17,7 +17,30 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Detect changed Go apps
+    runs-on: ubuntu-latest
+
+    outputs:
+      session: ${{ steps.filter.outputs.session }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Detect changes
+        id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            session:
+              - 'apps/session/**'
+
   checks:
+    needs: changes
+    if: >-
+      github.event_name == 'push' ||
+      needs.changes.outputs[matrix.service] == 'true'
     name: ${{ matrix.service }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
