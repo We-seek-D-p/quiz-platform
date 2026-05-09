@@ -41,8 +41,8 @@ jobs:
             cache_scope: management
 
           - image: quiz-frontend
-            context: ./apps/frontend-nuxt
-            dockerfile: ./apps/frontend-nuxt/Dockerfile
+            context: ./apps/frontend
+            dockerfile: ./apps/frontend/Dockerfile
             cache_scope: frontend
 
           - image: quiz-nginx
