@@ -67,7 +67,7 @@ services:
 
   frontend:
     build:
-      context: ./apps/frontend-nuxt
+      context: ./apps/frontend
       dockerfile: Dockerfile
     expose:
       - "8080"

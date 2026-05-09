@@ -17,7 +17,7 @@ management command='default':
 
 # Run command in frontend service
 frontend command='default':
-    just --justfile apps/frontend-nuxt/justfile --working-directory apps/frontend-nuxt {{ command }}
+    just --justfile apps/frontend/justfile --working-directory apps/frontend {{ command }}
 
 # Install dependencies in all services
 install: (auth "install") (management "install") (frontend "install") hooks-install

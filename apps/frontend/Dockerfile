@@ -1,4 +1,4 @@
-FROM oven/bun:1.2.5-alpine AS builder
+FROM oven/bun:1.2.13-alpine AS builder
 
 WORKDIR /workspace
 
@@ -9,12 +9,15 @@ RUN --mount=type=cache,target=/root/.bun \
 
 COPY . .
 
-RUN bun run build
+RUN bun run generate
 
-FROM nginxinc/nginx-unprivileged:1.29.5-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.29.8-alpine AS runtime
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=builder --chown=101:101 /workspace/dist /usr/share/nginx/html
+WORKDIR /app
+
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder --chown=101:101 /workspace/.output/public /usr/share/nginx/html
 
 USER 101
+
 EXPOSE 8080
