@@ -196,17 +196,24 @@ func TestSessionRepository_Delete(t *testing.T) {
 
 		metaKey := "session:session-1:meta"
 		snapshotKey := "session:session-1:quiz_snapshot"
-		exists, _ := client.Exists(ctx, metaKey).Result()
+
+		exists, err := client.Exists(ctx, metaKey).Result()
+		require.NoError(t, err)
 		assert.Equal(t, int64(1), exists)
-		exists, _ = client.Exists(ctx, snapshotKey).Result()
+
+		exists, err = client.Exists(ctx, snapshotKey).Result()
+		require.NoError(t, err)
 		assert.Equal(t, int64(1), exists)
 
 		err = repo.Delete(ctx, "session-1")
 		require.NoError(t, err)
 
-		exists, _ = client.Exists(ctx, metaKey).Result()
+		exists, err = client.Exists(ctx, metaKey).Result()
+		require.NoError(t, err)
 		assert.Equal(t, int64(0), exists)
-		exists, _ = client.Exists(ctx, snapshotKey).Result()
+
+		exists, err = client.Exists(ctx, snapshotKey).Result()
+		require.NoError(t, err)
 		assert.Equal(t, int64(0), exists)
 	})
 
@@ -280,9 +287,13 @@ func TestSessionRepository_Delete(t *testing.T) {
 
 		metaKey := "session:session-no-roomcode:meta"
 		snapshotKey := "session:session-no-roomcode:quiz_snapshot"
-		exists, _ := client.Exists(ctx, metaKey).Result()
+
+		exists, err := client.Exists(ctx, metaKey).Result()
+		require.NoError(t, err)
 		assert.Equal(t, int64(0), exists)
-		exists, _ = client.Exists(ctx, snapshotKey).Result()
+
+		exists, err = client.Exists(ctx, snapshotKey).Result()
+		require.NoError(t, err)
 		assert.Equal(t, int64(0), exists)
 	})
 }

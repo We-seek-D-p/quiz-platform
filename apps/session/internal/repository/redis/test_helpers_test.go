@@ -26,7 +26,3 @@ func setupTestRedis(t *testing.T) (*miniredis.Miniredis, *redis.Client) {
 
 	return mr, client
 }
-
-func requireRedisTestEnv(t *testing.T) {
-	t.Helper()
-}

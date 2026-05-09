@@ -8,9 +8,7 @@ import (
 )
 
 func testNewRequest(repo *Repository, ctx context.Context, method string, path string, payload any) (*http.Request, error) {
-	var body *bytes.Buffer
-
-	body = &bytes.Buffer{}
+	body := &bytes.Buffer{}
 
 	if payload != nil {
 		if err := json.NewEncoder(body).Encode(payload); err != nil {

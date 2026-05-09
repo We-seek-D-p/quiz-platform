@@ -20,7 +20,7 @@ func TestGetSessionBootstrap(t *testing.T) {
 
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(BootstrapResponse{
+			err := json.NewEncoder(w).Encode(BootstrapResponse{
 				Session: BootstrapSessionDTO{
 					SessionID: "test-123",
 					QuizID:    "quiz-1",
@@ -31,6 +31,9 @@ func TestGetSessionBootstrap(t *testing.T) {
 					Title: "Test Quiz",
 				},
 			})
+			if err != nil {
+				t.Fatalf("failed to encode response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -62,7 +65,10 @@ func TestGetSessionBootstrap(t *testing.T) {
 	t.Run("not found", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(ErrorResponse{Code: "session_not_found"})
+			err := json.NewEncoder(w).Encode(ErrorResponse{Code: "session_not_found"})
+			if err != nil {
+				t.Fatalf("failed to encode error response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -198,7 +204,10 @@ func TestReportSessionStatus(t *testing.T) {
 	t.Run("conflict", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusConflict)
-			json.NewEncoder(w).Encode(ErrorResponse{Code: "already_finished"})
+			err := json.NewEncoder(w).Encode(ErrorResponse{Code: "already_finished"})
+			if err != nil {
+				t.Fatalf("failed to encode error response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -473,9 +482,12 @@ func TestInternalHeaders(t *testing.T) {
 			receivedService = r.Header.Get("X-Internal-Service")
 			receivedToken = r.Header.Get("X-Internal-Token")
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(BootstrapResponse{
+			err := json.NewEncoder(w).Encode(BootstrapResponse{
 				Session: BootstrapSessionDTO{SessionID: "123"},
 			})
+			if err != nil {
+				t.Fatalf("failed to encode response: %v", err)
+			}
 		}))
 		defer server.Close()
 
