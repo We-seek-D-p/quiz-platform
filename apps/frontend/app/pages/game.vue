@@ -134,6 +134,30 @@ watch(
   },
 )
 
+watch(() => sessionStore.lastError, (newError) => {
+  if (newError) {
+    toast.add({
+      group: 'global',
+      severity: 'error',
+      summary: 'Ошибка соединения',
+      detail: typeof newError === 'string' ? newError : 'Ошибка подключения к серверу',
+      life: 5000
+    })
+  }
+})
+
+watch(() => sessionStore.reconnectNotice, (notice) => {
+  if (notice) {
+    toast.add({
+      group: 'global',
+      severity: 'warn',
+      summary: 'Соединение...',
+      detail: notice,
+      life: 3000
+    })
+  }
+})
+
 onMounted(async () => {
   await tryAutoConnect()
   if (missingJoinContext.value) {
@@ -165,8 +189,12 @@ useHead({
           />
         </div>
 
-        <SessionTimerBar :label="timerLabel" :progress="timerProgress" class="game-screen__progress" />
-        <SessionNoticeStack :error="sessionStore.lastError" :reconnect="sessionStore.reconnectNotice" />
+        <SessionTimerBar
+          v-if="sessionStore.phase !== 'lobby'"
+          :label="timerLabel"
+          :progress="timerProgress"
+          class="game-screen__progress"
+        />
 
         <div v-if="isBootstrapping" class="game-screen__state">
           <p>Подключаемся к игровой сессии...</p>

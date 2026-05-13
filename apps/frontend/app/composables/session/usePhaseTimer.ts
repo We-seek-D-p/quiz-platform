@@ -14,66 +14,69 @@ export function usePhaseTimer(options: UsePhaseTimerOptions) {
   let timerInterval: ReturnType<typeof setInterval> | null = null
 
   const clearTimer = () => {
-    if (!timerInterval) {
-      return
+    if (timerInterval) {
+      clearInterval(timerInterval)
+      timerInterval = null
     }
-    clearInterval(timerInterval)
-    timerInterval = null
   }
 
   const recomputeTimer = () => {
-    const countdownTarget =
-      options.phase.value === 'question_open'
-        ? options.deadlineAt.value
-        : options.phase.value === 'answer_reveal'
-          ? options.revealUntil.value
-          : null
+    const target = options.phase.value === 'question_open'
+      ? options.deadlineAt.value
+      : options.phase.value === 'answer_reveal'
+        ? options.revealUntil.value
+        : null
 
-    if (!countdownTarget) {
+    if (!target) {
       timerProgress.value = 0
       timerLabel.value = '--'
       return
     }
 
-    const endMs = new Date(countdownTarget).getTime()
+    const endMs = new Date(target).getTime()
     const nowMs = Date.now()
-    const remainingMs = Math.max(0, endMs - nowMs)
+    const remainingMs = endMs - nowMs
+
+    if (remainingMs <= 0) {
+      timerLabel.value = '0s'
+      timerProgress.value = 0
+      return
+    }
+
     const remainingSec = Math.ceil(remainingMs / 1000)
     timerLabel.value = `${remainingSec}s`
 
-    if (options.phase.value === 'question_open' && options.questionTimeLimitSeconds.value) {
-      const total = Math.max(1, options.questionTimeLimitSeconds.value)
-      timerProgress.value = Math.min(100, Math.max(0, (remainingSec / total) * 100))
-      return
+    if (options.phase.value === 'question_open') {
+      const totalSec = options.questionTimeLimitSeconds.value || 1
+      const progress = (remainingMs / (totalSec * 1000)) * 100
+      timerProgress.value = Math.max(0, Math.min(100, progress))
+    } else if (options.phase.value === 'answer_reveal') {
+      const revealMs = (options.revealDurationSec.value || 1) * 1000
+      const progress = (remainingMs / revealMs) * 100
+      timerProgress.value = Math.max(0, Math.min(100, progress))
+    } else {
+      timerProgress.value = 0
     }
-
-    if (options.phase.value === 'answer_reveal') {
-      const revealWindowMs = Math.max(1, options.revealDurationSec.value) * 1000
-      timerProgress.value = Math.min(100, Math.max(0, (remainingMs / revealWindowMs) * 100))
-      return
-    }
-
-    timerProgress.value = 0
   }
 
   const startTimer = () => {
     clearTimer()
     recomputeTimer()
-    timerInterval = setInterval(recomputeTimer, 300)
+    timerInterval = setInterval(recomputeTimer, 100)
   }
 
   watch(
-    () =>
-      [
-        options.phase.value,
-        options.deadlineAt.value,
-        options.revealUntil.value,
-        options.questionTimeLimitSeconds.value,
-        options.revealDurationSec.value,
-      ] as const,
+    () => [
+      options.phase.value,
+      options.deadlineAt.value,
+      options.revealUntil.value,
+      options.questionTimeLimitSeconds.value,
+      options.revealDurationSec.value,
+    ],
     () => {
       startTimer()
     },
+    { deep: true }
   )
 
   onMounted(startTimer)
