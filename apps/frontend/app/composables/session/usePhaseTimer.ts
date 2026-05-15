@@ -12,12 +12,38 @@ export function usePhaseTimer(options: UsePhaseTimerOptions) {
   const timerProgress = ref(0)
   const timerLabel = ref('--')
   let timerInterval: ReturnType<typeof setInterval> | null = null
+  let currentPhaseTotalMs = 1000
 
   const clearTimer = () => {
     if (timerInterval) {
       clearInterval(timerInterval)
       timerInterval = null
     }
+  }
+
+  const startTimer = () => {
+    clearTimer()
+    const target = options.phase.value === 'question_open'
+      ? options.deadlineAt.value
+      : options.phase.value === 'answer_reveal'
+        ? options.revealUntil.value
+        : null
+
+    if (target) {
+      if (options.phase.value === 'question_open' && options.questionTimeLimitSeconds.value) {
+        currentPhaseTotalMs = options.questionTimeLimitSeconds.value * 1000
+      } else if (options.phase.value === 'answer_reveal' && options.revealDurationSec.value) {
+        currentPhaseTotalMs = options.revealDurationSec.value * 1000
+      } else {
+        const remaining = new Date(target).getTime() - Date.now()
+        currentPhaseTotalMs = Math.max(remaining, 1000)
+      }
+    } else {
+      currentPhaseTotalMs = 1000
+    }
+
+    recomputeTimer()
+    timerInterval = setInterval(recomputeTimer, 50)
   }
 
   const recomputeTimer = () => {
@@ -46,23 +72,8 @@ export function usePhaseTimer(options: UsePhaseTimerOptions) {
     const remainingSec = Math.ceil(remainingMs / 1000)
     timerLabel.value = `${remainingSec}s`
 
-    if (options.phase.value === 'question_open') {
-      const totalSec = options.questionTimeLimitSeconds.value || 1
-      const progress = (remainingMs / (totalSec * 1000)) * 100
-      timerProgress.value = Math.max(0, Math.min(100, progress))
-    } else if (options.phase.value === 'answer_reveal') {
-      const revealMs = (options.revealDurationSec.value || 1) * 1000
-      const progress = (remainingMs / revealMs) * 100
-      timerProgress.value = Math.max(0, Math.min(100, progress))
-    } else {
-      timerProgress.value = 0
-    }
-  }
-
-  const startTimer = () => {
-    clearTimer()
-    recomputeTimer()
-    timerInterval = setInterval(recomputeTimer, 100)
+    const progress = (remainingMs / currentPhaseTotalMs) * 100
+    timerProgress.value = Math.max(0, Math.min(100, progress))
   }
 
   watch(
