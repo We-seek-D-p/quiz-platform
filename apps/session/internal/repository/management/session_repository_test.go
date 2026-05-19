@@ -57,7 +57,7 @@ func TestGetSessionBootstrap(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"session": {`))
+			_, _ = w.Write([]byte(`{"session": {`))
 		}))
 		defer server.Close()
 
@@ -187,6 +187,30 @@ func TestGetSessionBootstrap(t *testing.T) {
 	})
 }
 
+func testContextDeadline(t *testing.T, name string, fn func(ctx context.Context, repo *Repository) error) {
+	t.Run(name, func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			time.Sleep(100 * time.Millisecond)
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		repo := &Repository{
+			baseURL:     server.URL,
+			token:       "test-token",
+			serviceName: "test-service",
+			httpClient:  &http.Client{Timeout: 5 * time.Second},
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+
+		err := fn(ctx, repo)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, context.DeadlineExceeded)
+	})
+}
+
 func TestReportSessionStatus(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		var receivedBody ReportSessionStatusRequest
@@ -308,31 +332,12 @@ func TestReportSessionStatus(t *testing.T) {
 		assert.ErrorIs(t, err, ErrUpstreamUnavailable)
 	})
 
-	t.Run("context cancelled", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			time.Sleep(100 * time.Millisecond)
-			w.WriteHeader(http.StatusOK)
-		}))
-		defer server.Close()
-
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-		defer cancel()
-
+	testContextDeadline(t, "context deadline exceeded", func(ctx context.Context, repo *Repository) error {
 		update := domain.SessionStatusUpdate{
 			Status:  "in_progress",
 			EventID: "event-123",
 		}
-
-		err := repo.ReportSessionStatus(ctx, "123", update)
-		require.Error(t, err)
-		assert.ErrorIs(t, err, context.DeadlineExceeded)
+		return repo.ReportSessionStatus(ctx, "123", update)
 	})
 }
 
@@ -458,31 +463,12 @@ func TestReportSessionResults(t *testing.T) {
 		assert.ErrorIs(t, err, ErrUpstreamUnavailable)
 	})
 
-	t.Run("context cancelled", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			time.Sleep(100 * time.Millisecond)
-			w.WriteHeader(http.StatusOK)
-		}))
-		defer server.Close()
-
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-		defer cancel()
-
+	testContextDeadline(t, "context deadline exceeded", func(ctx context.Context, repo *Repository) error {
 		results := domain.SessionResults{
 			EventID:      "event-123",
 			FinishReason: "completed",
 		}
-
-		err := repo.ReportSessionResults(ctx, "123", results)
-		require.Error(t, err)
-		assert.ErrorIs(t, err, context.DeadlineExceeded)
+		return repo.ReportSessionResults(ctx, "123", results)
 	})
 }
 
