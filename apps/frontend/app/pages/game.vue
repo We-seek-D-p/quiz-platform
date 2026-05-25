@@ -133,29 +133,35 @@ watch(
   },
 )
 
-watch(() => sessionStore.lastError, (newError) => {
-  if (newError) {
-    toast.add({
-      group: 'global',
-      severity: 'error',
-      summary: 'Ошибка соединения',
-      detail: typeof newError === 'string' ? newError : 'Ошибка подключения к серверу',
-      life: 5000
-    })
-  }
-})
+watch(
+  () => sessionStore.lastError,
+  (newError) => {
+    if (newError) {
+      toast.add({
+        group: 'global',
+        severity: 'error',
+        summary: 'Ошибка соединения',
+        detail: typeof newError === 'string' ? newError : 'Ошибка подключения к серверу',
+        life: 5000,
+      })
+    }
+  },
+)
 
-watch(() => sessionStore.reconnectNotice, (notice) => {
-  if (notice) {
-    toast.add({
-      group: 'global',
-      severity: 'warn',
-      summary: 'Соединение...',
-      detail: notice,
-      life: 3000
-    })
-  }
-})
+watch(
+  () => sessionStore.reconnectNotice,
+  (notice) => {
+    if (notice) {
+      toast.add({
+        group: 'global',
+        severity: 'warn',
+        summary: 'Соединение...',
+        detail: notice,
+        life: 3000,
+      })
+    }
+  },
+)
 
 onMounted(async () => {
   await tryAutoConnect()
