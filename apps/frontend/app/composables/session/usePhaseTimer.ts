@@ -21,47 +21,37 @@ export function usePhaseTimer(options: UsePhaseTimerOptions) {
     }
   }
 
-  const startTimer = () => {
-    clearTimer()
-    const target = options.phase.value === 'question_open'
-      ? options.deadlineAt.value
-      : options.phase.value === 'answer_reveal'
-        ? options.revealUntil.value
-        : null
-
-    if (target) {
-      if (options.phase.value === 'question_open' && options.questionTimeLimitSeconds.value) {
-        currentPhaseTotalMs = options.questionTimeLimitSeconds.value * 1000
-      } else if (options.phase.value === 'answer_reveal' && options.revealDurationSec.value) {
-        currentPhaseTotalMs = options.revealDurationSec.value * 1000
-      } else {
-        const remaining = new Date(target).getTime() - Date.now()
-        currentPhaseTotalMs = Math.max(remaining, 1000)
-      }
-    } else {
-      currentPhaseTotalMs = 1000
+  const getTimerTarget = () => {
+    if (options.phase.value === 'question_open') {
+      return options.deadlineAt.value
     }
 
-    recomputeTimer()
-    timerInterval = setInterval(recomputeTimer, 50)
+    if (options.phase.value === 'answer_reveal') {
+      return options.revealUntil.value
+    }
+
+    return null
   }
 
-  const recomputeTimer = () => {
-    const target = options.phase.value === 'question_open'
-      ? options.deadlineAt.value
-      : options.phase.value === 'answer_reveal'
-        ? options.revealUntil.value
-        : null
-
-    if (!target) {
-      timerProgress.value = 0
-      timerLabel.value = '--'
-      return
+  const getPhaseTotalMs = (endMs: number) => {
+    if (options.phase.value === 'question_open' && options.questionTimeLimitSeconds.value) {
+      return options.questionTimeLimitSeconds.value * 1000
     }
 
-    const endMs = new Date(target).getTime()
-    const nowMs = Date.now()
-    const remainingMs = endMs - nowMs
+    if (options.phase.value === 'answer_reveal' && options.revealDurationSec.value) {
+      return options.revealDurationSec.value * 1000
+    }
+
+    return Math.max(endMs - Date.now(), 1000)
+  }
+
+  const setIdleTimer = () => {
+    timerProgress.value = 0
+    timerLabel.value = '--'
+  }
+
+  const setTimerValues = (endMs: number, forceMax = false) => {
+    const remainingMs = endMs - Date.now()
 
     if (remainingMs <= 0) {
       timerLabel.value = '0s'
@@ -69,11 +59,50 @@ export function usePhaseTimer(options: UsePhaseTimerOptions) {
       return
     }
 
-    const remainingSec = Math.ceil(remainingMs / 1000)
-    timerLabel.value = `${remainingSec}s`
+    timerLabel.value = `${Math.ceil(remainingMs / 1000)}s`
 
     const progress = (remainingMs / currentPhaseTotalMs) * 100
-    timerProgress.value = Math.max(0, Math.min(100, progress))
+    const clampedProgress = Math.max(0, Math.min(100, progress))
+    timerProgress.value = forceMax && clampedProgress >= 95 ? 100 : clampedProgress
+  }
+
+  const startTimer = () => {
+    clearTimer()
+    const target = getTimerTarget()
+
+    if (!target) {
+      currentPhaseTotalMs = 1000
+      setIdleTimer()
+      return
+    }
+
+    const endMs = new Date(target).getTime()
+    if (!Number.isFinite(endMs)) {
+      currentPhaseTotalMs = 1000
+      setIdleTimer()
+      return
+    }
+
+    currentPhaseTotalMs = Math.max(getPhaseTotalMs(endMs), 1000)
+    setTimerValues(endMs, true)
+    timerInterval = setInterval(recomputeTimer, 50)
+  }
+
+  const recomputeTimer = () => {
+    const target = getTimerTarget()
+
+    if (!target) {
+      setIdleTimer()
+      return
+    }
+
+    const endMs = new Date(target).getTime()
+    if (!Number.isFinite(endMs)) {
+      setIdleTimer()
+      return
+    }
+
+    setTimerValues(endMs)
   }
 
   watch(
@@ -87,7 +116,6 @@ export function usePhaseTimer(options: UsePhaseTimerOptions) {
     () => {
       startTimer()
     },
-    { deep: true }
   )
 
   onMounted(startTimer)
