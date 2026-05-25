@@ -12,65 +12,107 @@ export function usePhaseTimer(options: UsePhaseTimerOptions) {
   const timerProgress = ref(0)
   const timerLabel = ref('--')
   let timerInterval: ReturnType<typeof setInterval> | null = null
+  let currentPhaseTotalMs = 1000
 
   const clearTimer = () => {
-    if (!timerInterval) {
-      return
+    if (timerInterval) {
+      clearInterval(timerInterval)
+      timerInterval = null
     }
-    clearInterval(timerInterval)
-    timerInterval = null
   }
 
-  const recomputeTimer = () => {
-    const countdownTarget =
-      options.phase.value === 'question_open'
-        ? options.deadlineAt.value
-        : options.phase.value === 'answer_reveal'
-          ? options.revealUntil.value
-          : null
-
-    if (!countdownTarget) {
-      timerProgress.value = 0
-      timerLabel.value = '--'
-      return
-    }
-
-    const endMs = new Date(countdownTarget).getTime()
-    const nowMs = Date.now()
-    const remainingMs = Math.max(0, endMs - nowMs)
-    const remainingSec = Math.ceil(remainingMs / 1000)
-    timerLabel.value = `${remainingSec}s`
-
-    if (options.phase.value === 'question_open' && options.questionTimeLimitSeconds.value) {
-      const total = Math.max(1, options.questionTimeLimitSeconds.value)
-      timerProgress.value = Math.min(100, Math.max(0, (remainingSec / total) * 100))
-      return
+  const getTimerTarget = () => {
+    if (options.phase.value === 'question_open') {
+      return options.deadlineAt.value
     }
 
     if (options.phase.value === 'answer_reveal') {
-      const revealWindowMs = Math.max(1, options.revealDurationSec.value) * 1000
-      timerProgress.value = Math.min(100, Math.max(0, (remainingMs / revealWindowMs) * 100))
+      return options.revealUntil.value
+    }
+
+    return null
+  }
+
+  const getPhaseTotalMs = (endMs: number) => {
+    if (options.phase.value === 'question_open' && options.questionTimeLimitSeconds.value) {
+      return options.questionTimeLimitSeconds.value * 1000
+    }
+
+    if (options.phase.value === 'answer_reveal' && options.revealDurationSec.value) {
+      return options.revealDurationSec.value * 1000
+    }
+
+    return Math.max(endMs - Date.now(), 1000)
+  }
+
+  const setIdleTimer = () => {
+    timerProgress.value = 0
+    timerLabel.value = '--'
+  }
+
+  const setTimerValues = (endMs: number, forceMax = false) => {
+    const remainingMs = endMs - Date.now()
+
+    if (remainingMs <= 0) {
+      timerLabel.value = '0s'
+      timerProgress.value = 0
       return
     }
 
-    timerProgress.value = 0
+    timerLabel.value = `${Math.ceil(remainingMs / 1000)}s`
+
+    const progress = (remainingMs / currentPhaseTotalMs) * 100
+    const clampedProgress = Math.max(0, Math.min(100, progress))
+    timerProgress.value = forceMax && clampedProgress >= 95 ? 100 : clampedProgress
   }
 
   const startTimer = () => {
     clearTimer()
-    recomputeTimer()
-    timerInterval = setInterval(recomputeTimer, 300)
+    const target = getTimerTarget()
+
+    if (!target) {
+      currentPhaseTotalMs = 1000
+      setIdleTimer()
+      return
+    }
+
+    const endMs = new Date(target).getTime()
+    if (!Number.isFinite(endMs)) {
+      currentPhaseTotalMs = 1000
+      setIdleTimer()
+      return
+    }
+
+    currentPhaseTotalMs = Math.max(getPhaseTotalMs(endMs), 1000)
+    setTimerValues(endMs, true)
+    timerInterval = setInterval(recomputeTimer, 50)
+  }
+
+  const recomputeTimer = () => {
+    const target = getTimerTarget()
+
+    if (!target) {
+      setIdleTimer()
+      return
+    }
+
+    const endMs = new Date(target).getTime()
+    if (!Number.isFinite(endMs)) {
+      setIdleTimer()
+      return
+    }
+
+    setTimerValues(endMs)
   }
 
   watch(
-    () =>
-      [
-        options.phase.value,
-        options.deadlineAt.value,
-        options.revealUntil.value,
-        options.questionTimeLimitSeconds.value,
-        options.revealDurationSec.value,
-      ] as const,
+    () => [
+      options.phase.value,
+      options.deadlineAt.value,
+      options.revealUntil.value,
+      options.questionTimeLimitSeconds.value,
+      options.revealDurationSec.value,
+    ],
     () => {
       startTimer()
     },
