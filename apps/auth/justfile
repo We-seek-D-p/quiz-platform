@@ -1,4 +1,4 @@
-set dotenv-load := true
+set dotenv-load
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 
 # List recipes
@@ -9,33 +9,22 @@ default:
 
 # Install service dependencies
 install:
-    uv sync --all-groups
+    uv sync
 
-# Fix Python issues
-fix:
-    uv run ruff check . --fix
-
-# Format Python code
+# Format and fix Python code
 fmt:
     uv run ruff format .
-
-# Check Python format
-fmt-check:
-    uv run ruff format . --check
-
-# Lint Python code
-lint:
-    uv run ruff check .
+    uv run ruff check . --fix
 
 # Run Python tests
 test:
     uv run pytest tests
 
-# Check Python code
-check: fmt-check lint test
-
-# Run all Python tasks
-all: fix fmt lint test
+# Check Python code and run tests
+check:
+    uv run ruff format . --check
+    uv run ruff check .
+    @just test
 
 # Export OpenAPI spec
 openapi:

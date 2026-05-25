@@ -1,4 +1,4 @@
-set dotenv-load := true
+set dotenv-load
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 
 APP := "session-service"
@@ -16,18 +16,10 @@ default:
 install:
     go mod download
 
-# Tidy Go module files
-tidy:
-    go mod tidy
-
-# Format Go code and tidy modules
+# Format and tidy Go code
 fmt:
     gofmt -w .
     go mod tidy
-
-# Check Go formatting
-fmt-check:
-    test -z "$(gofmt -l .)"
 
 # Run go vet checks
 vet:
@@ -50,8 +42,9 @@ build:
 run:
     go run {{ CMD }}
 
-# Check Go code
-check: fmt-check vet lint test
-
-# Run all Go tasks
-all: fmt vet lint test build
+# Check Go code and run tests
+check:
+    test -z "$(gofmt -l .)"
+    go vet ./...
+    golangci-lint run ./...
+    go test ./...
