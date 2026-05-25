@@ -2,17 +2,6 @@
   "name": "frontend",
   "type": "module",
   "private": true,
-  "scripts": {
-    "build": "nuxt build",
-    "dev": "nuxt dev",
-    "generate": "nuxt generate",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
-  },
   "dependencies": {
     "@pinia/nuxt": "^0.11.3",
     "@primevue/nuxt-module": "^4.5.5",
@@ -30,10 +19,8 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "eslint": "^10.3.0",
-    "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-vue": "^10.9.1",
     "globals": "^17.6.0",
-    "prettier": "^3.8.3",
     "typescript-eslint": "^8.59.2"
   }
 }

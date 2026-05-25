@@ -1,4 +1,4 @@
-set dotenv-load := true
+set dotenv-load
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 
 [private]
@@ -7,23 +7,35 @@ default:
     @just --list --unsorted
 
 install:
-    bun install
+    deno install --frozen
+    deno task postinstall
 
 fix:
-    bun run lint:fix
+    deno fmt
+    deno run -A npm:eslint . --fix
 
 fmt:
-    bun run format
+    deno fmt
 
 fmt-check:
-    bun run format:check
+    deno fmt --check
 
 lint:
-    bun run lint
+    deno lint
+    deno run -A npm:eslint .
 
 test:
     @echo "Frontend tests are not added yet"
 
-check: fmt-check lint test
+check:
+    deno fmt --check
+    deno lint
+    deno run -A npm:eslint .
+
+build:
+    deno task build
+
+run:
+    deno task dev
 
 all: fix fmt lint test

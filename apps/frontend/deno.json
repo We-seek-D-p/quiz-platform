@@ -1,0 +1,35 @@
+{
+  "nodeModulesDir": "auto",
+  "fmt": {
+    "useTabs": false,
+    "lineWidth": 120,
+    "indentWidth": 2,
+    "singleQuote": true,
+    "semiColons": false,
+    "include": ["app/", "nuxt.config.ts"],
+    "exclude": [".nuxt/", ".output/", "node_modules/", "dist/"]
+  },
+  "lint": {
+    "include": ["app/", "nuxt.config.ts"],
+    "exclude": [".nuxt/", ".output/", "node_modules/", "dist/"],
+    "rules": {
+      "tags": ["recommended"],
+      "exclude": [
+        "no-sloppy-imports",
+        "no-window",
+        "no-window-prefix",
+        "require-await"
+      ]
+    }
+  },
+  "tasks": {
+    "dev": "deno run -A npm:nuxi dev",
+    "build": "deno run -A npm:nuxi build",
+    "preview": "deno run -A npm:nuxi preview",
+    "postinstall": "deno run -A npm:nuxi prepare",
+    "format": "deno fmt",
+    "format:check": "deno fmt --check",
+    "lint": "deno lint && deno run -A npm:eslint .",
+    "check": "deno fmt --check && deno lint && deno run -A npm:eslint . && deno task build"
+  }
+}
