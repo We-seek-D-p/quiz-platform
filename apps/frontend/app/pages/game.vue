@@ -21,17 +21,20 @@ const sessionStore = useGameSessionStore()
 
 const PLAYER_TOKEN_STORAGE_KEY = 'quiz:player_token'
 const PLAYER_ROOM_CODE_STORAGE_KEY = 'quiz:room_code'
+const CONNECTION_LOST_ERROR = 'Connection lost'
 
 const isBootstrapping = ref(true)
 const currentQuestion = computed(() => sessionStore.currentQuestion)
 const missingJoinContext = ref(false)
+const hadActiveConnection = ref(false)
 
 const selectionTypeLabel = computed(() => {
-  if (!sessionStore.currentQuestion) {
+  const question = currentQuestion.value
+  if (!question) {
     return ''
   }
 
-  return currentQuestion.value.selection_type === 'multiple' ? 'Выберите несколько вариантов' : 'Выберите один вариант'
+  return question.selection_type === 'multiple' ? 'Выберите несколько вариантов' : 'Выберите один вариант'
 })
 
 const { timerLabel, timerProgress } = usePhaseTimer({
@@ -82,18 +85,11 @@ const tryAutoConnect = async () => {
   }
 }
 
-const retryConnection = async () => {
-  if (sessionStore.connectionStatus === 'connected' || sessionStore.connectionStatus === 'connecting') {
-    return
-  }
-
-  await tryAutoConnect()
-}
-
 const returnToJoin = async () => {
   const query: Record<string, string> = {}
-  if (sessionStore.roomCode) {
-    query.room_code = sessionStore.roomCode
+  const currentRoomCode = sessionStore.roomCode
+  if (currentRoomCode) {
+    query.room_code = currentRoomCode
   }
 
   await router.replace({ path: '/', query })
@@ -125,8 +121,9 @@ watch(
     }
 
     const query: Record<string, string> = {}
-    if (sessionStore.roomCode) {
-      query.room_code = sessionStore.roomCode
+    const currentRoomCode = sessionStore.roomCode
+    if (currentRoomCode) {
+      query.room_code = currentRoomCode
     }
 
     await router.replace({ path: '/', query })
@@ -136,6 +133,10 @@ watch(
 watch(
   () => sessionStore.lastError,
   (newError) => {
+    if (newError === CONNECTION_LOST_ERROR) {
+      return
+    }
+
     if (newError) {
       toast.add({
         group: 'global',
@@ -149,17 +150,45 @@ watch(
 )
 
 watch(
-  () => sessionStore.reconnectNotice,
-  (notice) => {
-    if (notice) {
+  () => sessionStore.connectionStatus,
+  (status, previousStatus) => {
+    if (status === 'connected') {
+      if (previousStatus === 'reconnecting' || previousStatus === 'disconnected') {
+        toast.add({
+          group: 'global',
+          severity: 'success',
+          summary: 'Соединение восстановлено',
+          detail: 'Можно продолжать игру.',
+          life: 3000,
+        })
+      }
+
+      hadActiveConnection.value = true
+      return
+    }
+
+    if (status === 'reconnecting' && hadActiveConnection.value && previousStatus !== 'reconnecting') {
       toast.add({
         group: 'global',
         severity: 'warn',
-        summary: 'Соединение...',
-        detail: notice,
-        life: 3000,
+        summary: 'Соединение потеряно',
+        detail: 'Пробуем переподключиться автоматически...',
+        life: 4000,
       })
+      return
     }
+
+    if (status !== 'disconnected' || previousStatus !== 'reconnecting' || !hadActiveConnection.value) {
+      return
+    }
+
+    toast.add({
+      group: 'global',
+      severity: 'error',
+      summary: 'Не удалось восстановить соединение',
+      detail: 'Обновите страницу или вернитесь к входу в игру.',
+      life: 5000,
+    })
   },
 )
 
@@ -208,17 +237,6 @@ useHead({
         <div v-else-if="missingJoinContext" class="game-screen__state">
           <p>Нет данных для входа в игру.</p>
           <Button label="Перейти к входу" icon="pi pi-arrow-left" @click="returnToJoin" />
-        </div>
-
-        <div
-          v-else-if="sessionStore.connectionStatus === 'disconnected' && !sessionStore.shouldReturnToJoin"
-          class="game-screen__state"
-        >
-          <p>Соединение потеряно. Попробуйте подключиться снова.</p>
-          <div class="game-screen__actions">
-            <Button label="Переподключиться" icon="pi pi-refresh" @click="retryConnection" />
-            <Button label="К входу" text icon="pi pi-arrow-left" @click="returnToJoin" />
-          </div>
         </div>
 
         <div v-else-if="sessionStore.phase === 'lobby'" class="game-screen__state">

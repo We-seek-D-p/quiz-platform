@@ -4,7 +4,6 @@ import Card from 'primevue/card'
 import { useToast } from 'primevue/usetoast'
 import SessionConnectionBanner from '~/components/session/SessionConnectionBanner.vue'
 import SessionLeaderboard from '~/components/session/SessionLeaderboard.vue'
-import SessionNoticeStack from '~/components/session/SessionNoticeStack.vue'
 import SessionTimerBar from '~/components/session/SessionTimerBar.vue'
 import { usePhaseTimer } from '~/composables/session/usePhaseTimer'
 import { useAuthStore } from '~/stores/auth'
@@ -22,10 +21,13 @@ const toast = useToast()
 const authStore = useAuthStore()
 const sessionStore = useGameSessionStore()
 
+const CONNECTION_LOST_ERROR = 'Connection lost'
+
 const isBootstrapping = ref(true)
 const currentQuestion = computed(() => sessionStore.currentQuestion)
 const isStartPending = ref(false)
 const isFinishPending = ref(false)
+const hadActiveConnection = ref(false)
 
 const sessionIdFromQuery = computed(() => {
   return typeof route.query.session_id === 'string' ? route.query.session_id.trim() : ''
@@ -55,14 +57,6 @@ const connectHost = async () => {
       life: 3500,
     })
   }
-}
-
-const retryConnection = async () => {
-  if (!sessionIdFromQuery.value) {
-    return
-  }
-
-  await connectHost()
 }
 
 const copyRoomCode = async () => {
@@ -179,6 +173,68 @@ const runFinishGame = async () => {
   }
 }
 
+watch(
+  () => sessionStore.lastError,
+  (newError) => {
+    if (newError === CONNECTION_LOST_ERROR) {
+      return
+    }
+
+    if (newError) {
+      toast.add({
+        group: 'global',
+        severity: 'error',
+        summary: 'Ошибка соединения',
+        detail: typeof newError === 'string' ? newError : 'Ошибка подключения к серверу',
+        life: 5000,
+      })
+    }
+  },
+)
+
+watch(
+  () => sessionStore.connectionStatus,
+  (status, previousStatus) => {
+    if (status === 'connected') {
+      if (previousStatus === 'reconnecting' || previousStatus === 'disconnected') {
+        toast.add({
+          group: 'global',
+          severity: 'success',
+          summary: 'Соединение восстановлено',
+          detail: 'Можно продолжать управление сессией.',
+          life: 3000,
+        })
+      }
+
+      hadActiveConnection.value = true
+      return
+    }
+
+    if (status === 'reconnecting' && hadActiveConnection.value && previousStatus !== 'reconnecting') {
+      toast.add({
+        group: 'global',
+        severity: 'warn',
+        summary: 'Соединение потеряно',
+        detail: 'Пробуем переподключиться автоматически...',
+        life: 4000,
+      })
+      return
+    }
+
+    if (status !== 'disconnected' || previousStatus !== 'reconnecting' || !hadActiveConnection.value) {
+      return
+    }
+
+    toast.add({
+      group: 'global',
+      severity: 'error',
+      summary: 'Не удалось восстановить соединение',
+      detail: 'Обновите страницу или вернитесь к списку квизов.',
+      life: 5000,
+    })
+  },
+)
+
 onMounted(async () => {
   await authStore.initializeSession()
 
@@ -221,7 +277,6 @@ useHead({
         </div>
 
         <SessionTimerBar :label="timerLabel" :progress="timerProgress" class="host-runtime__progress" />
-        <SessionNoticeStack :error="sessionStore.lastError" :reconnect="sessionStore.reconnectNotice" />
 
         <div v-if="isBootstrapping" class="host-runtime__state">
           <p>Подготавливаем сессию...</p>
@@ -231,14 +286,6 @@ useHead({
           <h1 class="host-runtime__title">Сессия не выбрана</h1>
           <p class="host-runtime__subtitle">Перейдите в список квизов и создайте сессию для запуска игры.</p>
           <Button label="К списку квизов" icon="pi pi-list" @click="router.push('/quizzes')" />
-        </div>
-
-        <div v-else-if="sessionStore.connectionStatus === 'disconnected'" class="host-runtime__state">
-          <p>Соединение с Session Service потеряно.</p>
-          <div class="host-runtime__actions">
-            <Button label="Переподключиться" icon="pi pi-refresh" @click="retryConnection" />
-            <Button label="К списку квизов" text icon="pi pi-list" @click="router.push('/quizzes')" />
-          </div>
         </div>
 
         <div v-else-if="sessionStore.phase === 'lobby'" class="host-runtime__state">

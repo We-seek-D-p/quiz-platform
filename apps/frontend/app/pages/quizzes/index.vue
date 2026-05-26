@@ -65,8 +65,9 @@ const handleUnauthorizedError = async (error: unknown) => {
 
 const getErrorMessage = (error: unknown, fallback: string): string => {
   if (error instanceof ApiHttpError) {
-    if (error.code && ERROR_CODE_MESSAGES[error.code]) {
-      return ERROR_CODE_MESSAGES[error.code]
+    const knownMessage = error.code ? ERROR_CODE_MESSAGES[error.code] : undefined
+    if (knownMessage) {
+      return knownMessage
     }
 
     if (error.message.trim().length > 0) {

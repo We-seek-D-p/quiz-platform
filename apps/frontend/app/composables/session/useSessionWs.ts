@@ -15,6 +15,14 @@ interface UseSessionWsOptions {
 const DEFAULT_MAX_RECONNECT_ATTEMPTS = 8
 const DEFAULT_RECONNECT_DELAY_MS = 800
 
+export async function checkSessionConnectionState(): Promise<boolean> {
+  if (!import.meta.client || typeof navigator === 'undefined') {
+    return true
+  }
+
+  return navigator.onLine
+}
+
 function resolveWebSocketUrl(mode: SessionWsMode): string {
   const config = useRuntimeConfig()
   const path = mode === 'host' ? config.public.sessionWsHostPath : config.public.sessionWsPlayerPath
@@ -86,6 +94,10 @@ export function useSessionWs(options: UseSessionWsOptions) {
       return
     }
 
+    if (reconnectTimer) {
+      return
+    }
+
     if (reconnectAttempts >= reconnectMaxAttempts) {
       status.value = 'disconnected'
       options.onError?.('Connection lost')
@@ -98,11 +110,11 @@ export function useSessionWs(options: UseSessionWsOptions) {
 
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null
-      void connect()
+      void connect(true).catch(() => {})
     }, delay)
   }
 
-  const connect = async () => {
+  const connect = async (asReconnect = false) => {
     if (!import.meta.client) {
       return
     }
@@ -120,7 +132,7 @@ export function useSessionWs(options: UseSessionWsOptions) {
     }
 
     manualClose = false
-    status.value = reconnectAttempts > 0 ? 'reconnecting' : 'connecting'
+    status.value = asReconnect || reconnectAttempts > 0 ? 'reconnecting' : 'connecting'
 
     const resolvedUrl = resolveWebSocketUrl(options.mode)
     const url = new URL(resolvedUrl)
@@ -137,11 +149,18 @@ export function useSessionWs(options: UseSessionWsOptions) {
 
     const opening = new Promise<void>((resolve, reject) => {
       ws.onopen = () => {
-        connectedAt.value = new Date().toISOString()
-        status.value = 'connected'
-        resetReconnectState()
-        connectPromise = null
-        resolve()
+        void checkSessionConnectionState().then((isConnectionAvailable) => {
+          if (!isConnectionAvailable) {
+            ws.close()
+            return
+          }
+
+          connectedAt.value = new Date().toISOString()
+          status.value = 'connected'
+          resetReconnectState()
+          connectPromise = null
+          resolve()
+        })
       }
 
       ws.onerror = () => {
@@ -177,6 +196,44 @@ export function useSessionWs(options: UseSessionWsOptions) {
     }
 
     return opening
+  }
+
+  const handleOffline = () => {
+    if (manualClose) {
+      return
+    }
+
+    if (status.value === 'connected' || status.value === 'connecting') {
+      status.value = 'reconnecting'
+    }
+
+    if (socket.value?.readyState === WebSocket.OPEN || socket.value?.readyState === WebSocket.CONNECTING) {
+      socket.value.close()
+      return
+    }
+
+    if (status.value === 'reconnecting') {
+      scheduleReconnect()
+    }
+  }
+
+  const handleOnline = () => {
+    if (manualClose || (status.value !== 'reconnecting' && status.value !== 'disconnected')) {
+      return
+    }
+
+    resetReconnectState()
+    void connect(true).catch(() => {})
+  }
+
+  if (import.meta.client) {
+    window.addEventListener('offline', handleOffline)
+    window.addEventListener('online', handleOnline)
+
+    onScopeDispose(() => {
+      window.removeEventListener('offline', handleOffline)
+      window.removeEventListener('online', handleOnline)
+    })
   }
 
   const disconnect = () => {

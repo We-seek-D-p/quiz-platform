@@ -146,14 +146,12 @@ function toQuizQuestion(raw: unknown): QuizQuestionView | null {
     })
     .filter((option): option is { id: string; text: string } => option !== null)
 
-  const question: QuizQuestionView = {
+  return {
     id,
     text,
     selection_type: selectionType,
     options,
   }
-
-  return question
 }
 
 function normalizeSnapshotPayload(raw: unknown): SessionSnapshotPayload {
@@ -354,8 +352,9 @@ function normalizeErrorPayload(raw: unknown): WsErrorPayload {
 }
 
 function getErrorMessage(payload: WsErrorPayload): string {
-  if (ERROR_MESSAGE_DICTIONARY[payload.code]) {
-    return ERROR_MESSAGE_DICTIONARY[payload.code]
+  const knownMessage = ERROR_MESSAGE_DICTIONARY[payload.code]
+  if (knownMessage) {
+    return knownMessage
   }
 
   if (payload.message.trim().length > 0) {
@@ -452,6 +451,10 @@ export const useGameSessionStore = defineStore('game-session', () => {
     }
 
     if (!currentQuestion.value) {
+      return false
+    }
+
+    if (!isConnected.value) {
       return false
     }
 

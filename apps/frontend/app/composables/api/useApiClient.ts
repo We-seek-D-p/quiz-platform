@@ -104,7 +104,7 @@ export const useApiClient = () => {
       const fetchOptions = {
         method: options.method ?? 'GET',
         headers,
-        credentials: 'include',
+        credentials: 'include' as RequestCredentials,
         ...(options.body !== undefined ? { body: options.body } : {}),
       }
 

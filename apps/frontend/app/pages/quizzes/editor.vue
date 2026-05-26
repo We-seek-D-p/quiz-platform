@@ -38,7 +38,7 @@ const quiz = ref<QuizDraft>({
 const selectionOptions = [
   { label: 'Один ответ', value: 'single' },
   { label: 'Несколько', value: 'multiple' },
-] as const
+]
 
 const isLoading = ref(false)
 const isSaving = ref(false)
