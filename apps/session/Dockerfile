@@ -21,4 +21,6 @@ COPY --from=builder /bin/session-service /bin/session-service
 
 EXPOSE 8000
 
+HEALTHCHECK --interval=10s --timeout=3s --retries=20 CMD ["wget", "-q", "--spider", "http://127.0.0.1:8000/readyz"]
+
 ENTRYPOINT ["/bin/session-service"]

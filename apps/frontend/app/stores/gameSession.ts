@@ -172,15 +172,13 @@ function normalizeSnapshotPayload(raw: unknown): SessionSnapshotPayload {
     session_id: pickString(source, ['session_id', 'SessionID']) ?? '',
     room_code: pickString(source, ['room_code', 'RoomCode']) ?? '',
     players_count: pickNumber(source, ['players_count', 'PlayersCount']) ?? participants.length,
-    question_index:
-      pickNumber(source, ['question_index', 'QuestionIndex']) ??
+    question_index: pickNumber(source, ['question_index', 'QuestionIndex']) ??
       pickNumber(source, ['current_question_index', 'CurrentQuestionIndex']),
     total_questions: pickNumber(source, ['total_questions', 'TotalQuestions']),
     question: currentQuestion ?? undefined,
     deadline_at: pickString(source, ['deadline_at', 'DeadlineAt']),
     reveal_until: pickString(source, ['reveal_until', 'RevealUntil']),
-    reveal_duration_sec:
-      pickNumber(revealData, ['reveal_duration_sec', 'RevealDurationSec']) ??
+    reveal_duration_sec: pickNumber(revealData, ['reveal_duration_sec', 'RevealDurationSec']) ??
       pickNumber(revealData, ['reveal_duration', 'RevealDuration']),
     leaderboard_top: toLeaderboardEntries(source.leaderboard_top ?? source.LeaderboardTop),
   }
@@ -217,8 +215,7 @@ function normalizeQuestionOpenedPayload(raw: unknown): QuestionOpenedPayload | n
   const deadlineAt = pickString(source, ['deadline_at', 'DeadlineAt'])
   const questionIndex = pickNumber(source, ['question_index', 'QuestionIndex'])
   const totalQuestions = pickNumber(source, ['total_questions', 'TotalQuestions'])
-  const questionTimeLimitSeconds =
-    pickNumber(source, ['time_limit_seconds', 'TimeLimitSeconds']) ??
+  const questionTimeLimitSeconds = pickNumber(source, ['time_limit_seconds', 'TimeLimitSeconds']) ??
     pickNumber(questionSource, ['time_limit_seconds', 'TimeLimitSeconds'])
 
   if (!question || !deadlineAt || questionIndex === undefined || totalQuestions === undefined) {
@@ -228,13 +225,12 @@ function normalizeQuestionOpenedPayload(raw: unknown): QuestionOpenedPayload | n
   return {
     question_index: questionIndex,
     total_questions: totalQuestions,
-    question:
-      questionTimeLimitSeconds !== undefined
-        ? {
-            ...question,
-            time_limit_seconds: questionTimeLimitSeconds,
-          }
-        : question,
+    question: questionTimeLimitSeconds !== undefined
+      ? {
+        ...question,
+        time_limit_seconds: questionTimeLimitSeconds,
+      }
+      : question,
     deadline_at: deadlineAt,
   }
 }
@@ -634,13 +630,12 @@ export const useGameSessionStore = defineStore('game-session', () => {
 
     const storedReconnectContext = getReconnectContext()
 
-    const reconnectContext: ReconnectContext | null =
-      targetRoomCode || targetToken
-        ? {
-            roomCode: targetRoomCode ?? storedReconnectContext?.roomCode ?? '',
-            participantToken: targetToken ?? storedReconnectContext?.participantToken ?? '',
-          }
-        : storedReconnectContext
+    const reconnectContext: ReconnectContext | null = targetRoomCode || targetToken
+      ? {
+        roomCode: targetRoomCode ?? storedReconnectContext?.roomCode ?? '',
+        participantToken: targetToken ?? storedReconnectContext?.participantToken ?? '',
+      }
+      : storedReconnectContext
 
     if (!reconnectContext || !reconnectContext.roomCode || !reconnectContext.participantToken) {
       throw new Error('Reconnect context is not available')

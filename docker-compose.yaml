@@ -38,11 +38,6 @@ services:
       - .env
     expose:
       - "8000"
-    healthcheck:
-      test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('127.0.0.1', 8000), 2); s.close()"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
 
   management:
     build:
@@ -55,11 +50,6 @@ services:
       - .env
     expose:
       - "8000"
-    healthcheck:
-      test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('127.0.0.1', 8000), 2); s.close()"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
 
   session:
     build:
@@ -81,11 +71,6 @@ services:
       dockerfile: Dockerfile
     expose:
       - "8080"
-    healthcheck:
-      test: ["CMD", "deno", "eval", "await fetch('http://127.0.0.1:8080')"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
 
   nginx:
     build:
@@ -99,7 +84,7 @@ services:
       management:
         condition: service_healthy
       session:
-        condition: service_started
+        condition: service_healthy
     ports:
       - "${NGINX_APP_PORT:-8080}:8080"
 

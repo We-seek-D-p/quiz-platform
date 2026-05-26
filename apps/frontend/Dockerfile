@@ -21,4 +21,6 @@ COPY --from=builder /workspace/.output/ ./
 
 EXPOSE 8080
 
+HEALTHCHECK --interval=10s --timeout=3s --retries=20 CMD ["wget", "-q", "--spider", "http://127.0.0.1:8080/readyz"]
+
 CMD ["task", "start"]

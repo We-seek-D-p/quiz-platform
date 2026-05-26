@@ -1,4 +1,4 @@
-import { getCurrentThemeMode, subscribeThemeMode, toggleThemeMode, type ThemeMode } from '~/theme/mode'
+import { getCurrentThemeMode, subscribeThemeMode, type ThemeMode, toggleThemeMode } from '~/theme/mode'
 
 export const useThemeMode = () => {
   const mode = useState<ThemeMode>('theme-mode', () => getCurrentThemeMode())

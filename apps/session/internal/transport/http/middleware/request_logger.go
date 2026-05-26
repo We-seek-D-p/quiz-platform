@@ -6,6 +6,11 @@ import (
 	"time"
 )
 
+var skippedRequestLogPaths = map[string]struct{}{
+	"/livez":  {},
+	"/readyz": {},
+}
+
 type responseRecorder struct {
 	http.ResponseWriter
 	status int
@@ -39,6 +44,11 @@ func (r *responseRecorder) Unwrap() http.ResponseWriter {
 func RequestLogger(log *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if _, skip := skippedRequestLogPaths[r.URL.Path]; skip {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			startedAt := time.Now()
 			recorder := &responseRecorder{ResponseWriter: w}
 

@@ -69,10 +69,14 @@ services:
     image: ghcr.io/${GHCR_OWNER}/quiz-nginx:main
     pull_policy: always
     depends_on:
-      - auth
-      - management
-      - session
-      - frontend
+      auth:
+        condition: service_healthy
+      management:
+        condition: service_healthy
+      session:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
     expose:
       - "8080"
     networks:

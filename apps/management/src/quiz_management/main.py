@@ -8,6 +8,17 @@ from quiz_management.api.session import router as session_router
 
 app = FastAPI(title="Quiz Management")
 
+
+@app.get("/livez", include_in_schema=False)
+async def livez():
+    return {"status": "ok"}
+
+
+@app.get("/readyz", include_in_schema=False)
+async def readyz():
+    return {"status": "ready"}
+
+
 app.include_router(quiz_router, prefix="/api/v1")
 app.include_router(question_router, prefix="/api/v1")
 app.include_router(session_router, prefix="/api/v1")
