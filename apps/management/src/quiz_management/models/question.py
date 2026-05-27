@@ -101,11 +101,6 @@ class QuestionUpdate(BaseModel):
     order_index: int | None = None
     options: list[OptionUpdate] | None = Field(None, min_length=4, max_length=4)
 
-    @field_validator("options")
-    @classmethod
-    def validate_opts(cls, v):
-        return validate_options_list(v)
-
 
 class QuestionPublic(BaseModel):
     id: UUID

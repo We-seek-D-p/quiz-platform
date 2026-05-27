@@ -60,6 +60,10 @@ class QuestionService:
                     )
                     question.options.append(new_option)
 
+        active_options = [opt for opt in question.options if opt.deleted_at is None]
+        if not any(opt.is_correct for opt in active_options):
+            raise ValueError("At least one option must be correct")
+
         if data_to_update or data.options is not None:
             question.updated_at = get_utc_now_naive()
 
