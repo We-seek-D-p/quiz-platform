@@ -33,16 +33,19 @@ class QuestionService:
         for key, value in data_to_update.items():
             setattr(question, key, value)
         if data.options is not None:
-            data.options = sorted(data.options, key=lambda x: x.order_index)
+            sorted_options = sorted(
+                data.options,
+                key=lambda x: x.order_index if x.order_index is not None else float("inf"),
+            )
 
             current_options = {opt.id: opt for opt in question.options if opt.deleted_at is None}
-            incoming_ids = {opt.id for opt in data.options if opt.id is not None}
+            incoming_ids = {opt.id for opt in sorted_options if opt.id is not None}
 
             for option_id, option in current_options.items():
                 if option_id not in incoming_ids:
                     option.deleted_at = get_utc_now_naive()
 
-            for order, option in enumerate(data.options):
+            for order, option in enumerate(sorted_options):
                 if option.id and option.id in current_options:
                     curr_option = current_options[option.id]
                     for key, value in option.model_dump(
