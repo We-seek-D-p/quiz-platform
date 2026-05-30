@@ -28,7 +28,7 @@ def _validate_option_constraints(options: list[dict]) -> None:
     indexes = []
     for opt in options:
         if opt["order_index"] is None:
-            raise ServiceException(400, "invalid_payload", "Option order index must be unique")
+            raise ServiceException(400, "invalid_payload", "Option order index is required")
         if opt["order_index"] < 0:
             raise ServiceException(
                 400, "invalid_payload", "Option order index must be non-negative"
