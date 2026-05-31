@@ -349,9 +349,6 @@ useHead({
 
           <SessionLeaderboard :entries="sessionStore.leaderboardTop" />
 
-          <div class="host-runtime__actions">
-            <Button label="Новая сессия" icon="pi pi-plus" @click="router.push('/quizzes')" />
-          </div>
         </div>
       </template>
     </Card>

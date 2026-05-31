@@ -304,12 +304,6 @@ useHead({
           <SessionLeaderboard :entries="sessionStore.leaderboardTop" />
 
           <div class="game-screen__actions">
-            <Button
-              v-if="sessionStore.roomCode"
-              label="Сыграть еще"
-              icon="pi pi-refresh"
-              @click="router.replace({ path: '/', query: { room_code: sessionStore.roomCode } })"
-            />
             <Button label="Вернуться на главную" outlined @click="router.replace('/')" />
           </div>
         </div>
