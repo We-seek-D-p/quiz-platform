@@ -36,7 +36,7 @@ const accountPath = computed(() => {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0 1rem;
+  padding: 0 var(--app-topbar-padding-x);
   border-bottom: 1px solid var(--app-color-border);
   background-color: var(--app-color-surface);
 }
@@ -47,9 +47,4 @@ const accountPath = computed(() => {
   gap: 0.5rem;
 }
 
-@media (min-width: 1024px) {
-  .public-topbar {
-    padding: 0 1.5rem;
-  }
-}
 </style>

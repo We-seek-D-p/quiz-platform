@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import Button from 'primevue/button'
 import AppLogo from '~/components/navigation/AppLogo.vue'
-import SidebarNavItem from '~/components/navigation/SidebarNavItem.vue'
 import { dashboardNavigationItems } from '~/constants/navigation'
 import { useAuthStore } from '~/stores/auth'
 
@@ -18,6 +18,11 @@ const emit = defineEmits<{
 }>()
 
 const authStore = useAuthStore()
+const route = useRoute()
+
+const isActiveRoute = (to: string): boolean => {
+  return route.path === to
+}
 
 const handleNavigate = () => {
   emit('close')
@@ -31,86 +36,55 @@ const handleLogout = async () => {
 </script>
 
 <template>
-  <aside class="app-sidebar">
-    <div v-if="showLogo" class="app-sidebar__logo">
+  <aside class="flex h-full min-h-0 w-full flex-col px-3 py-4">
+    <div v-if="showLogo" class="px-2 pt-1 pb-3">
       <AppLogo />
     </div>
 
-    <nav class="app-sidebar__nav">
-      <SidebarNavItem
+    <nav class="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
+      <Button
         v-for="item in dashboardNavigationItems"
         :key="item.key"
+        as="router-link"
+        :to="item.to"
         :icon="item.icon"
         :label="item.label"
-        :to="item.to"
+        severity="secondary"
+        :pt="{ label: { class: 'flex-1 text-left' } }"
+        size="small"
+        text
+        class="sidebar-nav-button"
+        :class="{ 'sidebar-nav-button--active': isActiveRoute(item.to) }"
         @click="handleNavigate"
       />
     </nav>
 
-    <div class="app-sidebar__footer">
-      <button type="button" class="app-sidebar__logout" @click="handleLogout">
-        <i class="pi pi-sign-out app-sidebar__logout-icon" aria-hidden="true"></i>
-        <span>Выйти</span>
-      </button>
+    <div class="mt-auto border-t border-(--app-color-border) pt-4">
+      <Button
+        label="Выйти"
+        icon="pi pi-sign-out"
+        severity="secondary"
+        :pt="{ label: { class: 'flex-1 text-left' } }"
+        size="small"
+        text
+        class="sidebar-nav-button"
+        @click="handleLogout"
+      />
     </div>
   </aside>
 </template>
 
 <style scoped>
-.app-sidebar {
-  display: flex;
-  height: 100%;
-  min-height: 0;
+.sidebar-nav-button {
   width: 100%;
-  flex-direction: column;
-  padding: 1rem 0.75rem;
+  justify-content: flex-start !important;
+  border: 1px solid transparent;
+  color: var(--app-color-text-muted) !important;
 }
 
-.app-sidebar__logo {
-  padding: 0.25rem 0.5rem 0.75rem;
-}
-
-.app-sidebar__nav {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  flex-direction: column;
-  gap: 0.25rem;
-  overflow-y: auto;
-}
-
-.app-sidebar__footer {
-  margin-top: auto;
-  padding-top: 1rem;
-  border-top: 1px solid var(--app-color-border);
-}
-
-.app-sidebar__logout {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.625rem 0.75rem;
-  border: 1px solid var(--app-color-border);
-  border-radius: var(--app-control-radius);
-  background-color: transparent;
-  color: var(--app-color-text-muted);
-  font: inherit;
-  font-size: 0.875rem;
-  font-weight: 500;
-  justify-content: flex-start;
-  cursor: pointer;
-  transition:
-    background-color var(--app-transition-fast),
-    color var(--app-transition-fast);
-}
-
-.app-sidebar__logout:hover {
-  background-color: var(--app-color-surface-hover);
-  color: var(--app-color-text-strong);
-}
-
-.app-sidebar__logout-icon {
-  font-size: 1rem;
+.sidebar-nav-button:hover,
+.sidebar-nav-button--active {
+  background-color: var(--app-color-surface-hover) !important;
+  color: var(--app-color-text-strong) !important;
 }
 </style>

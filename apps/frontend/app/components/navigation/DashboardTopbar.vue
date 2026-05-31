@@ -39,7 +39,7 @@ const emit = defineEmits<{
   align-items: center;
   gap: 1rem;
   height: var(--app-topbar-height);
-  padding: 0 1rem;
+  padding: 0 var(--app-topbar-padding-x);
   border-bottom: 1px solid var(--app-color-border);
   background-color: var(--app-color-surface);
 }
@@ -61,9 +61,4 @@ const emit = defineEmits<{
   color: var(--app-color-text-muted);
 }
 
-@media (min-width: 1024px) {
-  .dashboard-topbar {
-    padding: 0 1.5rem;
-  }
-}
 </style>
