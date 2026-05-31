@@ -128,7 +128,7 @@ onBeforeUnmount(() => {
 .dashboard-content__main {
   min-height: 0;
   overflow-y: auto;
-  padding: 1.25rem;
+  padding: var(--app-page-padding);
 }
 
 @media (min-width: 1024px) {
@@ -140,8 +140,5 @@ onBeforeUnmount(() => {
     display: none;
   }
 
-  .dashboard-content__main {
-    padding: 2rem;
-  }
 }
 </style>

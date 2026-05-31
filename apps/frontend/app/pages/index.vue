@@ -95,14 +95,14 @@ useHead({
 </script>
 
 <template>
-  <section class="home-entry">
+  <section class="mx-auto flex w-full max-w-(--app-card-narrow) flex-col gap-3">
     <Card class="w-full">
       <template #title>
-        <div class="home-entry__title">Войти в игру</div>
+        <div class="mb-2 text-center">Войти в игру</div>
       </template>
 
       <template #content>
-        <div class="home-entry__fields">
+        <div class="flex flex-col gap-3">
           <FloatLabel variant="in">
             <InputMask id="room_code" v-model="roomCode" mask="99999999" slot-char="" class="w-full" />
             <label for="room_code">Код комнаты</label>
@@ -116,40 +116,13 @@ useHead({
       </template>
 
       <template #footer>
-        <div class="home-entry__actions">
+        <div class="flex justify-center pt-3">
           <Button label="Подключиться" :disabled="isJoinDisabled" @click="handleJoin" />
         </div>
-        <div v-if="hasReconnectContext" class="home-entry__actions">
+        <div v-if="hasReconnectContext" class="flex justify-center pt-3">
           <Button label="Продолжить прошлую игру" text icon="pi pi-history" @click="continueLastGame" />
         </div>
       </template>
     </Card>
   </section>
 </template>
-
-<style scoped>
-.home-entry {
-  display: flex;
-  width: min(100%, 24rem);
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-inline: auto;
-}
-
-.home-entry__title {
-  margin-bottom: 0.5rem;
-  text-align: center;
-}
-
-.home-entry__fields {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.home-entry__actions {
-  display: flex;
-  justify-content: center;
-  padding-top: 0.75rem;
-}
-</style>

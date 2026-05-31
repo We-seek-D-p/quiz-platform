@@ -440,9 +440,9 @@ useHead({
 </script>
 
 <template>
-  <section class="quiz-editor">
-    <header class="quiz-editor__topbar">
-      <div class="quiz-editor__title-wrap">
+  <section class="mx-auto flex w-full max-w-(--app-card-wide) flex-col gap-(--app-page-gap)">
+    <header class="flex flex-col items-stretch justify-between gap-4 md:flex-row md:items-center">
+      <div class="flex items-center gap-2">
         <Button icon="pi pi-arrow-left" text rounded aria-label="Назад" @click="handleCancel" />
       </div>
 
@@ -458,13 +458,13 @@ useHead({
 
     <Card>
       <template #content>
-        <div class="quiz-editor__meta">
-          <div class="quiz-editor__field">
-            <label for="quiz_title" class="quiz-editor__label">Название</label>
+        <div class="flex flex-col gap-4">
+          <div class="flex flex-col gap-1.5">
+            <label for="quiz_title" class="text-sm font-semibold">Название</label>
             <InputText id="quiz_title" v-model="quiz.title" placeholder="Введите название квиза" class="w-full" />
           </div>
-          <div class="quiz-editor__field">
-            <label for="quiz_description" class="quiz-editor__label">Описание</label>
+          <div class="flex flex-col gap-1.5">
+            <label for="quiz_description" class="text-sm font-semibold">Описание</label>
             <Textarea id="quiz_description" v-model="quiz.description" rows="3" class="w-full" />
           </div>
         </div>
@@ -473,18 +473,18 @@ useHead({
 
     <VueDraggable
       v-model="quiz.questions"
-      class="quiz-editor__questions"
+      class="flex flex-col gap-4"
       handle=".question-card__drag-handle"
       :animation="150"
       @end="handleQuestionDragEnd"
     >
       <Card v-for="(question, qIndex) in quiz.questions" :key="question.localId">
         <template #content>
-          <div class="question-card">
-            <div class="question-card__header">
-              <div class="question-card__controls">
+          <div class="flex flex-col gap-3">
+            <div class="flex flex-col items-stretch justify-between gap-3 md:flex-row md:items-center">
+              <div class="flex flex-wrap items-center gap-2">
                 <i class="pi pi-bars question-card__drag-handle" aria-hidden="true" />
-                <span class="question-card__index">#{{ qIndex + 1 }}</span>
+                <span class="text-sm font-bold text-(--app-color-text-muted)">#{{ qIndex + 1 }}</span>
                 <SelectButton
                   v-model="question.selection_type"
                   :options="selectionOptions"
@@ -492,13 +492,13 @@ useHead({
                   option-value="value"
                   @change="switchQuestionType(question)"
                 />
-                <div class="question-card__timer">
+                <div class="inline-flex items-center gap-2 rounded-(--app-control-radius) bg-(--p-content-hover-background) px-2 py-1">
                   <i class="pi pi-clock" />
                   <InputNumber v-model="question.time_limit_seconds" :min="5" :max="120" suffix=" сек" />
                 </div>
               </div>
 
-              <div class="question-card__actions">
+              <div class="flex flex-wrap items-center gap-2">
                 <Button
                   icon="pi pi-trash"
                   text
@@ -513,12 +513,12 @@ useHead({
             <InputText v-model="question.text" placeholder="Текст вопроса" class="w-full" />
 
             <Divider align="left">
-              <span class="question-card__divider">Варианты ответов</span>
+              <span class="text-[0.7rem] tracking-[0.08em] text-(--app-color-text-muted) uppercase">Варианты ответов</span>
             </Divider>
 
             <VueDraggable
               v-model="question.options"
-              class="question-card__options"
+              class="flex flex-col gap-2"
               handle=".question-card__option-handle"
               :animation="150"
               @end="handleOptionDragEnd(question)"
@@ -526,7 +526,7 @@ useHead({
               <div
                 v-for="option in question.options"
                 :key="option.localId"
-                class="question-card__option"
+                class="flex items-center gap-2 rounded-(--app-control-radius) border border-(--app-color-border) p-2.5"
                 :class="{ 'question-card__option--correct': option.is_correct }"
               >
                 <i class="pi pi-bars question-card__option-handle" aria-hidden="true" />
@@ -545,12 +545,12 @@ useHead({
       </Card>
     </VueDraggable>
 
-    <Button label="Добавить вопрос" icon="pi pi-plus" outlined class="quiz-editor__add" @click="addQuestion" />
+    <Button label="Добавить вопрос" icon="pi pi-plus" outlined class="w-full border-dashed" @click="addQuestion" />
 
     <Dialog v-model:visible="showCancelDialog" modal header="Отменить изменения" :draggable="false">
-      <p class="quiz-editor__cancel-text">Есть несохраненные изменения. Выйти без сохранения?</p>
+      <p class="m-0">Есть несохраненные изменения. Выйти без сохранения?</p>
       <template #footer>
-        <div class="quiz-editor__cancel-actions">
+        <div class="flex justify-end gap-2">
           <Button label="Остаться" text @click="showCancelDialog = false" />
           <Button label="Выйти" severity="danger" @click="confirmCancel" />
         </div>
@@ -560,142 +560,14 @@ useHead({
 </template>
 
 <style scoped>
-.quiz-editor {
-  width: min(100%, 56rem);
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.quiz-editor__topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.quiz-editor__title-wrap {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.quiz-editor__meta,
-.quiz-editor__questions {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.quiz-editor__field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-
-.quiz-editor__label {
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.question-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.question-card__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.question-card__controls,
-.question-card__actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
 .question-card__drag-handle,
 .question-card__option-handle {
   cursor: grab;
   color: var(--app-color-text-muted);
 }
 
-.question-card__index {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--app-color-text-muted);
-}
-
-.question-card__timer {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.5rem;
-  background-color: var(--p-content-hover-background);
-}
-
-.question-card__divider {
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--app-color-text-muted);
-}
-
-.question-card__options {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.question-card__option {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  border: 1px solid var(--app-color-border);
-  border-radius: 0.75rem;
-  padding: 0.625rem;
-}
-
 .question-card__option--correct {
   border-color: color-mix(in srgb, var(--app-color-primary) 45%, var(--app-color-border));
   background-color: color-mix(in srgb, var(--app-color-primary) 10%, transparent);
-}
-
-.quiz-editor__add {
-  width: 100%;
-  border-style: dashed;
-}
-
-.quiz-editor__cancel-text {
-  margin: 0;
-}
-
-.quiz-editor__cancel-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-
-@media (max-width: 768px) {
-  .quiz-editor__topbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .question-card__header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .question-card__controls,
-  .question-card__actions {
-    flex-wrap: wrap;
-  }
 }
 </style>

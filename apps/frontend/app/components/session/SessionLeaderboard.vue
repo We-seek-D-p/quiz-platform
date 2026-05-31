@@ -30,7 +30,7 @@ defineProps<{
   justify-content: space-between;
   align-items: center;
   border: 1px solid var(--app-color-border);
-  border-radius: 0.75rem;
+  border-radius: var(--app-control-radius);
   padding: 0.65rem 0.75rem;
 }
 </style>

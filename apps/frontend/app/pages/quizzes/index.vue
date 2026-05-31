@@ -244,10 +244,10 @@ useHead({
 </script>
 
 <template>
-  <section class="quizzes-page">
-    <div class="quizzes-page__header">
+  <section class="flex flex-col gap-(--app-page-gap)">
+    <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
       <div>
-        <p class="quizzes-page__subtitle">Управляйте контентом и переходите в редактор одним кликом.</p>
+        <p class="m-0 text-(--app-color-text-muted)">Управляйте контентом и переходите в редактор одним кликом.</p>
       </div>
 
       <Button label="Новый квиз" icon="pi pi-plus" :disabled="!hasAccessContext" @click="openCreateQuiz" />
@@ -274,7 +274,7 @@ useHead({
 
           <Column header-style="text-align: right" body-style="text-align: right">
             <template #body="slotProps">
-              <div class="quizzes-table__actions">
+              <div class="inline-flex gap-1">
                 <Button
                   icon="pi pi-play"
                   text
@@ -303,7 +303,9 @@ useHead({
           </Column>
 
           <template #empty>
-            <div class="quizzes-table__empty" v-if="isEmpty">У вас пока нет квизов. Создайте первый квиз.</div>
+            <div v-if="isEmpty" class="p-5 text-center text-(--app-color-text-muted)">
+              У вас пока нет квизов. Создайте первый квиз.
+            </div>
           </template>
         </DataTable>
       </template>
@@ -317,14 +319,14 @@ useHead({
       :closable="!deletingQuizId"
       @update:visible="closeDeleteDialog"
     >
-      <p class="quizzes-page__delete-text">
+      <p class="m-0">
         Квиз
         <strong>{{ quizPendingDeletion?.title }}</strong>
         будет удален без возможности восстановления.
       </p>
 
       <template #footer>
-        <div class="quizzes-page__delete-actions">
+        <div class="flex justify-end gap-2">
           <Button label="Отмена" text :disabled="Boolean(deletingQuizId)" @click="closeDeleteDialog" />
           <Button
             label="Удалить"
@@ -340,53 +342,7 @@ useHead({
 </template>
 
 <style scoped>
-.quizzes-page {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.quizzes-page__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.quizzes-page__subtitle {
-  margin: 0;
-  color: var(--app-color-text-muted);
-}
-
 .quizzes-table :deep(.p-datatable-table) {
   min-width: 42rem;
-}
-
-.quizzes-table__actions {
-  display: inline-flex;
-  gap: 0.25rem;
-}
-
-.quizzes-table__empty {
-  text-align: center;
-  padding: 1.25rem;
-  color: var(--app-color-text-muted);
-}
-
-.quizzes-page__delete-text {
-  margin: 0;
-}
-
-.quizzes-page__delete-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-
-@media (max-width: 768px) {
-  .quizzes-page__header {
-    flex-direction: column;
-    align-items: stretch;
-  }
 }
 </style>
