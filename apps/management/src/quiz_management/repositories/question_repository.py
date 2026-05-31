@@ -26,7 +26,10 @@ class QuestionRepository:
             )
         )
         result = await self.db.exec(statement)
-        return result.first()
+        question = result.first()
+        if question:
+            question.options.sort(key=lambda opt: opt.order_index)
+        return question
 
     async def get_by_quiz_id(self, quiz_id: UUID) -> Sequence[Question] | None:
         statement = (
@@ -43,7 +46,10 @@ class QuestionRepository:
             .order_by(Question.order_index)
         )
         result = await self.db.exec(statement)
-        return result.unique().all()
+        questions = result.unique().all()
+        for q in questions:
+            q.options.sort(key=lambda opt: opt.order_index)
+        return questions
 
     async def save(self, question: Question) -> Question:
         self.db.add(question)

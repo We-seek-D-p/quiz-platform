@@ -13,11 +13,9 @@ class TestQuestionService:
     async def test_get_quiz_questions_success(self, question_service, mock_db):
         quiz_id = uuid4()
         expected_questions = [MagicMock(spec=Question), MagicMock(spec=Question)]
-
         question_service.repository.get_by_quiz_id = AsyncMock(return_value=expected_questions)
         res = await question_service.get_quiz_questions(quiz_id)
         question_service.repository.get_by_quiz_id.assert_called_once_with(quiz_id)
-
         assert res == expected_questions
 
     async def test_get_quiz_questions_empty(self, question_service, mock_db):
@@ -36,11 +34,13 @@ class TestQuestionService:
             time_limit_seconds=30,
             order_index=0,
         )
+        question_service.repository.get_by_quiz_id = AsyncMock(return_value=[])
 
         saved_question = MagicMock(spec=Question)
         saved_question.id = uuid4()
         saved_question.options = []
         question_service.repository.save = AsyncMock(return_value=saved_question)
+
         res = await question_service.create_question(create_data, quiz_id)
 
         question_service.repository.save.assert_called_once()
@@ -71,8 +71,10 @@ class TestQuestionService:
             ],
         )
 
+        question_service.repository.get_by_quiz_id = AsyncMock(return_value=[])
         saved_question = MagicMock(spec=Question)
         question_service.repository.save = AsyncMock(return_value=saved_question)
+
         await question_service.create_question(create_data, quiz_id)
 
         call_args = question_service.repository.save.call_args[0][0]
@@ -91,6 +93,7 @@ class TestQuestionService:
         question = MagicMock(spec=Question)
         question.options = []
         question.updated_at = datetime.now(UTC)
+        question.quiz_id = uuid4()  # добавляем реальный UUID
 
         update_data = question_update_factory(
             text="Updated Question",
@@ -99,8 +102,11 @@ class TestQuestionService:
             order_index=1,
         )
 
+        question_service.repository.get_by_quiz_id = AsyncMock(return_value=[])
+
         saved_question = MagicMock(spec=Question)
         question_service.repository.save = AsyncMock(return_value=saved_question)
+
         res = await question_service.update_question(question, update_data)
 
         assert question.text == "Updated Question"
