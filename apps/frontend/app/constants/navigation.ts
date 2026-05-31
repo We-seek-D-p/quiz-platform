@@ -7,12 +7,6 @@ export type DashboardNavItem = {
 
 export const dashboardNavigationItems: DashboardNavItem[] = [
   {
-    key: 'dashboard',
-    label: 'Панель управления',
-    icon: 'pi pi-home',
-    to: '/host',
-  },
-  {
     key: 'quizzes',
     label: 'Мои квизы',
     icon: 'pi pi-list',

@@ -193,6 +193,7 @@ watch(
 )
 
 onMounted(async () => {
+  sessionStore.reset()
   await tryAutoConnect()
   if (missingJoinContext.value) {
     toast.add({
@@ -212,10 +213,10 @@ useHead({
 </script>
 
 <template>
-  <section class="game-screen">
-    <Card class="game-screen__card">
+  <section class="grid min-h-[calc(100dvh-1.5rem)] place-items-center">
+    <Card class="w-full max-w-[52rem]">
       <template #content>
-        <div class="game-screen__header">
+        <div class="flex flex-wrap items-center justify-between gap-3">
           <SessionConnectionBanner
             :status="sessionStore.connectionStatus"
             :room-code="sessionStore.roomCode"
@@ -224,39 +225,39 @@ useHead({
         </div>
 
         <SessionTimerBar
-          v-if="sessionStore.phase !== 'lobby'"
+          v-if="!isBootstrapping && sessionStore.phase !== 'lobby'"
           :label="timerLabel"
           :progress="timerProgress"
-          class="game-screen__progress"
+          class="mt-3 mb-4"
         />
 
-        <div v-if="isBootstrapping" class="game-screen__state">
+        <div v-if="isBootstrapping" class="flex flex-col gap-4">
           <p>Подключаемся к игровой сессии...</p>
         </div>
 
-        <div v-else-if="missingJoinContext" class="game-screen__state">
+        <div v-else-if="missingJoinContext" class="flex flex-col gap-4">
           <p>Нет данных для входа в игру.</p>
           <Button label="Перейти к входу" icon="pi pi-arrow-left" @click="returnToJoin" />
         </div>
 
-        <div v-else-if="sessionStore.phase === 'lobby'" class="game-screen__state">
-          <h1 class="game-screen__title">Лобби</h1>
-          <p class="game-screen__subtitle">Ожидайте начала игры от хоста</p>
-          <p class="game-screen__meta">Игроков в комнате: {{ sessionStore.playersCount }}</p>
+        <div v-else-if="sessionStore.phase === 'lobby'" class="flex flex-col gap-4">
+          <h1 class="m-0 text-[clamp(1.5rem,2.6vw,2.2rem)] leading-[1.2]">Лобби</h1>
+          <p class="m-0 text-(--app-color-text-muted)">Ожидайте начала игры от хоста</p>
+          <p class="m-0 text-(--app-color-text-muted)">Игроков в комнате: {{ sessionStore.playersCount }}</p>
         </div>
 
-        <div v-else-if="sessionStore.phase === 'question_open' && currentQuestion" class="game-screen__question">
-          <div class="game-screen__question-head">
-            <p class="game-screen__meta">
+        <div v-else-if="sessionStore.phase === 'question_open' && currentQuestion" class="flex flex-col gap-4">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <p class="m-0 text-(--app-color-text-muted)">
               Вопрос {{ sessionStore.currentQuestionNumber }}
               <span v-if="sessionStore.totalQuestions">/ {{ sessionStore.totalQuestions }}</span>
             </p>
-            <p class="game-screen__subtitle">{{ selectionTypeLabel }}</p>
+            <p class="m-0 text-(--app-color-text-muted)">{{ selectionTypeLabel }}</p>
           </div>
 
-          <h1 class="game-screen__title">{{ currentQuestion.text }}</h1>
+          <h1 class="m-0 text-[clamp(1.5rem,2.6vw,2.2rem)] leading-[1.2]">{{ currentQuestion.text }}</h1>
 
-          <div class="game-screen__options">
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
             <button
               v-for="option in currentQuestion.options"
               :key="option.id"
@@ -275,7 +276,7 @@ useHead({
             {{ sessionStore.answerSubmitError }}
           </Message>
 
-          <div class="game-screen__actions">
+          <div class="flex flex-wrap items-center gap-3">
             <Button
               label="Ответить"
               icon="pi pi-send"
@@ -287,23 +288,23 @@ useHead({
           </div>
         </div>
 
-        <div v-else-if="sessionStore.phase === 'answer_reveal'" class="game-screen__state">
-          <h1 class="game-screen__title">Ответы раскрыты</h1>
-          <p class="game-screen__subtitle">Сейчас откроется следующий вопрос</p>
-          <p class="game-screen__meta" v-if="sessionStore.myScore !== null">
+        <div v-else-if="sessionStore.phase === 'answer_reveal'" class="flex flex-col gap-4">
+          <h1 class="m-0 text-[clamp(1.5rem,2.6vw,2.2rem)] leading-[1.2]">Ответы раскрыты</h1>
+          <p class="m-0 text-(--app-color-text-muted)">Сейчас откроется следующий вопрос</p>
+          <p class="m-0 text-(--app-color-text-muted)" v-if="sessionStore.myScore !== null">
             Ваш счет: {{ sessionStore.myScore }} · Место: {{ sessionStore.myRank ?? '-' }}
           </p>
 
           <SessionLeaderboard :entries="sessionStore.leaderboardTop" />
         </div>
 
-        <div v-else-if="sessionStore.phase === 'finished'" class="game-screen__state">
-          <h1 class="game-screen__title">Игра завершена</h1>
-          <p class="game-screen__subtitle">Финальный рейтинг</p>
+        <div v-else-if="sessionStore.phase === 'finished'" class="flex flex-col gap-4">
+          <h1 class="m-0 text-[clamp(1.5rem,2.6vw,2.2rem)] leading-[1.2]">Игра завершена</h1>
+          <p class="m-0 text-(--app-color-text-muted)">Финальный рейтинг</p>
 
           <SessionLeaderboard :entries="sessionStore.leaderboardTop" />
 
-          <div class="game-screen__actions">
+          <div class="flex flex-wrap items-center gap-3">
             <Button label="Вернуться на главную" outlined @click="router.replace('/')" />
           </div>
         </div>
@@ -313,66 +314,9 @@ useHead({
 </template>
 
 <style scoped>
-.game-screen {
-  display: grid;
-  min-height: calc(100dvh - 1.5rem);
-  place-items: center;
-}
-
-.game-screen__card {
-  width: min(100%, 52rem);
-  border-radius: 1.25rem;
-}
-
-.game-screen__header {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.game-screen__progress {
-  margin-top: 0.75rem;
-  margin-bottom: 1rem;
-}
-
-.game-screen__state,
-.game-screen__question {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.game-screen__question-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.game-screen__title {
-  margin: 0;
-  font-size: clamp(1.5rem, 2.6vw, 2.2rem);
-  line-height: 1.2;
-}
-
-.game-screen__subtitle,
-.game-screen__meta {
-  margin: 0;
-  color: var(--app-color-text-muted);
-}
-
-.game-screen__options {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
 .option-btn {
   border: 1px solid var(--app-color-border);
-  border-radius: 0.875rem;
+  border-radius: var(--app-control-radius);
   padding: 0.9rem;
   display: flex;
   justify-content: space-between;
@@ -395,18 +339,5 @@ useHead({
 .option-btn:disabled {
   cursor: default;
   opacity: 0.7;
-}
-
-.game-screen__actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-@media (max-width: 768px) {
-  .game-screen__options {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

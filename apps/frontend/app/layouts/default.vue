@@ -6,7 +6,7 @@ import PublicTopbar from '~/components/navigation/PublicTopbar.vue'
   <div class="layout-shell">
     <PublicTopbar />
 
-    <main class="layout-main layout-main--centered p-5 md:p-8">
+    <main class="layout-main layout-main--centered p-(--app-page-padding)">
       <slot />
     </main>
   </div>

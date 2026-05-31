@@ -98,11 +98,11 @@ useHead({
 </script>
 
 <template>
-  <Card class="auth-card">
+  <Card class="mx-auto w-full max-w-(--app-card-narrow)">
     <template #title>Вход</template>
 
     <template #content>
-      <div class="auth-form">
+      <div class="flex flex-col gap-3">
         <FloatLabel variant="in" class="w-full">
           <InputText id="login_email" v-model="email" autocomplete="off" class="w-full" />
           <label for="login_email">Почта</label>
@@ -119,59 +119,22 @@ useHead({
           <label for="login_password">Пароль</label>
         </FloatLabel>
 
-        <div class="auth-form__actions">
+        <div class="flex justify-center pt-2">
           <Button label="Войти" :loading="isSubmitting" :disabled="isSubmitting" @click="handleLogin" />
         </div>
       </div>
     </template>
 
     <template #footer>
-      <div class="auth-card__footer mt-2">
-        <span class="auth-card__footer-text">Ещё нет аккаунта?</span>
-        <NuxtLink to="/register" class="auth-card__footer-link">Зарегистрироваться</NuxtLink>
+      <div class="mt-2 flex flex-wrap items-center gap-1.5">
+        <span class="text-xs text-(--app-color-text-muted)">Ещё нет аккаунта?</span>
+        <NuxtLink
+          to="/register"
+          class="text-xs font-bold text-(--app-color-primary) no-underline transition-colors duration-200 hover:text-(--app-color-primary-hover)"
+        >
+          Зарегистрироваться
+        </NuxtLink>
       </div>
     </template>
   </Card>
 </template>
-
-<style scoped>
-.auth-card {
-  width: min(100%, 24rem);
-  margin-inline: auto;
-}
-
-.auth-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.auth-form__actions {
-  display: flex;
-  justify-content: center;
-  padding-top: 0.5rem;
-}
-
-.auth-card__footer {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  flex-wrap: wrap;
-}
-
-.auth-card__footer-text {
-  font-size: 0.75rem;
-}
-
-.auth-card__footer-link {
-  color: var(--app-color-primary);
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-decoration: none;
-  transition: color var(--app-transition-fast);
-}
-
-.auth-card__footer-link:hover {
-  color: var(--app-color-primary-hover);
-}
-</style>
