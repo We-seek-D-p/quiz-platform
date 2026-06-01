@@ -4,6 +4,7 @@ import "time"
 
 type RuntimeStatus string
 type PersistedStatus string
+type FinishReason string
 
 const (
 	RuntimeStatusLobby             RuntimeStatus = "lobby"
@@ -19,6 +20,11 @@ const (
 	PersistedStatusInProgress   PersistedStatus = "in_progress"
 	PersistedStatusFinished     PersistedStatus = "finished"
 	PersistedStatusInitFailed   PersistedStatus = "init_failed"
+)
+
+const (
+	FinishReasonCompleted FinishReason = "completed"
+	FinishReasonManual    FinishReason = "manual"
 )
 
 type SessionRuntime struct {
@@ -75,7 +81,7 @@ type SessionBootstrap struct {
 	SessionID string
 	QuizID    string
 	HostID    string
-	Status    string
+	Status    PersistedStatus
 	Quiz      QuizSnapshot
 }
 
@@ -87,7 +93,7 @@ type SessionStatusUpdate struct {
 
 type SessionResults struct {
 	EventID      string
-	FinishReason string
+	FinishReason FinishReason
 	FinishedAt   time.Time
 	Participants []SessionResultParticipant
 }

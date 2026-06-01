@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"time"
 
+	managementrepo "github.com/We-seek-D-p/quiz-platform/apps/session/internal/client/management"
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/config"
-	managementrepo "github.com/We-seek-D-p/quiz-platform/apps/session/internal/repository/management"
 	redisrepo "github.com/We-seek-D-p/quiz-platform/apps/session/internal/repository/redis"
 	sessionservice "github.com/We-seek-D-p/quiz-platform/apps/session/internal/service/session"
 	httptransport "github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/http"
@@ -32,9 +32,9 @@ func New(cfg *config.Config, log *slog.Logger) *App {
 	participantRepository := redisrepo.NewParticipantRepository(redisClient)
 	answersRepository := redisrepo.NewAnswersRepository(redisClient)
 	leaderboardRepository := redisrepo.NewLeaderboardRepository(redisClient)
-	managementRepository := managementrepo.NewRepository(cfg)
+	managementClient := managementrepo.NewClient(cfg, log)
 	svc := sessionservice.NewService(
-		managementRepository,
+		managementClient,
 		runtimeRepository,
 		roomCodeRepository,
 		roomCodeGenerator,

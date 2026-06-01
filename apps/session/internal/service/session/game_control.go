@@ -111,7 +111,7 @@ func (s *Service) FinishGame(ctx context.Context, cmd FinishGameParams) (FinishG
 		return FinishGameResult{}, ErrInvalidStateTransition
 	}
 
-	_, participants, persistedAt, err := s.finishSession(ctx, snapshot, "manual")
+	_, participants, persistedAt, err := s.finishSession(ctx, snapshot, domain.FinishReasonManual)
 	if err != nil {
 		return FinishGameResult{}, err
 	}
@@ -133,7 +133,7 @@ func (s *Service) FinishGame(ctx context.Context, cmd FinishGameParams) (FinishG
 func (s *Service) finishSession(
 	ctx context.Context,
 	snapshot domain.SessionSnapshot,
-	finishReason string,
+	finishReason domain.FinishReason,
 ) (domain.SessionRuntime, []domain.RuntimeParticipant, time.Time, error) {
 	sessionID := snapshot.Runtime.SessionID
 
@@ -303,7 +303,7 @@ func (s *Service) AdvanceToNextQuestion(ctx context.Context, sessionID string) (
 
 	nextIndex := snapshot.Runtime.Progress.CurrentQuestionIndex + 1
 	if nextIndex >= len(snapshot.Quiz.Questions) {
-		runtime, participants, _, err := s.finishSession(ctx, snapshot, "completed")
+		runtime, participants, _, err := s.finishSession(ctx, snapshot, domain.FinishReasonCompleted)
 		if err != nil {
 			return SnapshotDTO{}, err
 		}

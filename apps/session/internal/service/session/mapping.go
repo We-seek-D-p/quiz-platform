@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/client/management"
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/domain"
-	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/repository/management"
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/repository/redis"
 )
 

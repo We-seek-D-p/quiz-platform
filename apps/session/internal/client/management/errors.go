@@ -5,8 +5,8 @@ import "errors"
 var (
 	ErrSessionNotFound     = errors.New("session not found")
 	ErrAlreadyFinished     = errors.New("session already finished")
-	ErrUnauthorized        = errors.New("unauthorized")
-	ErrForbidden           = errors.New("forbidden")
+	ErrUnauthorized        = errors.New("unauthorized management client credentials")
+	ErrForbidden           = errors.New("forbidden upstream access")
 	ErrUpstreamUnavailable = errors.New("management service unavailable")
 	ErrInvalidResponse     = errors.New("invalid response from management")
 	ErrUnexpectedStatus    = errors.New("unexpected response status")

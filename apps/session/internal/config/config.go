@@ -49,6 +49,7 @@ type Internal struct {
 type Management struct {
 	BaseURL        string `env:"BASE_URL"        env-default:"http://management:8000"`
 	TimeoutSeconds int    `env:"TIMEOUT_SECONDS" env-default:"5"`
+	RetryAttempts  int    `env:"RETRY_ATTEMPTS"  env-default:"3"`
 	InternalToken  string `env:"INTERNAL_TOKEN"  env-required:"true"`
 }
 
