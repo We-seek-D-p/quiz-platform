@@ -11,7 +11,7 @@ import (
 type Config struct {
 	App        App        `env-prefix:"SESSION_APP_"`
 	Logger     Logger     `env-prefix:"SESSION_LOG_"`
-	HTTP       HTTP       `env-prefix:"SESSION_APP_"`
+	HTTP       HTTP       `env-prefix:"SESSION_HTTP_"`
 	Redis      Redis      `env-prefix:"SESSION_REDIS_"`
 	Internal   Internal   `env-prefix:"SESSION_INTERNAL_"`
 	Management Management `env-prefix:"SESSION_MANAGEMENT_"`
@@ -20,7 +20,9 @@ type Config struct {
 }
 
 type App struct {
-	Name string `env:"NAME" env-default:"Quiz Session"`
+	Name    string `env:"NAME"    env-default:"Quiz Session"`
+	Env     string `env:"ENV"     env-default:"development"`
+	Version string `env:"VERSION" env-default:"unknown"`
 }
 
 type Logger struct {
@@ -55,7 +57,8 @@ type WS struct {
 }
 
 type Game struct {
-	RevealDurationSeconds int `env:"REVEAL_DURATION_SECONDS" env-default:"5"`
+	AnswerRevealDurationSeconds      int `env:"ANSWER_ANSWER_REVEAL_DURATION_SECONDS" env-default:"5"`
+	LeaderboardRevealDurationSeconds int `env:"LEADERBOARD_REVEAL_DURATION_SECONDS" env-default:"3"`
 }
 
 func Load() (*Config, error) {
@@ -94,8 +97,12 @@ func (m Management) Timeout() time.Duration {
 	return time.Duration(m.TimeoutSeconds) * time.Second
 }
 
-func (g Game) RevealDuration() time.Duration {
-	return time.Duration(g.RevealDurationSeconds) * time.Second
+func (g Game) AnswerRevealDuration() time.Duration {
+	return time.Duration(g.AnswerRevealDurationSeconds) * time.Second
+}
+
+func (g Game) LeaderboardRevealDuration() time.Duration {
+	return time.Duration(g.LeaderboardRevealDurationSeconds) * time.Second
 }
 
 func normalizeStringList(values []string) []string {

@@ -41,7 +41,7 @@ func New(cfg *config.Config, log *slog.Logger) *App {
 		participantRepository,
 		answersRepository,
 		leaderboardRepository,
-		cfg.Game.RevealDuration(),
+		cfg.Game.AnswerRevealDuration(),
 	)
 	internalSessionHandler := handler.NewInternalSessionHandler(svc)
 	wsHandler := wstransport.NewHandler(cfg, log, svc)

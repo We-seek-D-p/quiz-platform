@@ -24,6 +24,8 @@ func New(cfg *config.Config) *slog.Logger {
 
 	return slog.New(handler).With(
 		"service", cfg.App.Name,
+		"env", cfg.App.Env,
+		"version", cfg.App.Version,
 	)
 }
 
