@@ -11,19 +11,19 @@ import (
 
 func (s *Service) InitSession(ctx context.Context, cmd InitSessionParams) (InitSessionResult, error) {
 	if cmd.SessionID == "" || cmd.QuizID == "" || cmd.HostID == "" || cmd.IdempotencyKey == "" || cmd.CreatedAt.IsZero() {
-		return InitSessionResult{}, ErrInvalidParams
+		return InitSessionResult{}, domain.NewInvalidInput("invalid_payload", "invalid payload", nil)
 	}
 
 	existing, err := s.runtimeRepository.Get(ctx, cmd.SessionID)
 	if err == nil {
 		if existing.QuizID != cmd.QuizID || existing.HostID != cmd.HostID {
-			return InitSessionResult{}, ErrSessionRuntimeConflict
+			return InitSessionResult{}, domain.NewConflict("session_runtime_conflict", "session runtime conflict", nil)
 		}
 		return InitSessionResult{Runtime: existing, Created: false}, nil
 	}
 
 	if !errors.Is(err, redis.ErrSessionNotFound) {
-		return InitSessionResult{}, ErrRuntimeStoreUnavailable
+		return InitSessionResult{}, domain.NewInternal("internal_error", "runtime storage unavailable", err)
 	}
 
 	bootstrap, err := s.managementRepository.GetSessionBootstrap(ctx, cmd.SessionID)
@@ -32,7 +32,7 @@ func (s *Service) InitSession(ctx context.Context, cmd InitSessionParams) (InitS
 	}
 
 	if bootstrap.SessionID != cmd.SessionID || bootstrap.QuizID != cmd.QuizID || bootstrap.HostID != cmd.HostID {
-		return InitSessionResult{}, ErrSessionRuntimeConflict
+		return InitSessionResult{}, domain.NewConflict("session_runtime_conflict", "session runtime conflict", nil)
 	}
 
 	var reservedCode string
@@ -40,7 +40,7 @@ func (s *Service) InitSession(ctx context.Context, cmd InitSessionParams) (InitS
 		code := s.roomCodeGenerator.Generate()
 		ok, err := s.roomCodeRepository.Reserve(ctx, code, cmd.SessionID)
 		if err != nil {
-			return InitSessionResult{}, ErrRuntimeStoreUnavailable
+			return InitSessionResult{}, domain.NewInternal("internal_error", "runtime storage unavailable", err)
 		}
 		if ok {
 			reservedCode = code
@@ -48,7 +48,7 @@ func (s *Service) InitSession(ctx context.Context, cmd InitSessionParams) (InitS
 		}
 	}
 	if reservedCode == "" {
-		return InitSessionResult{}, ErrRoomCodeUnavailable
+		return InitSessionResult{}, domain.NewInternal("room_code_unavailable", "room code unavailable", nil)
 	}
 
 	runtime := domain.SessionRuntime{
@@ -75,15 +75,15 @@ func (s *Service) InitSession(ctx context.Context, cmd InitSessionParams) (InitS
 
 func (s *Service) GetSessionRuntime(ctx context.Context, cmd GetSessionRuntimeParams) (domain.SessionRuntime, error) {
 	if cmd.SessionID == "" {
-		return domain.SessionRuntime{}, ErrInvalidParams
+		return domain.SessionRuntime{}, domain.NewInvalidInput("invalid_payload", "invalid payload", nil)
 	}
 
 	res, err := s.runtimeRepository.Get(ctx, cmd.SessionID)
 	if err != nil {
 		if errors.Is(err, redis.ErrSessionNotFound) {
-			return domain.SessionRuntime{}, ErrSessionRuntimeNotFound
+			return domain.SessionRuntime{}, domain.NewNotFound("session_runtime_not_found", "session runtime not found", err)
 		}
-		return domain.SessionRuntime{}, ErrRuntimeStoreUnavailable
+		return domain.SessionRuntime{}, domain.NewInternal("internal_error", "runtime storage unavailable", err)
 	}
 
 	return res, nil
@@ -91,7 +91,7 @@ func (s *Service) GetSessionRuntime(ctx context.Context, cmd GetSessionRuntimePa
 
 func (s *Service) DeleteSessionRuntime(ctx context.Context, cmd DeleteSessionRuntimeParams) error {
 	if cmd.SessionID == "" {
-		return ErrInvalidParams
+		return domain.NewInvalidInput("invalid_payload", "invalid payload", nil)
 	}
 
 	err := s.runtimeRepository.Delete(ctx, cmd.SessionID)
@@ -99,7 +99,7 @@ func (s *Service) DeleteSessionRuntime(ctx context.Context, cmd DeleteSessionRun
 		if errors.Is(err, redis.ErrSessionNotFound) {
 			return nil
 		}
-		return ErrRuntimeStoreUnavailable
+		return domain.NewInternal("internal_error", "runtime storage unavailable", err)
 	}
 
 	return nil

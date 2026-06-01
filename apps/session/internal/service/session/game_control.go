@@ -14,7 +14,7 @@ func (s *Service) StartGame(ctx context.Context, cmd StartGameParams) (StartGame
 	hostUserID := strings.TrimSpace(cmd.HostUserID)
 
 	if sessionID == "" || hostUserID == "" {
-		return StartGameResult{}, ErrInvalidParams
+		return StartGameResult{}, domain.NewInvalidInput("invalid_payload", "invalid payload", nil)
 	}
 
 	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
@@ -23,18 +23,18 @@ func (s *Service) StartGame(ctx context.Context, cmd StartGameParams) (StartGame
 	}
 
 	if snapshot.Runtime.HostID != hostUserID {
-		return StartGameResult{}, ErrForbidden
+		return StartGameResult{}, domain.NewForbidden("forbidden", "forbidden", nil)
 	}
 
 	if snapshot.Runtime.Status != domain.RuntimeStatusLobby {
 		if snapshot.Runtime.Status == domain.RuntimeStatusFinished {
-			return StartGameResult{}, ErrGameAlreadyFinished
+			return StartGameResult{}, domain.NewConflict("game_already_finished", "game already finished", nil)
 		}
-		return StartGameResult{}, ErrGameAlreadyStarted
+		return StartGameResult{}, domain.NewConflict("game_already_started", "game already started", nil)
 	}
 
 	if len(snapshot.Quiz.Questions) == 0 {
-		return StartGameResult{}, ErrInternal
+		return StartGameResult{}, domain.NewInternal("internal_error", "internal error", nil)
 	}
 
 	now := time.Now().UTC()
@@ -69,16 +69,16 @@ func (s *Service) StartGame(ctx context.Context, cmd StartGameParams) (StartGame
 		return StartGameResult{}, err
 	}
 
-	snapshotDTO := s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, participants, leaderboardTop)
+	sessionSnapshot := s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, participants, leaderboardTop)
 
 	return StartGameResult{
-		QuestionOpened: QuestionOpenedDTO{
+		QuestionOpened: QuestionOpened{
 			QuestionIndex:  0,
 			TotalQuestions: len(snapshot.Quiz.Questions),
-			Question:       *snapshotDTO.CurrentQuestion,
+			Question:       *sessionSnapshot.CurrentQuestion,
 			DeadlineAt:     *snapshot.Runtime.Progress.DeadlineAt,
 		},
-		SessionSnapshot:  snapshotDTO,
+		SessionSnapshot:  sessionSnapshot,
 		PersistedStatus:  string(domain.PersistedStatusInProgress),
 		PersistedEventID: eventID,
 	}, nil
@@ -89,7 +89,7 @@ func (s *Service) FinishGame(ctx context.Context, cmd FinishGameParams) (FinishG
 	hostUserID := strings.TrimSpace(cmd.HostUserID)
 
 	if sessionID == "" || hostUserID == "" {
-		return FinishGameResult{}, ErrInvalidParams
+		return FinishGameResult{}, domain.NewInvalidInput("invalid_payload", "invalid payload", nil)
 	}
 
 	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
@@ -98,17 +98,17 @@ func (s *Service) FinishGame(ctx context.Context, cmd FinishGameParams) (FinishG
 	}
 
 	if snapshot.Runtime.HostID != hostUserID {
-		return FinishGameResult{}, ErrForbidden
+		return FinishGameResult{}, domain.NewForbidden("forbidden", "forbidden", nil)
 	}
 
 	if snapshot.Runtime.Status == domain.RuntimeStatusFinished {
-		return FinishGameResult{}, ErrGameAlreadyFinished
+		return FinishGameResult{}, domain.NewConflict("game_already_finished", "game already finished", nil)
 	}
 
 	if snapshot.Runtime.Status != domain.RuntimeStatusLobby &&
 		snapshot.Runtime.Status != domain.RuntimeStatusQuestionOpen &&
 		snapshot.Runtime.Status != domain.RuntimeStatusAnswerReveal {
-		return FinishGameResult{}, ErrInvalidStateTransition
+		return FinishGameResult{}, domain.NewConflict("invalid_state_transition", "invalid state transition", nil)
 	}
 
 	_, participants, persistedAt, err := s.finishSession(ctx, snapshot, domain.FinishReasonManual)
@@ -122,7 +122,7 @@ func (s *Service) FinishGame(ctx context.Context, cmd FinishGameParams) (FinishG
 	}
 
 	return FinishGameResult{
-		SessionFinished: FinishedDTO{
+		SessionFinished: Finished{
 			LeaderboardTop: leaderboardTop,
 		},
 		PersistedStatus: string(domain.PersistedStatusFinished),
@@ -191,18 +191,18 @@ func (s *Service) CloseCurrentQuestionAndBuildReveal(ctx context.Context, sessio
 	}
 
 	if snapshot.Runtime.Status != domain.RuntimeStatusQuestionOpen {
-		return RevealTransitionResult{}, ErrInvalidStateTransition
+		return RevealTransitionResult{}, domain.NewConflict("invalid_state_transition", "invalid state transition", nil)
 	}
 
 	currIdx := snapshot.Runtime.Progress.CurrentQuestionIndex
 	if currIdx < 0 || currIdx >= len(snapshot.Quiz.Questions) {
-		return RevealTransitionResult{}, ErrInvalidStateTransition
+		return RevealTransitionResult{}, domain.NewConflict("invalid_state_transition", "invalid state transition", nil)
 	}
 
 	now := time.Now().UTC()
 	snapshot.Runtime.Status = domain.RuntimeStatusAnswerReveal
 	snapshot.Runtime.Progress.RevealUntil = new(time.Time)
-	*snapshot.Runtime.Progress.RevealUntil = now.Add(s.revealDuration)
+	*snapshot.Runtime.Progress.RevealUntil = now.Add(s.answerRevealDuration)
 	snapshot.Runtime.Progress.DeadlineAt = nil
 
 	if err := s.runtimeRepository.UpdateRuntime(ctx, snapshot.Runtime); err != nil {
@@ -224,9 +224,9 @@ func (s *Service) CloseCurrentQuestionAndBuildReveal(ctx context.Context, sessio
 		return RevealTransitionResult{}, err
 	}
 
-	snapshotDTO := s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, participants, leaderboardTop)
+	sessionSnapshot := s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, participants, leaderboardTop)
 	revealResult := s.buildRevealTransitionResult(snapshot, participants, answers, leaderboardTop)
-	revealResult.SessionSnapshot = snapshotDTO
+	revealResult.SessionSnapshot = sessionSnapshot
 
 	return revealResult, nil
 }
@@ -235,7 +235,7 @@ func (s *Service) buildRevealTransitionResult(
 	snapshot domain.SessionSnapshot,
 	participants []domain.RuntimeParticipant,
 	answers []domain.RuntimeAnswer,
-	leaderboardTop []SnapshotLeaderboardEntryDTO,
+	leaderboardTop []SnapshotLeaderboardEntry,
 ) RevealTransitionResult {
 	currQuestion := snapshot.Quiz.Questions[snapshot.Runtime.Progress.CurrentQuestionIndex]
 	correctOptionIDs := s.collectCorrectOptionIDs(currQuestion)
@@ -245,7 +245,7 @@ func (s *Service) buildRevealTransitionResult(
 		answerByParticipant[answer.ParticipantID] = answer
 	}
 
-	playerReveals := make([]ParticipantAnswerRevealDTO, 0, len(participants))
+	playerReveals := make([]ParticipantAnswerReveal, 0, len(participants))
 	for _, participant := range participants {
 		participantAnswer, hasAnswer := answerByParticipant[participant.ParticipantID]
 		var yourSelectedOptionIDs []string
@@ -258,9 +258,9 @@ func (s *Service) buildRevealTransitionResult(
 			scoreDelta = participantAnswer.ScoreDelta
 		}
 
-		playerReveals = append(playerReveals, ParticipantAnswerRevealDTO{
+		playerReveals = append(playerReveals, ParticipantAnswerReveal{
 			ParticipantID: participant.ParticipantID,
-			Payload: AnswerRevealDTO{
+			Payload: AnswerReveal{
 				QuestionID:            currQuestion.ID,
 				CorrectOptionIDs:      correctOptionIDs,
 				YourSelectedOptionIDs: yourSelectedOptionIDs,
@@ -269,48 +269,114 @@ func (s *Service) buildRevealTransitionResult(
 				TotalScore:            participant.Score,
 				YourRank:              participant.Rank,
 				LeaderboardTop:        leaderboardTop,
-				RevealDurationSec:     int(s.revealDuration.Seconds()),
+				RevealDurationSec:     int(s.answerRevealDuration.Seconds()),
 				RevealUntil:           *snapshot.Runtime.Progress.RevealUntil,
 			},
 		})
 	}
 
 	return RevealTransitionResult{
-		HostReveal: QuestionRevealHostDTO{
+		HostReveal: QuestionRevealHost{
 			QuestionID:        currQuestion.ID,
 			CorrectOptionIDs:  correctOptionIDs,
 			AnsweredCount:     len(answers),
 			TotalPlayers:      len(participants),
 			LeaderboardTop:    leaderboardTop,
-			RevealDurationSec: int(s.revealDuration.Seconds()),
+			RevealDurationSec: int(s.answerRevealDuration.Seconds()),
 			RevealUntil:       *snapshot.Runtime.Progress.RevealUntil,
 		},
 		PlayerReveals: playerReveals,
 	}
 }
 
-func (s *Service) AdvanceToNextQuestion(ctx context.Context, sessionID string) (SnapshotDTO, error) {
+func (s *Service) AdvanceToLeaderboardReveal(ctx context.Context, sessionID string) (LeaderboardTransitionResult, error) {
 	sessionID = strings.TrimSpace(sessionID)
 
 	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
 	if err != nil {
-		return SnapshotDTO{}, s.mapRedisError(err)
+		return LeaderboardTransitionResult{}, s.mapRedisError(err)
 	}
 
 	if snapshot.Runtime.Status != domain.RuntimeStatusAnswerReveal {
-		return SnapshotDTO{}, ErrInvalidStateTransition
+		return LeaderboardTransitionResult{}, domain.NewConflict("invalid_state_transition", "invalid state transition", nil)
+	}
+
+	currIdx := snapshot.Runtime.Progress.CurrentQuestionIndex
+	if currIdx < 0 || currIdx >= len(snapshot.Quiz.Questions) {
+		return LeaderboardTransitionResult{}, domain.NewConflict("invalid_state_transition", "invalid state transition", nil)
+	}
+
+	now := time.Now().UTC()
+	snapshot.Runtime.Status = domain.RuntimeStatusLeaderboardReveal
+	snapshot.Runtime.Progress.RevealUntil = new(time.Time)
+	*snapshot.Runtime.Progress.RevealUntil = now.Add(s.leaderboardRevealDuration)
+
+	if err := s.runtimeRepository.UpdateRuntime(ctx, snapshot.Runtime); err != nil {
+		return LeaderboardTransitionResult{}, s.mapRedisError(err)
+	}
+
+	participants, err := s.participantRepository.List(ctx, sessionID)
+	if err != nil {
+		return LeaderboardTransitionResult{}, s.mapParticipantRepositoryError(err)
+	}
+
+	leaderboardTop, err := s.loadLeaderboardTop(ctx, sessionID, participants, leaderboardTopLimit)
+	if err != nil {
+		return LeaderboardTransitionResult{}, err
+	}
+
+	sessionSnapshot := s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, participants, leaderboardTop)
+	currQuestion := snapshot.Quiz.Questions[currIdx]
+
+	playerReveals := make([]ParticipantLeaderboardReveal, 0, len(participants))
+	for _, participant := range participants {
+		playerReveals = append(playerReveals, ParticipantLeaderboardReveal{
+			ParticipantID: participant.ParticipantID,
+			Payload: LeaderboardReveal{
+				QuestionID:        currQuestion.ID,
+				LeaderboardTop:    leaderboardTop,
+				YourScore:         participant.Score,
+				YourRank:          participant.Rank,
+				RevealDurationSec: int(s.leaderboardRevealDuration.Seconds()),
+				RevealUntil:       *snapshot.Runtime.Progress.RevealUntil,
+			},
+		})
+	}
+
+	return LeaderboardTransitionResult{
+		SessionSnapshot: sessionSnapshot,
+		HostReveal: LeaderboardRevealHost{
+			QuestionID:        currQuestion.ID,
+			LeaderboardTop:    leaderboardTop,
+			RevealDurationSec: int(s.leaderboardRevealDuration.Seconds()),
+			RevealUntil:       *snapshot.Runtime.Progress.RevealUntil,
+		},
+		PlayerReveals: playerReveals,
+	}, nil
+}
+
+func (s *Service) AdvanceAfterLeaderboardReveal(ctx context.Context, sessionID string) (Snapshot, error) {
+	sessionID = strings.TrimSpace(sessionID)
+
+	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
+	if err != nil {
+		return Snapshot{}, s.mapRedisError(err)
+	}
+
+	if snapshot.Runtime.Status != domain.RuntimeStatusLeaderboardReveal {
+		return Snapshot{}, domain.NewConflict("invalid_state_transition", "invalid state transition", nil)
 	}
 
 	nextIndex := snapshot.Runtime.Progress.CurrentQuestionIndex + 1
 	if nextIndex >= len(snapshot.Quiz.Questions) {
 		runtime, participants, _, err := s.finishSession(ctx, snapshot, domain.FinishReasonCompleted)
 		if err != nil {
-			return SnapshotDTO{}, err
+			return Snapshot{}, err
 		}
 
 		leaderboardTop, err := s.loadLeaderboardTop(ctx, sessionID, participants, len(participants))
 		if err != nil {
-			return SnapshotDTO{}, err
+			return Snapshot{}, err
 		}
 
 		return s.buildSessionSnapshot(runtime, snapshot.Quiz, participants, leaderboardTop), nil
@@ -325,17 +391,17 @@ func (s *Service) AdvanceToNextQuestion(ctx context.Context, sessionID string) (
 	snapshot.Runtime.Progress.RevealUntil = nil
 
 	if err := s.runtimeRepository.UpdateRuntime(ctx, snapshot.Runtime); err != nil {
-		return SnapshotDTO{}, s.mapRedisError(err)
+		return Snapshot{}, s.mapRedisError(err)
 	}
 
 	participants, err := s.participantRepository.List(ctx, sessionID)
 	if err != nil {
-		return SnapshotDTO{}, s.mapParticipantRepositoryError(err)
+		return Snapshot{}, s.mapParticipantRepositoryError(err)
 	}
 
 	leaderboardTop, err := s.loadLeaderboardTop(ctx, sessionID, participants, leaderboardTopLimit)
 	if err != nil {
-		return SnapshotDTO{}, err
+		return Snapshot{}, err
 	}
 
 	return s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, participants, leaderboardTop), nil

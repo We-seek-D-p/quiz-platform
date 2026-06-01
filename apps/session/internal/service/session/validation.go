@@ -20,21 +20,21 @@ func (s *Service) validateAnswerPayload(q domain.QuestionSnapshot, selected []st
 
 	for _, id := range selected {
 		if _, duplicate := seen[id]; duplicate {
-			return ErrSelectionCountInvalid
+			return domain.NewInvalidInput("selection_count_invalid", "selection count invalid", nil)
 		}
 		seen[id] = struct{}{}
 
 		if _, ok := validIDs[id]; !ok {
-			return ErrOptionNotInQuestion
+			return domain.NewInvalidInput("option_not_in_question", "option not in question", nil)
 		}
 	}
 
 	st := string(q.SelectionType)
 	if st == "single" && len(selected) != 1 {
-		return ErrSelectionCountInvalid
+		return domain.NewInvalidInput("selection_count_invalid", "selection count invalid", nil)
 	}
 	if st == "multiple" && len(selected) < 1 {
-		return ErrSelectionCountInvalid
+		return domain.NewInvalidInput("selection_count_invalid", "selection count invalid", nil)
 	}
 	return nil
 }

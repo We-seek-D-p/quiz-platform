@@ -19,6 +19,7 @@ func NewHub(log *slog.Logger) *Hub {
 	return &Hub{log: log, sessions: make(map[string]*sessionPeers)}
 }
 
+// BindHost attaches a host connection to a runtime session.
 func (h *Hub) BindHost(sessionID string, conn *Connection) error {
 	if sessionID == "" || conn == nil {
 		return fmt.Errorf("bind host: %w", ErrInvalidBinding)
@@ -29,13 +30,14 @@ func (h *Hub) BindHost(sessionID string, conn *Connection) error {
 
 	h.mu.Lock()
 	peers := h.ensureSessionPeersLocked(sessionID)
-	peers.host = conn
+	peers.host = new(newPeerRef(conn, sessionID, "", ConnectionRoleHost))
 	h.mu.Unlock()
 
 	h.log.Debug("hub host bound", "connection_id", conn.ID(), "session_id", sessionID, "role", conn.Role())
 	return nil
 }
 
+// BindPlayer attaches a player connection to a runtime session.
 func (h *Hub) BindPlayer(sessionID, participantID string, conn *Connection) error {
 	if sessionID == "" || participantID == "" || conn == nil {
 		return fmt.Errorf("bind player: %w", ErrInvalidBinding)
@@ -46,19 +48,26 @@ func (h *Hub) BindPlayer(sessionID, participantID string, conn *Connection) erro
 
 	h.mu.Lock()
 	peers := h.ensureSessionPeersLocked(sessionID)
-	peers.players[participantID] = conn
+	peers.players[participantID] = new(newPeerRef(conn, sessionID, participantID, ConnectionRolePlayer))
 	h.mu.Unlock()
 
 	h.log.Debug("hub player bound", "connection_id", conn.ID(), "session_id", sessionID, "participant_id", participantID, "role", conn.Role())
 	return nil
 }
 
+// Unbind removes a connection from its current session registry.
 func (h *Hub) Unbind(conn *Connection) bool {
 	if conn == nil {
 		return false
 	}
 
-	ref := newConnectionRef(conn)
+	ref := peerRef{
+		connectionID:  conn.ID(),
+		sessionID:     conn.SessionID(),
+		participantID: conn.ParticipantID(),
+		role:          conn.Role(),
+		connection:    conn,
+	}
 	if ref.sessionID == "" {
 		return false
 	}
@@ -74,6 +83,7 @@ func (h *Hub) Unbind(conn *Connection) bool {
 	return removed
 }
 
+// Broadcast sends a payload to every connection in a session.
 func (h *Hub) Broadcast(sessionID string, payload []byte) int {
 	recipients := h.snapshotAll(sessionID)
 	stale := h.sendToRecipients(recipients, payload)
@@ -81,6 +91,7 @@ func (h *Hub) Broadcast(sessionID string, payload []byte) int {
 	return len(recipients) - len(stale)
 }
 
+// SendHost sends a payload to the session host connection.
 func (h *Hub) SendHost(sessionID string, payload []byte) bool {
 	recipient := h.snapshotHost(sessionID)
 	if recipient.connection == nil {
@@ -88,13 +99,14 @@ func (h *Hub) SendHost(sessionID string, payload []byte) bool {
 	}
 
 	if ok := recipient.connection.EnqueueText(payload); !ok {
-		h.dropStale([]connectionRef{recipient})
+		h.dropStale([]peerRef{recipient})
 		return false
 	}
 
 	return true
 }
 
+// SendPlayer sends a payload to one player connection.
 func (h *Hub) SendPlayer(sessionID, participantID string, payload []byte) bool {
 	recipient := h.snapshotPlayer(sessionID, participantID)
 	if recipient.connection == nil {
@@ -102,13 +114,14 @@ func (h *Hub) SendPlayer(sessionID, participantID string, payload []byte) bool {
 	}
 
 	if ok := recipient.connection.EnqueueText(payload); !ok {
-		h.dropStale([]connectionRef{recipient})
+		h.dropStale([]peerRef{recipient})
 		return false
 	}
 
 	return true
 }
 
+// BroadcastPlayers sends a payload to all player connections in a session.
 func (h *Hub) BroadcastPlayers(sessionID string, payload []byte) int {
 	recipients := h.snapshotPlayers(sessionID)
 	stale := h.sendToRecipients(recipients, payload)
@@ -116,6 +129,7 @@ func (h *Hub) BroadcastPlayers(sessionID string, payload []byte) int {
 	return len(recipients) - len(stale)
 }
 
+// ActiveSessionIDs returns sessions that currently have active WebSocket peers.
 func (h *Hub) ActiveSessionIDs() []string {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -139,36 +153,36 @@ func (h *Hub) ensureSessionPeersLocked(sessionID string) *sessionPeers {
 	return peers
 }
 
-func (h *Hub) snapshotHost(sessionID string) connectionRef {
+func (h *Hub) snapshotHost(sessionID string) peerRef {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
 	peers, ok := h.sessions[sessionID]
 	if !ok || peers.host == nil {
-		return connectionRef{}
+		return peerRef{}
 	}
 
-	return newConnectionRef(peers.host)
+	return *peers.host
 }
 
-func (h *Hub) snapshotPlayer(sessionID, participantID string) connectionRef {
+func (h *Hub) snapshotPlayer(sessionID, participantID string) peerRef {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
 	peers, ok := h.sessions[sessionID]
 	if !ok {
-		return connectionRef{}
+		return peerRef{}
 	}
 
 	conn, ok := peers.players[participantID]
 	if !ok {
-		return connectionRef{}
+		return peerRef{}
 	}
 
-	return newConnectionRef(conn)
+	return *conn
 }
 
-func (h *Hub) snapshotPlayers(sessionID string) []connectionRef {
+func (h *Hub) snapshotPlayers(sessionID string) []peerRef {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
@@ -177,15 +191,15 @@ func (h *Hub) snapshotPlayers(sessionID string) []connectionRef {
 		return nil
 	}
 
-	res := make([]connectionRef, 0, len(peers.players))
+	res := make([]peerRef, 0, len(peers.players))
 	for _, conn := range peers.players {
-		res = append(res, newConnectionRef(conn))
+		res = append(res, *conn)
 	}
 
 	return res
 }
 
-func (h *Hub) snapshotAll(sessionID string) []connectionRef {
+func (h *Hub) snapshotAll(sessionID string) []peerRef {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
@@ -199,20 +213,21 @@ func (h *Hub) snapshotAll(sessionID string) []connectionRef {
 		capacity++
 	}
 
-	res := make([]connectionRef, 0, capacity)
+	res := make([]peerRef, 0, capacity)
 	if peers.host != nil {
-		res = append(res, newConnectionRef(peers.host))
+		res = append(res, *peers.host)
 	}
 
 	for _, conn := range peers.players {
-		res = append(res, newConnectionRef(conn))
+		res = append(res, *conn)
 	}
 
 	return res
 }
 
-func (h *Hub) sendToRecipients(recipients []connectionRef, payload []byte) []connectionRef {
-	stale := make([]connectionRef, 0)
+// sendToRecipients enqueues a payload and returns stale recipients for cleanup.
+func (h *Hub) sendToRecipients(recipients []peerRef, payload []byte) []peerRef {
+	stale := make([]peerRef, 0)
 	for _, recipient := range recipients {
 		if recipient.connection == nil {
 			continue
@@ -226,7 +241,8 @@ func (h *Hub) sendToRecipients(recipients []connectionRef, payload []byte) []con
 	return stale
 }
 
-func (h *Hub) dropStale(stale []connectionRef) {
+// dropStale removes recipients that rejected outbound messages.
+func (h *Hub) dropStale(stale []peerRef) {
 	if len(stale) == 0 {
 		return
 	}
@@ -240,7 +256,7 @@ func (h *Hub) dropStale(stale []connectionRef) {
 	h.mu.Unlock()
 }
 
-func (h *Hub) unbindByRefLocked(ref connectionRef) bool {
+func (h *Hub) unbindByRefLocked(ref peerRef) bool {
 	peers, ok := h.sessions[ref.sessionID]
 	if !ok {
 		return false
@@ -248,13 +264,13 @@ func (h *Hub) unbindByRefLocked(ref connectionRef) bool {
 
 	removed := false
 	if ref.role == ConnectionRoleHost {
-		if peers.host != nil && peers.host == ref.connection {
+		if peers.host != nil && peers.host.connection == ref.connection {
 			peers.host = nil
 			removed = true
 		}
 	} else {
 		current, exists := peers.players[ref.participantID]
-		if exists && current == ref.connection {
+		if exists && current.connection == ref.connection {
 			delete(peers.players, ref.participantID)
 			removed = true
 		}

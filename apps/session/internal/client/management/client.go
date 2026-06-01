@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/config"
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/domain"
@@ -20,6 +21,7 @@ const (
 	contentTypeHeader     = "Content-Type"
 	contentTypeJSON       = "application/json"
 	internalAPIPrefix     = "/internal/v1"
+	retryDelay            = 250 * time.Millisecond
 )
 
 // Client coordinates synchronous outbound HTTP orchestrations targeting Management.
@@ -141,6 +143,9 @@ func (c *Client) execute(ctx context.Context, operation, method, path string, pa
 		if err != nil {
 			if c.shouldRetry(ctx, attempt, attempts, 0, err) {
 				c.log.WarnContext(ctx, "management request retrying", "operation", operation, "method", method, "path", path, "attempt", attempt, "error", err)
+				if err := c.waitBeforeRetry(ctx, attempt); err != nil {
+					return nil, err
+				}
 				continue
 			}
 
@@ -156,7 +161,6 @@ func (c *Client) execute(ctx context.Context, operation, method, path string, pa
 		status := resp.StatusCode
 		requestErr := c.handleError(resp)
 
-		// Линеаризация закрытия Body избавляет от дублирования кода
 		closeErr := resp.Body.Close()
 		if closeErr != nil {
 			c.log.ErrorContext(ctx, "management response body close failed", "operation", operation, "method", method, "path", path, "status", status, "attempt", attempt, "error", closeErr)
@@ -165,6 +169,9 @@ func (c *Client) execute(ctx context.Context, operation, method, path string, pa
 
 		if c.shouldRetry(ctx, attempt, attempts, status, requestErr) {
 			c.log.WarnContext(ctx, "management request retrying", "operation", operation, "method", method, "path", path, "status", status, "attempt", attempt, "error", requestErr)
+			if err := c.waitBeforeRetry(ctx, attempt); err != nil {
+				return nil, err
+			}
 			continue
 		}
 
@@ -173,6 +180,15 @@ func (c *Client) execute(ctx context.Context, operation, method, path string, pa
 	}
 
 	return nil, fmt.Errorf("%s: %w", operation, ErrUpstreamUnavailable)
+}
+
+func (c *Client) waitBeforeRetry(ctx context.Context, attempt int) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(time.Duration(attempt) * retryDelay):
+		return nil
+	}
 }
 
 func statusAllowed(status int, expectedStatuses []int) bool {
