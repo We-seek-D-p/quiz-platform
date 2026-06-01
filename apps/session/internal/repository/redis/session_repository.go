@@ -30,15 +30,15 @@ func (r *SessionRepository) Create(ctx context.Context, runtime domain.SessionRu
 
 	exists, err := r.client.Exists(ctx, metaKey).Result()
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return errRuntimeStoreUnavailable(err)
 	}
 	if exists > 0 {
-		return ErrSessionConflict
+		return errSessionRuntimeConflict(nil)
 	}
 
 	quizJSON, err := json.Marshal(quiz)
 	if err != nil {
-		return fmt.Errorf("marshal quiz: %w", err)
+		return errSerializationFailure("failed to marshal quiz", err)
 	}
 
 	pipe := r.client.TxPipeline()
@@ -59,7 +59,7 @@ func (r *SessionRepository) Create(ctx context.Context, runtime domain.SessionRu
 	pipe.Set(ctx, snapshotKey, quizJSON, 0)
 
 	if _, err := pipe.Exec(ctx); err != nil {
-		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return errRuntimeStoreUnavailable(err)
 	}
 
 	return nil
@@ -70,10 +70,10 @@ func (r *SessionRepository) Get(ctx context.Context, sessionID string) (domain.S
 
 	meta, err := r.client.HGetAll(ctx, metaKey).Result()
 	if err != nil {
-		return domain.SessionRuntime{}, fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return domain.SessionRuntime{}, errRuntimeStoreUnavailable(err)
 	}
 	if len(meta) == 0 {
-		return domain.SessionRuntime{}, ErrSessionNotFound
+		return domain.SessionRuntime{}, errSessionRuntimeNotFound(nil)
 	}
 
 	initializedAt, err := time.Parse(time.RFC3339Nano, meta["initialized_at"])
@@ -138,15 +138,15 @@ func (r *SessionRepository) GetSnapshot(ctx context.Context, sessionID string) (
 	snapshotJSON, err := r.client.Get(ctx, sessionQuizSnapshotKey(sessionID)).Result()
 	if err != nil {
 		if errors.Is(err, goredis.Nil) {
-			return domain.SessionSnapshot{}, ErrSessionNotFound
+			return domain.SessionSnapshot{}, errSessionRuntimeNotFound(err)
 		}
 
-		return domain.SessionSnapshot{}, fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return domain.SessionSnapshot{}, errRuntimeStoreUnavailable(err)
 	}
 
 	var quiz domain.QuizSnapshot
 	if err := json.Unmarshal([]byte(snapshotJSON), &quiz); err != nil {
-		return domain.SessionSnapshot{}, fmt.Errorf("unmarshal quiz snapshot: %w", err)
+		return domain.SessionSnapshot{}, errSerializationFailure("failed to unmarshal quiz snapshot", err)
 	}
 
 	return domain.SessionSnapshot{Runtime: runtime, Quiz: quiz}, nil
@@ -162,7 +162,7 @@ func (r *SessionRepository) Delete(ctx context.Context, sessionID string) error 
 
 	meta, err := r.client.HGetAll(ctx, metaKey).Result()
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return errRuntimeStoreUnavailable(err)
 	}
 
 	roomCode := meta["room_code"]
@@ -186,7 +186,7 @@ func (r *SessionRepository) Delete(ctx context.Context, sessionID string) error 
 	}
 
 	if _, err := pipe.Exec(ctx); err != nil {
-		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return errRuntimeStoreUnavailable(err)
 	}
 
 	return nil
@@ -200,7 +200,7 @@ func (r *SessionRepository) scanAnswerKeys(ctx context.Context, sessionID string
 	for {
 		keys, nextCursor, err := r.client.Scan(ctx, cursor, pattern, 100).Result()
 		if err != nil {
-			return nil, fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+			return nil, errRuntimeStoreUnavailable(err)
 		}
 
 		answerKeys = append(answerKeys, keys...)
@@ -218,10 +218,10 @@ func (r *SessionRepository) UpdateRuntime(ctx context.Context, runtime domain.Se
 
 	exists, err := r.client.Exists(ctx, metaKey).Result()
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return errRuntimeStoreUnavailable(err)
 	}
 	if exists == 0 {
-		return ErrSessionNotFound
+		return errSessionRuntimeNotFound(nil)
 	}
 
 	update := map[string]any{
@@ -240,7 +240,7 @@ func (r *SessionRepository) UpdateRuntime(ctx context.Context, runtime domain.Se
 	}
 
 	if err := r.client.HSet(ctx, metaKey, update).Err(); err != nil {
-		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return errRuntimeStoreUnavailable(err)
 	}
 
 	return nil
@@ -256,10 +256,10 @@ func (r *SessionRepository) SetStatusAndProgress(
 
 	exists, err := r.client.Exists(ctx, metaKey).Result()
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return errRuntimeStoreUnavailable(err)
 	}
 	if exists == 0 {
-		return ErrSessionNotFound
+		return errSessionRuntimeNotFound(nil)
 	}
 
 	update := map[string]any{
@@ -273,7 +273,7 @@ func (r *SessionRepository) SetStatusAndProgress(
 	}
 
 	if err := r.client.HSet(ctx, metaKey, update).Err(); err != nil {
-		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return errRuntimeStoreUnavailable(err)
 	}
 
 	return nil

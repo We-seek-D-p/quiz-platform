@@ -31,7 +31,7 @@ func (s *Service) loadLeaderboardTop(
 ) ([]SnapshotLeaderboardEntry, error) {
 	entries, err := s.leaderboardRepository.GetTop(ctx, sessionID, limit)
 	if err != nil {
-		return nil, s.mapLeaderboardRepositoryError(err)
+		return nil, err
 	}
 
 	return mapLeaderboardEntries(entries, participants), nil

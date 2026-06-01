@@ -3,7 +3,6 @@ package redis
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	goredis "github.com/redis/go-redis/v9"
 )
@@ -21,7 +20,7 @@ func (r *RoomCodeRepository) Reserve(ctx context.Context, roomCode, sessionID st
 
 	ok, err := r.client.SetNX(ctx, key, sessionID, 0).Result()
 	if err != nil {
-		return false, fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return false, errRuntimeStoreUnavailable(err)
 	}
 
 	return ok, nil
@@ -33,10 +32,10 @@ func (r *RoomCodeRepository) GetSessionID(ctx context.Context, roomCode string) 
 	sessionID, err := r.client.Get(ctx, key).Result()
 	if err != nil {
 		if errors.Is(err, goredis.Nil) {
-			return "", ErrRoomNotFound
+			return "", errRoomNotFound(err)
 		}
 
-		return "", fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return "", errRuntimeStoreUnavailable(err)
 	}
 
 	return sessionID, nil
@@ -46,7 +45,7 @@ func (r *RoomCodeRepository) Release(ctx context.Context, roomCode string) error
 	key := roomCodeKey(roomCode)
 
 	if err := r.client.Del(ctx, key).Err(); err != nil {
-		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return errRuntimeStoreUnavailable(err)
 	}
 
 	return nil

@@ -2,12 +2,10 @@ package session
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"time"
 
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/domain"
-	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/repository/redis"
 	"github.com/google/uuid"
 )
 
@@ -21,7 +19,7 @@ func (s *Service) HostConnect(ctx context.Context, cmd HostConnectParams) (HostC
 
 	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
 	if err != nil {
-		return HostConnectResult{}, s.mapRedisError(err)
+		return HostConnectResult{}, err
 	}
 
 	if snapshot.Runtime.HostID != hostUserID {
@@ -30,7 +28,7 @@ func (s *Service) HostConnect(ctx context.Context, cmd HostConnectParams) (HostC
 
 	participants, err := s.participantRepository.List(ctx, sessionID)
 	if err != nil {
-		return HostConnectResult{}, s.mapParticipantRepositoryError(err)
+		return HostConnectResult{}, err
 	}
 
 	leaderboardTop, err := s.loadLeaderboardTop(ctx, sessionID, participants, leaderboardTopLimit)
@@ -53,12 +51,12 @@ func (s *Service) PlayerJoin(ctx context.Context, cmd PlayerJoinParams) (PlayerJ
 
 	sessionID, err := s.roomCodeRepository.GetSessionID(ctx, roomCode)
 	if err != nil {
-		return PlayerJoinResult{}, s.mapRoomCodeError(err)
+		return PlayerJoinResult{}, err
 	}
 
 	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
 	if err != nil {
-		return PlayerJoinResult{}, s.mapRedisError(err)
+		return PlayerJoinResult{}, err
 	}
 
 	if snapshot.Runtime.Status == domain.RuntimeStatusFinished {
@@ -81,21 +79,21 @@ func (s *Service) PlayerJoin(ctx context.Context, cmd PlayerJoinParams) (PlayerJ
 	}
 
 	if err := s.participantRepository.Create(ctx, sessionID, participant); err != nil {
-		return PlayerJoinResult{}, s.mapParticipantRepositoryError(err)
+		return PlayerJoinResult{}, err
 	}
 
 	newScore, err := s.leaderboardRepository.AddScore(ctx, sessionID, pID, 0)
 	if err != nil {
-		return PlayerJoinResult{}, s.mapLeaderboardRepositoryError(err)
+		return PlayerJoinResult{}, err
 	}
 
 	rank, err := s.leaderboardRepository.GetRank(ctx, sessionID, pID)
 	if err != nil {
-		return PlayerJoinResult{}, s.mapLeaderboardRepositoryError(err)
+		return PlayerJoinResult{}, err
 	}
 
 	if err := s.participantRepository.UpdateScoreAndRank(ctx, sessionID, pID, newScore, rank); err != nil {
-		return PlayerJoinResult{}, s.mapParticipantRepositoryError(err)
+		return PlayerJoinResult{}, err
 	}
 
 	participant.Score = newScore
@@ -103,7 +101,7 @@ func (s *Service) PlayerJoin(ctx context.Context, cmd PlayerJoinParams) (PlayerJ
 
 	allParticipants, err := s.participantRepository.List(ctx, sessionID)
 	if err != nil {
-		return PlayerJoinResult{}, s.mapParticipantRepositoryError(err)
+		return PlayerJoinResult{}, err
 	}
 
 	leaderboardTop, err := s.loadLeaderboardTop(ctx, sessionID, allParticipants, leaderboardTopLimit)
@@ -136,30 +134,30 @@ func (s *Service) PlayerReconnect(ctx context.Context, cmd PlayerReconnectParams
 
 	sessionID, err := s.roomCodeRepository.GetSessionID(ctx, roomCode)
 	if err != nil {
-		return PlayerReconnectResult{}, s.mapRoomCodeError(err)
+		return PlayerReconnectResult{}, err
 	}
 
 	participant, err := s.participantRepository.GetByToken(ctx, sessionID, token)
 	if err != nil {
-		if errors.Is(err, redis.ErrParticipantNotFound) {
+		if isAppErrorCode(err, "participant_not_found") {
 			return PlayerReconnectResult{}, domain.NewInvalidInput("invalid_participant_token", "invalid participant token", err)
 		}
 
-		return PlayerReconnectResult{}, s.mapParticipantRepositoryError(err)
+		return PlayerReconnectResult{}, err
 	}
 
 	if err := s.participantRepository.SetConnected(ctx, sessionID, participant.ParticipantID, true); err != nil {
-		return PlayerReconnectResult{}, s.mapParticipantRepositoryError(err)
+		return PlayerReconnectResult{}, err
 	}
 
 	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
 	if err != nil {
-		return PlayerReconnectResult{}, s.mapRedisError(err)
+		return PlayerReconnectResult{}, err
 	}
 
 	allParticipants, err := s.participantRepository.List(ctx, sessionID)
 	if err != nil {
-		return PlayerReconnectResult{}, s.mapParticipantRepositoryError(err)
+		return PlayerReconnectResult{}, err
 	}
 
 	leaderboardTop, err := s.loadLeaderboardTop(ctx, sessionID, allParticipants, leaderboardTopLimit)
@@ -181,11 +179,7 @@ func (s *Service) SetParticipantConnected(ctx context.Context, sessionID, partic
 		return domain.NewInvalidInput("invalid_payload", "invalid payload", nil)
 	}
 
-	if err := s.participantRepository.SetConnected(ctx, sessionID, participantID, connected); err != nil {
-		return s.mapParticipantRepositoryError(err)
-	}
-
-	return nil
+	return s.participantRepository.SetConnected(ctx, sessionID, participantID, connected)
 }
 
 func (s *Service) SubmitAnswer(ctx context.Context, cmd SubmitAnswerParams) (SubmitAnswerResult, error) {
@@ -214,7 +208,7 @@ func (s *Service) SubmitAnswer(ctx context.Context, cmd SubmitAnswerParams) (Sub
 
 	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
 	if err != nil {
-		return SubmitAnswerResult{}, s.mapRedisError(err)
+		return SubmitAnswerResult{}, err
 	}
 
 	if snapshot.Runtime.Status != domain.RuntimeStatusQuestionOpen {
@@ -236,7 +230,7 @@ func (s *Service) SubmitAnswer(ctx context.Context, cmd SubmitAnswerParams) (Sub
 	}
 
 	if _, err := s.participantRepository.GetByID(ctx, sessionID, pID); err != nil {
-		return SubmitAnswerResult{}, s.mapParticipantRepositoryError(err)
+		return SubmitAnswerResult{}, err
 	}
 
 	now := time.Now().UTC()
@@ -264,31 +258,31 @@ func (s *Service) SubmitAnswer(ctx context.Context, cmd SubmitAnswerParams) (Sub
 	answer.ScoreDelta = delta
 
 	if err := s.answersRepository.SubmitOnce(ctx, sessionID, qID, answer); err != nil {
-		return SubmitAnswerResult{}, s.mapAnswerRepositoryError(err)
+		return SubmitAnswerResult{}, err
 	}
 
 	newScore, err := s.leaderboardRepository.AddScore(ctx, sessionID, pID, delta)
 	if err != nil {
-		return SubmitAnswerResult{}, s.mapLeaderboardRepositoryError(err)
+		return SubmitAnswerResult{}, err
 	}
 
 	rank, err := s.leaderboardRepository.GetRank(ctx, sessionID, pID)
 	if err != nil {
-		return SubmitAnswerResult{}, s.mapLeaderboardRepositoryError(err)
+		return SubmitAnswerResult{}, err
 	}
 
 	if err := s.participantRepository.UpdateScoreAndRank(ctx, sessionID, pID, newScore, rank); err != nil {
-		return SubmitAnswerResult{}, s.mapParticipantRepositoryError(err)
+		return SubmitAnswerResult{}, err
 	}
 
 	answered, err := s.answersRepository.ListByQuestion(ctx, sessionID, qID)
 	if err != nil {
-		return SubmitAnswerResult{}, s.mapAnswerRepositoryError(err)
+		return SubmitAnswerResult{}, err
 	}
 
 	participants, err := s.participantRepository.List(ctx, sessionID)
 	if err != nil {
-		return SubmitAnswerResult{}, s.mapParticipantRepositoryError(err)
+		return SubmitAnswerResult{}, err
 	}
 
 	return SubmitAnswerResult{

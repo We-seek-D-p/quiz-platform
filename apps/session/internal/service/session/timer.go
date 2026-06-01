@@ -17,7 +17,7 @@ func (s *Service) HandleTick(ctx context.Context, sessionID string, now time.Tim
 
 	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
 	if err != nil {
-		return nil, s.mapRedisError(err)
+		return nil, err
 	}
 
 	switch snapshot.Runtime.Status {

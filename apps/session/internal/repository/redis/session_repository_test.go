@@ -108,7 +108,7 @@ func TestSessionRepository_Create(t *testing.T) {
 
 		err = repo.Create(ctx, runtime, quiz)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "exists")
+		assert.Contains(t, err.Error(), "session_runtime_conflict")
 	})
 
 	t.Run("maps redis unavailable error", func(t *testing.T) {

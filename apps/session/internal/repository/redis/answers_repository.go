@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"sort"
 	"strings"
 
@@ -27,15 +26,15 @@ func (r *AnswersRepository) SubmitOnce(ctx context.Context, sessionID, questionI
 
 	payload, err := json.Marshal(answer)
 	if err != nil {
-		return fmt.Errorf("marshal answer: %w", err)
+		return errSerializationFailure("failed to marshal answer", err)
 	}
 
 	created, err := r.client.HSetNX(ctx, key, answer.ParticipantID, payload).Result()
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return errRuntimeStoreUnavailable(err)
 	}
 	if !created {
-		return ErrAnswerAlreadySubmitted
+		return errAnswerAlreadySubmitted(nil)
 	}
 
 	return nil
@@ -47,10 +46,10 @@ func (r *AnswersRepository) GetByParticipant(ctx context.Context, sessionID, que
 	payload, err := r.client.HGet(ctx, key, participantID).Result()
 	if err != nil {
 		if errors.Is(err, goredis.Nil) {
-			return domain.RuntimeAnswer{}, ErrAnswerNotFound
+			return domain.RuntimeAnswer{}, errAnswerNotFound(err)
 		}
 
-		return domain.RuntimeAnswer{}, fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return domain.RuntimeAnswer{}, errRuntimeStoreUnavailable(err)
 	}
 
 	answer, err := unmarshalRuntimeAnswer(payload)
@@ -66,7 +65,7 @@ func (r *AnswersRepository) ListByQuestion(ctx context.Context, sessionID, quest
 
 	payloads, err := r.client.HVals(ctx, key).Result()
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return nil, errRuntimeStoreUnavailable(err)
 	}
 
 	answers := make([]domain.RuntimeAnswer, 0, len(payloads))
@@ -85,7 +84,7 @@ func (r *AnswersRepository) ListByQuestion(ctx context.Context, sessionID, quest
 func unmarshalRuntimeAnswer(payload string) (domain.RuntimeAnswer, error) {
 	var answer domain.RuntimeAnswer
 	if err := json.Unmarshal([]byte(payload), &answer); err != nil {
-		return domain.RuntimeAnswer{}, fmt.Errorf("unmarshal answer: %w", err)
+		return domain.RuntimeAnswer{}, errSerializationFailure("failed to unmarshal answer", err)
 	}
 
 	return answer, nil

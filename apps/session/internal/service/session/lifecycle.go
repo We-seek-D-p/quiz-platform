@@ -2,11 +2,9 @@ package session
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/domain"
-	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/repository/redis"
 )
 
 func (s *Service) InitSession(ctx context.Context, cmd InitSessionParams) (InitSessionResult, error) {
@@ -22,8 +20,8 @@ func (s *Service) InitSession(ctx context.Context, cmd InitSessionParams) (InitS
 		return InitSessionResult{Runtime: existing, Created: false}, nil
 	}
 
-	if !errors.Is(err, redis.ErrSessionNotFound) {
-		return InitSessionResult{}, domain.NewInternal("internal_error", "runtime storage unavailable", err)
+	if !isAppErrorCode(err, "session_runtime_not_found") {
+		return InitSessionResult{}, err
 	}
 
 	bootstrap, err := s.managementRepository.GetSessionBootstrap(ctx, cmd.SessionID)
@@ -67,7 +65,7 @@ func (s *Service) InitSession(ctx context.Context, cmd InitSessionParams) (InitS
 	err = s.runtimeRepository.Create(ctx, runtime, bootstrap.Quiz)
 	if err != nil {
 		_ = s.roomCodeRepository.Release(ctx, reservedCode)
-		return InitSessionResult{}, s.mapRedisError(err)
+		return InitSessionResult{}, err
 	}
 
 	return InitSessionResult{Runtime: runtime, Created: true}, nil
@@ -80,10 +78,7 @@ func (s *Service) GetSessionRuntime(ctx context.Context, cmd GetSessionRuntimePa
 
 	res, err := s.runtimeRepository.Get(ctx, cmd.SessionID)
 	if err != nil {
-		if errors.Is(err, redis.ErrSessionNotFound) {
-			return domain.SessionRuntime{}, domain.NewNotFound("session_runtime_not_found", "session runtime not found", err)
-		}
-		return domain.SessionRuntime{}, domain.NewInternal("internal_error", "runtime storage unavailable", err)
+		return domain.SessionRuntime{}, err
 	}
 
 	return res, nil
@@ -96,10 +91,10 @@ func (s *Service) DeleteSessionRuntime(ctx context.Context, cmd DeleteSessionRun
 
 	err := s.runtimeRepository.Delete(ctx, cmd.SessionID)
 	if err != nil {
-		if errors.Is(err, redis.ErrSessionNotFound) {
+		if isAppErrorCode(err, "session_runtime_not_found") {
 			return nil
 		}
-		return domain.NewInternal("internal_error", "runtime storage unavailable", err)
+		return err
 	}
 
 	return nil

@@ -19,7 +19,7 @@ func (s *Service) StartGame(ctx context.Context, cmd StartGameParams) (StartGame
 
 	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
 	if err != nil {
-		return StartGameResult{}, s.mapRedisError(err)
+		return StartGameResult{}, err
 	}
 
 	if snapshot.Runtime.HostID != hostUserID {
@@ -46,7 +46,7 @@ func (s *Service) StartGame(ctx context.Context, cmd StartGameParams) (StartGame
 	snapshot.Runtime.Progress.DeadlineAt = s.calculateDeadline(now, firstQuestion.TimeLimitSeconds)
 
 	if err := s.runtimeRepository.UpdateRuntime(ctx, snapshot.Runtime); err != nil {
-		return StartGameResult{}, s.mapRedisError(err)
+		return StartGameResult{}, err
 	}
 
 	eventID := uuid.NewString()
@@ -61,7 +61,7 @@ func (s *Service) StartGame(ctx context.Context, cmd StartGameParams) (StartGame
 
 	participants, err := s.participantRepository.List(ctx, sessionID)
 	if err != nil {
-		return StartGameResult{}, s.mapParticipantRepositoryError(err)
+		return StartGameResult{}, err
 	}
 
 	leaderboardTop, err := s.loadLeaderboardTop(ctx, sessionID, participants, leaderboardTopLimit)
@@ -94,7 +94,7 @@ func (s *Service) FinishGame(ctx context.Context, cmd FinishGameParams) (FinishG
 
 	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
 	if err != nil {
-		return FinishGameResult{}, s.mapRedisError(err)
+		return FinishGameResult{}, err
 	}
 
 	if snapshot.Runtime.HostID != hostUserID {
@@ -140,7 +140,7 @@ func (s *Service) finishSession(
 	if snapshot.Runtime.Status == domain.RuntimeStatusFinished {
 		participants, err := s.participantRepository.List(ctx, sessionID)
 		if err != nil {
-			return domain.SessionRuntime{}, nil, time.Time{}, s.mapParticipantRepositoryError(err)
+			return domain.SessionRuntime{}, nil, time.Time{}, err
 		}
 
 		persistedAt := time.Now().UTC()
@@ -160,7 +160,7 @@ func (s *Service) finishSession(
 
 	participants, err := s.participantRepository.List(ctx, sessionID)
 	if err != nil {
-		return domain.SessionRuntime{}, nil, time.Time{}, s.mapParticipantRepositoryError(err)
+		return domain.SessionRuntime{}, nil, time.Time{}, err
 	}
 
 	eventID := uuid.NewString()
@@ -176,7 +176,7 @@ func (s *Service) finishSession(
 	}
 
 	if err := s.runtimeRepository.UpdateRuntime(ctx, runtime); err != nil {
-		return domain.SessionRuntime{}, nil, time.Time{}, s.mapRedisError(err)
+		return domain.SessionRuntime{}, nil, time.Time{}, err
 	}
 
 	return runtime, participants, now, nil
@@ -187,7 +187,7 @@ func (s *Service) CloseCurrentQuestionAndBuildReveal(ctx context.Context, sessio
 
 	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
 	if err != nil {
-		return RevealTransitionResult{}, s.mapRedisError(err)
+		return RevealTransitionResult{}, err
 	}
 
 	if snapshot.Runtime.Status != domain.RuntimeStatusQuestionOpen {
@@ -206,17 +206,17 @@ func (s *Service) CloseCurrentQuestionAndBuildReveal(ctx context.Context, sessio
 	snapshot.Runtime.Progress.DeadlineAt = nil
 
 	if err := s.runtimeRepository.UpdateRuntime(ctx, snapshot.Runtime); err != nil {
-		return RevealTransitionResult{}, s.mapRedisError(err)
+		return RevealTransitionResult{}, err
 	}
 
 	participants, err := s.participantRepository.List(ctx, sessionID)
 	if err != nil {
-		return RevealTransitionResult{}, s.mapParticipantRepositoryError(err)
+		return RevealTransitionResult{}, err
 	}
 
 	answers, err := s.answersRepository.ListByQuestion(ctx, sessionID, snapshot.Quiz.Questions[currIdx].ID)
 	if err != nil {
-		return RevealTransitionResult{}, s.mapAnswerRepositoryError(err)
+		return RevealTransitionResult{}, err
 	}
 
 	leaderboardTop, err := s.loadLeaderboardTop(ctx, sessionID, participants, leaderboardTopLimit)
@@ -294,7 +294,7 @@ func (s *Service) AdvanceToLeaderboardReveal(ctx context.Context, sessionID stri
 
 	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
 	if err != nil {
-		return LeaderboardTransitionResult{}, s.mapRedisError(err)
+		return LeaderboardTransitionResult{}, err
 	}
 
 	if snapshot.Runtime.Status != domain.RuntimeStatusAnswerReveal {
@@ -312,12 +312,12 @@ func (s *Service) AdvanceToLeaderboardReveal(ctx context.Context, sessionID stri
 	*snapshot.Runtime.Progress.RevealUntil = now.Add(s.leaderboardRevealDuration)
 
 	if err := s.runtimeRepository.UpdateRuntime(ctx, snapshot.Runtime); err != nil {
-		return LeaderboardTransitionResult{}, s.mapRedisError(err)
+		return LeaderboardTransitionResult{}, err
 	}
 
 	participants, err := s.participantRepository.List(ctx, sessionID)
 	if err != nil {
-		return LeaderboardTransitionResult{}, s.mapParticipantRepositoryError(err)
+		return LeaderboardTransitionResult{}, err
 	}
 
 	leaderboardTop, err := s.loadLeaderboardTop(ctx, sessionID, participants, leaderboardTopLimit)
@@ -360,7 +360,7 @@ func (s *Service) AdvanceAfterLeaderboardReveal(ctx context.Context, sessionID s
 
 	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
 	if err != nil {
-		return Snapshot{}, s.mapRedisError(err)
+		return Snapshot{}, err
 	}
 
 	if snapshot.Runtime.Status != domain.RuntimeStatusLeaderboardReveal {
@@ -391,12 +391,12 @@ func (s *Service) AdvanceAfterLeaderboardReveal(ctx context.Context, sessionID s
 	snapshot.Runtime.Progress.RevealUntil = nil
 
 	if err := s.runtimeRepository.UpdateRuntime(ctx, snapshot.Runtime); err != nil {
-		return Snapshot{}, s.mapRedisError(err)
+		return Snapshot{}, err
 	}
 
 	participants, err := s.participantRepository.List(ctx, sessionID)
 	if err != nil {
-		return Snapshot{}, s.mapParticipantRepositoryError(err)
+		return Snapshot{}, err
 	}
 
 	leaderboardTop, err := s.loadLeaderboardTop(ctx, sessionID, participants, leaderboardTopLimit)
