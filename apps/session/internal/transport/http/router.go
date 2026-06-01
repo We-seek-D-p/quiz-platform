@@ -40,7 +40,7 @@ func NewRouter(
 	r.Get("/api/v1/ws/player", wsHandler.Player)
 
 	r.Route("/internal/v1", func(r chi.Router) {
-		r.Use(middleware.InternalAuth(cfg.Internal))
+		r.Use(middleware.InternalAuth(cfg.Internal, log))
 
 		r.Put("/sessions/{session_id}", internalSessionHandler.InitSession)
 		r.Get("/sessions/{session_id}", internalSessionHandler.GetSessionRuntime)
