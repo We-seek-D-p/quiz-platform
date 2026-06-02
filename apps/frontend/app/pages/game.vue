@@ -281,7 +281,7 @@ useHead({
               @click="toggleOption(option.id)"
             >
               <span>{{ option.text }}</span>
-              <span class="option-control" @pointerdown.stop.prevent @mousedown.stop.prevent @click.stop.prevent>
+              <span class="option-control">
                 <RadioButton
                   v-if="currentQuestion.selection_type === 'single'"
                   :model-value="sessionStore.selectedOptionIds[0] ?? null"
