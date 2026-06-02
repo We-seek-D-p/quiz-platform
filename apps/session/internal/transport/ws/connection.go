@@ -5,12 +5,17 @@ import (
 	"errors"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 )
 
-const outboundBufferSize = 16
+const (
+	outboundBufferSize = 16
+	writeTimeout       = 4 * time.Second
+	pingInterval       = 20 * time.Second
+)
 
 type ConnectionRole string
 
@@ -29,6 +34,7 @@ type Connection struct {
 	conn          *websocket.Conn
 	log           *slog.Logger
 	ctx           context.Context
+	cancel        context.CancelFunc
 	readLimit     int64
 	connectionID  string
 	metaMu        sync.RWMutex
@@ -43,10 +49,13 @@ type Connection struct {
 }
 
 func NewConnection(parent context.Context, conn *websocket.Conn, log *slog.Logger, readLimit int64, bootstrap BootstrapData) *Connection {
+	ctx, cancel := context.WithCancel(parent) // #nosec G118 -- cancel is owned by Connection.close and called on lifecycle shutdown
+
 	return &Connection{
 		conn:         conn,
 		log:          log,
-		ctx:          parent,
+		ctx:          ctx,
+		cancel:       cancel,
 		readLimit:    readLimit,
 		connectionID: uuid.NewString(),
 		bootstrap:    bootstrap,
@@ -54,6 +63,7 @@ func NewConnection(parent context.Context, conn *websocket.Conn, log *slog.Logge
 	}
 }
 
+// Run starts read and write loops for a WebSocket connection.
 func (c *Connection) Run() {
 	c.conn.SetReadLimit(c.readLimit)
 
@@ -114,6 +124,7 @@ func (c *Connection) SetMessageHandler(handler func(context.Context, *Connection
 	c.metaMu.Unlock()
 }
 
+// EnqueueText queues a text frame for asynchronous socket writing.
 func (c *Connection) EnqueueText(payload []byte) bool {
 	select {
 	case <-c.ctx.Done():
@@ -172,6 +183,7 @@ func (c *Connection) readLoop() {
 	}
 }
 
+// WriteEvent encodes and queues a typed server event.
 func (c *Connection) WriteEvent(messageType string, payload any) error {
 	encoded, err := EncodeEnvelope(messageType, payload)
 	if err != nil {
@@ -185,6 +197,7 @@ func (c *Connection) WriteEvent(messageType string, payload any) error {
 	return nil
 }
 
+// WriteError encodes and queues a standard WebSocket error event.
 func (c *Connection) WriteError(code, message string) {
 	payload, err := EncodeEnvelope(ServerEventError, ErrorPayload{Code: code, Message: message})
 	if err != nil {
@@ -197,14 +210,37 @@ func (c *Connection) WriteError(code, message string) {
 	}
 }
 
+// writeLoop drains outbound messages and keeps idle connections alive.
 func (c *Connection) writeLoop() {
-	for payload := range c.outbound {
-		if err := c.conn.Write(c.ctx, websocket.MessageText, payload); err != nil {
-			if websocket.CloseStatus(err) == -1 && !errors.Is(err, context.Canceled) {
-				c.log.WarnContext(c.ctx, "websocket write failed", "connection_id", c.connectionID, "role", c.bootstrap.Role, "error", err)
-			}
-			c.close(websocket.StatusInternalError, "write failed")
+	ticker := time.NewTicker(pingInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-c.ctx.Done():
 			return
+		case payload := <-c.outbound:
+			writeCtx, cancel := context.WithTimeout(c.ctx, writeTimeout)
+			err := c.conn.Write(writeCtx, websocket.MessageText, payload)
+			cancel()
+
+			if err != nil {
+				if websocket.CloseStatus(err) == -1 && !errors.Is(err, context.Canceled) {
+					c.log.WarnContext(c.ctx, "websocket write failed", "connection_id", c.connectionID, "role", c.bootstrap.Role, "error", err)
+				}
+				c.close(websocket.StatusInternalError, "write operation timed out")
+				return
+			}
+		case <-ticker.C:
+			pingCtx, cancel := context.WithTimeout(c.ctx, writeTimeout)
+			err := c.conn.Ping(pingCtx)
+			cancel()
+
+			if err != nil {
+				c.log.DebugContext(c.ctx, "websocket ping failed", "connection_id", c.connectionID, "role", c.bootstrap.Role, "error", err)
+				c.close(websocket.StatusInternalError, "ping timeout")
+				return
+			}
 		}
 	}
 }
@@ -215,7 +251,7 @@ func (c *Connection) close(code websocket.StatusCode, reason string) {
 		onClose := c.onClose
 		c.metaMu.RUnlock()
 
-		close(c.outbound)
+		c.cancel()
 		_ = c.conn.Close(code, reason)
 		if onClose != nil {
 			onClose(c)

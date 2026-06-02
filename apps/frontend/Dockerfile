@@ -1,20 +1,26 @@
-FROM oven/bun:1.2.5-alpine AS builder
+FROM denoland/deno:2.8.0 AS builder
 
 WORKDIR /workspace
 
-COPY package.json bun.lock ./
-
-RUN --mount=type=cache,target=/root/.bun \
-    bun install --frozen-lockfile
+COPY package.json deno.json deno.lock ./
+RUN deno install --frozen
 
 COPY . .
 
-RUN bun run build
+RUN deno task postinstall && deno task build
 
-FROM nginxinc/nginx-unprivileged:1.29.5-alpine AS runtime
+FROM denoland/deno:alpine-2.8.0 AS runner
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=builder --chown=101:101 /workspace/dist /usr/share/nginx/html
+WORKDIR /app
 
-USER 101
+ENV NODE_ENV=production
+ENV HOST=0.0.0.0
+ENV PORT=8080
+
+COPY --from=builder /workspace/.output/ ./
+
 EXPOSE 8080
+
+HEALTHCHECK --interval=10s --timeout=3s --retries=20 CMD ["wget", "-q", "--spider", "http://127.0.0.1:8080/readyz"]
+
+CMD ["task", "start"]

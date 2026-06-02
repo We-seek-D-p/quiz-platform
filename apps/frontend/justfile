@@ -1,38 +1,41 @@
-set dotenv-load := true
+set dotenv-load
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 
-# List recipes
 [private]
 [default]
 default:
     @just --list --unsorted
 
-# Install service dependencies
 install:
-    bun install
+    deno install --frozen
+    deno task postinstall
 
-# Fix frontend issues
 fix:
-    bun run lint:fix
+    deno fmt
+    deno run -A npm:eslint . --fix
 
-# Format frontend code
 fmt:
-    bun run format
+    deno fmt
 
-# Check frontend format
 fmt-check:
-    bun run format:check
+    deno fmt --check
 
-# Lint frontend code
 lint:
-    bun run lint
+    deno lint
+    deno run -A npm:eslint .
 
-# Run frontend tests
 test:
     @echo "Frontend tests are not added yet"
 
-# Check frontend code
-check: fmt-check lint test
+check:
+    deno fmt --check
+    deno lint
+    deno run -A npm:eslint .
 
-# Run all frontend tasks
+build:
+    deno task build
+
+run:
+    deno task dev
+
 all: fix fmt lint test

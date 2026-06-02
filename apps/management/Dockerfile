@@ -38,4 +38,5 @@ RUN chmod +x docker/app-entrypoint.sh
 USER svc
 
 EXPOSE 8000
+HEALTHCHECK --interval=10s --timeout=3s --retries=20 CMD ["python", "docker/healthcheck.py", "http://127.0.0.1:8000/readyz"]
 ENTRYPOINT ["./docker/app-entrypoint.sh"]

@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"crypto/subtle"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -14,19 +15,33 @@ const (
 	InternalTokenHeader   = "X-Internal-Token"
 )
 
-func InternalAuth(cfg config.Internal) func(http.Handler) http.Handler {
+func InternalAuth(cfg config.Internal, log *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			service := strings.TrimSpace(r.Header.Get(InternalServiceHeader))
 			token := strings.TrimSpace(r.Header.Get(InternalTokenHeader))
 
 			if !cfg.Allows(service) {
-				response.Error(w, http.StatusForbidden, "forbidden", "forbidden")
+				log.WarnContext(
+					r.Context(),
+					"unauthorized service perimeter intrusion attempt blocked",
+					"request_id", RequestIDFromContext(r.Context()),
+					"attempted_service", service,
+					"path", r.URL.Path,
+				)
+				response.Error(w, http.StatusForbidden, "forbidden", "access denied for this service in internal perimeter")
 				return
 			}
 
 			if subtle.ConstantTimeCompare([]byte(token), []byte(cfg.Token)) != 1 {
-				response.Error(w, http.StatusUnauthorized, "unauthorized", "unauthorized")
+				log.WarnContext(
+					r.Context(),
+					"service auth rejected due to token mismatch",
+					"request_id", RequestIDFromContext(r.Context()),
+					"authorized_service", service,
+					"path", r.URL.Path,
+				)
+				response.Error(w, http.StatusUnauthorized, "unauthorized", "invalid internal token")
 				return
 			}
 

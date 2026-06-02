@@ -57,7 +57,7 @@ services:
       dockerfile: Dockerfile
     depends_on:
       management:
-        condition: service_started
+        condition: service_healthy
       redis:
         condition: service_healthy
     env_file:
@@ -67,7 +67,7 @@ services:
 
   frontend:
     build:
-      context: ./apps/frontend-nuxt
+      context: ./apps/frontend
       dockerfile: Dockerfile
     expose:
       - "8080"
@@ -77,10 +77,14 @@ services:
       context: ./infra/nginx
       dockerfile: Dockerfile
     depends_on:
-      - frontend
-      - auth
-      - management
-      - session
+      frontend:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+      management:
+        condition: service_healthy
+      session:
+        condition: service_healthy
     ports:
       - "${NGINX_APP_PORT:-8080}:8080"
 

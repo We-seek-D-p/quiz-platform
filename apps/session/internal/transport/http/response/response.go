@@ -24,3 +24,7 @@ func Error(w http.ResponseWriter, status int, code, message string) {
 		Message: message,
 	})
 }
+
+func NoContent(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusNoContent)
+}

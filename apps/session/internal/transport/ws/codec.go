@@ -9,6 +9,7 @@ type MessageEnvelope struct {
 	Payload json.RawMessage `json:"payload"`
 }
 
+// DecodeEnvelope parses and validates a raw WebSocket message envelope.
 func DecodeEnvelope(raw []byte) (MessageEnvelope, error) {
 	var envelope MessageEnvelope
 
@@ -23,18 +24,22 @@ func DecodeEnvelope(raw []byte) (MessageEnvelope, error) {
 	return envelope, nil
 }
 
+// EncodeEnvelope wraps a typed payload into the common WebSocket envelope.
 func EncodeEnvelope(messageType string, payload any) ([]byte, error) {
-	envelope := MessageEnvelope{Type: messageType, Payload: nil}
-
 	encodedPayload, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
 	}
-	envelope.Payload = encodedPayload
+
+	envelope := MessageEnvelope{
+		Type:    messageType,
+		Payload: encodedPayload,
+	}
 
 	return json.Marshal(envelope)
 }
 
+// validateEnvelope verifies the common message envelope shape.
 func validateEnvelope(envelope MessageEnvelope) error {
 	if envelope.Type == "" {
 		return NewWSError(ErrCodeInvalidEnvelope, "message type is required")

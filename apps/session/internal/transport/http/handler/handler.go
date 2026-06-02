@@ -26,7 +26,7 @@ func NewInternalSessionHandler(service *session.Service) *InternalSessionHandler
 }
 
 func (h *InternalSessionHandler) InitSession(w http.ResponseWriter, r *http.Request) {
-	sessionID := strings.TrimSpace(chi.URLParam(r, "session_id"))
+	sessionID := sessionIDFromRequest(r)
 	if sessionID == "" {
 		response.Error(w, http.StatusBadRequest, "invalid_payload", "invalid payload")
 		return
@@ -39,20 +39,12 @@ func (h *InternalSessionHandler) InitSession(w http.ResponseWriter, r *http.Requ
 	}
 
 	var req dto.InitSessionRequest
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-
-	if err := decoder.Decode(&req); err != nil {
+	if err := decodeJSONBody(r, &req); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid_payload", "invalid payload")
 		return
 	}
 
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		response.Error(w, http.StatusBadRequest, "invalid_payload", "invalid payload")
-		return
-	}
-
-	if strings.TrimSpace(req.QuizID) == "" || strings.TrimSpace(req.HostID) == "" || req.CreatedAt.IsZero() {
+	if err := req.Validate(); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid_payload", "invalid payload")
 		return
 	}
@@ -78,7 +70,7 @@ func (h *InternalSessionHandler) InitSession(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *InternalSessionHandler) GetSessionRuntime(w http.ResponseWriter, r *http.Request) {
-	sessionID := strings.TrimSpace(chi.URLParam(r, "session_id"))
+	sessionID := sessionIDFromRequest(r)
 	if sessionID == "" {
 		response.Error(w, http.StatusBadRequest, "invalid_payload", "invalid payload")
 		return
@@ -94,7 +86,7 @@ func (h *InternalSessionHandler) GetSessionRuntime(w http.ResponseWriter, r *htt
 }
 
 func (h *InternalSessionHandler) DeleteSessionRuntime(w http.ResponseWriter, r *http.Request) {
-	sessionID := strings.TrimSpace(chi.URLParam(r, "session_id"))
+	sessionID := sessionIDFromRequest(r)
 	if sessionID == "" {
 		response.Error(w, http.StatusBadRequest, "invalid_payload", "invalid payload")
 		return
@@ -106,7 +98,26 @@ func (h *InternalSessionHandler) DeleteSessionRuntime(w http.ResponseWriter, r *
 		return
 	}
 
-	response.JSON(w, http.StatusNoContent, nil)
+	response.NoContent(w)
+}
+
+func decodeJSONBody(r *http.Request, dst any) error {
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+
+	if err := decoder.Decode(dst); err != nil {
+		return err
+	}
+
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return errors.New("unexpected trailing data")
+	}
+
+	return nil
+}
+
+func sessionIDFromRequest(r *http.Request) string {
+	return strings.TrimSpace(chi.URLParam(r, "session_id"))
 }
 
 func mapRuntimeToResponse(runtime domain.SessionRuntime) dto.SessionRuntimeResponse {

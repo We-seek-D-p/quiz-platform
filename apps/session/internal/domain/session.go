@@ -3,14 +3,15 @@ package domain
 import "time"
 
 type RuntimeStatus string
-
 type PersistedStatus string
+type FinishReason string
 
 const (
-	RuntimeStatusLobby        RuntimeStatus = "lobby"
-	RuntimeStatusQuestionOpen RuntimeStatus = "question_open"
-	RuntimeStatusAnswerReveal RuntimeStatus = "answer_reveal"
-	RuntimeStatusFinished     RuntimeStatus = "finished"
+	RuntimeStatusLobby             RuntimeStatus = "lobby"
+	RuntimeStatusQuestionOpen      RuntimeStatus = "question_open"
+	RuntimeStatusAnswerReveal      RuntimeStatus = "answer_reveal"
+	RuntimeStatusLeaderboardReveal RuntimeStatus = "leaderboard_reveal"
+	RuntimeStatusFinished          RuntimeStatus = "finished"
 )
 
 const (
@@ -21,6 +22,11 @@ const (
 	PersistedStatusInitFailed   PersistedStatus = "init_failed"
 )
 
+const (
+	FinishReasonCompleted FinishReason = "completed"
+	FinishReasonManual    FinishReason = "manual"
+)
+
 type SessionRuntime struct {
 	SessionID     string
 	QuizID        string
@@ -29,6 +35,32 @@ type SessionRuntime struct {
 	Status        RuntimeStatus
 	InitializedAt time.Time
 	Progress      RuntimeProgress
+}
+
+func (r SessionRuntime) CanTransitionTo(next RuntimeStatus) bool {
+	if r.Status == next {
+		return true
+	}
+
+	// Any active state can be forcefully terminated by host
+	if next == RuntimeStatusFinished {
+		return true
+	}
+
+	switch r.Status {
+	case RuntimeStatusLobby:
+		return next == RuntimeStatusQuestionOpen
+	case RuntimeStatusQuestionOpen:
+		return next == RuntimeStatusAnswerReveal
+	case RuntimeStatusAnswerReveal:
+		return next == RuntimeStatusLeaderboardReveal
+	case RuntimeStatusLeaderboardReveal:
+		return next == RuntimeStatusQuestionOpen
+	case RuntimeStatusFinished:
+		return false
+	default:
+		return false
+	}
 }
 
 type RuntimeProgress struct {
@@ -49,7 +81,7 @@ type SessionBootstrap struct {
 	SessionID string
 	QuizID    string
 	HostID    string
-	Status    string
+	Status    PersistedStatus
 	Quiz      QuizSnapshot
 }
 
@@ -61,7 +93,7 @@ type SessionStatusUpdate struct {
 
 type SessionResults struct {
 	EventID      string
-	FinishReason string
+	FinishReason FinishReason
 	FinishedAt   time.Time
 	Participants []SessionResultParticipant
 }
