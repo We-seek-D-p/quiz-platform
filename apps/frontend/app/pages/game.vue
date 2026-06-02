@@ -233,6 +233,7 @@ useHead({
           v-if="!showLoader && sessionStore.phase !== 'lobby' && sessionStore.phase !== 'finished'"
           :label="timerLabel"
           :progress="timerProgress"
+          :show-progress="sessionStore.phase === 'question_open'"
           class="mt-3 mb-4"
         />
 
@@ -281,7 +282,7 @@ useHead({
               @click="toggleOption(option.id)"
             >
               <span>{{ option.text }}</span>
-              <span class="option-control" @pointerdown.stop.prevent @mousedown.stop.prevent @click.stop.prevent>
+              <span class="option-control">
                 <RadioButton
                   v-if="currentQuestion.selection_type === 'single'"
                   :model-value="sessionStore.selectedOptionIds[0] ?? null"
