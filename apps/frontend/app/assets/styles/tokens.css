@@ -13,9 +13,14 @@
   --app-bg-color: var(--p-surface-0, #ffffff);
 
   --app-topbar-height: 3.5rem;
+  --app-topbar-padding-x: clamp(0.75rem, 2vw, 1.25rem);
   --app-control-radius: var(--p-border-radius, 0.5rem);
   --app-sidebar-width: 16rem;
   --app-sidebar-collapse-offset: 0.75rem;
+  --app-card-narrow: 28rem;
+  --app-card-wide: 72rem;
+  --app-page-padding: clamp(1rem, 3vw, 2rem);
+  --app-page-gap: 1.25rem;
   --app-transition-fast: 200ms ease;
 }
 
