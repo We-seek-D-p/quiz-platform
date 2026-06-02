@@ -38,6 +38,9 @@ func NewRouter(
 
 	r.Get("/api/v1/ws/host", wsHandler.Host)
 	r.Get("/api/v1/ws/player", wsHandler.Player)
+	r.Get("/api/v1/ws/ping", wsHandler.Ping)
+	r.Get("/api/v1/ws/rooms/{room_code}/liveness", wsHandler.CheckRoomLiveness)
+	r.Get("/api/v1/ws/sessions/{session_id}/liveness", wsHandler.CheckSessionLiveness)
 
 	r.Route("/internal/v1", func(r chi.Router) {
 		r.Use(middleware.InternalAuth(cfg.Internal, log))

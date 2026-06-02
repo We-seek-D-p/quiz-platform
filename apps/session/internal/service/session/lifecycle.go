@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/domain"
@@ -98,4 +99,38 @@ func (s *Service) DeleteSessionRuntime(ctx context.Context, cmd DeleteSessionRun
 	}
 
 	return nil
+}
+
+// CheckSessionLiveness verifies that a session exists and still accepts socket clients.
+func (s *Service) CheckSessionLiveness(ctx context.Context, sessionID string) error {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return domain.NewInvalidInput("invalid_payload", "session_id is required", nil)
+	}
+
+	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+
+	if snapshot.Runtime.Status == domain.RuntimeStatusFinished {
+		return domain.NewConflict("game_already_finished", "game is already finished", nil)
+	}
+
+	return nil
+}
+
+// CheckRoomLiveness resolves a room code and verifies that its session is active.
+func (s *Service) CheckRoomLiveness(ctx context.Context, roomCode string) error {
+	roomCode = strings.TrimSpace(roomCode)
+	if roomCode == "" {
+		return domain.NewInvalidInput("invalid_payload", "room_code is required", nil)
+	}
+
+	sessionID, err := s.roomCodeRepository.GetSessionID(ctx, roomCode)
+	if err != nil {
+		return err
+	}
+
+	return s.CheckSessionLiveness(ctx, sessionID)
 }

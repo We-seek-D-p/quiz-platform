@@ -14,6 +14,7 @@ import (
 const (
 	outboundBufferSize = 16
 	writeTimeout       = 4 * time.Second
+	pingInterval       = 20 * time.Second
 )
 
 type ConnectionRole string
@@ -209,8 +210,11 @@ func (c *Connection) WriteError(code, message string) {
 	}
 }
 
-// writeLoop drains outbound messages with a per-frame write timeout.
+// writeLoop drains outbound messages and keeps idle connections alive.
 func (c *Connection) writeLoop() {
+	ticker := time.NewTicker(pingInterval)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case <-c.ctx.Done():
@@ -225,6 +229,16 @@ func (c *Connection) writeLoop() {
 					c.log.WarnContext(c.ctx, "websocket write failed", "connection_id", c.connectionID, "role", c.bootstrap.Role, "error", err)
 				}
 				c.close(websocket.StatusInternalError, "write operation timed out")
+				return
+			}
+		case <-ticker.C:
+			pingCtx, cancel := context.WithTimeout(c.ctx, writeTimeout)
+			err := c.conn.Ping(pingCtx)
+			cancel()
+
+			if err != nil {
+				c.log.DebugContext(c.ctx, "websocket ping failed", "connection_id", c.connectionID, "role", c.bootstrap.Role, "error", err)
+				c.close(websocket.StatusInternalError, "ping timeout")
 				return
 			}
 		}
