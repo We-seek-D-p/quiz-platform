@@ -143,11 +143,21 @@ const reorderQuestionOptions = (question: QuestionDraft): void => {
   }))
 }
 
+const normalizeDraftOrder = (): void => {
+  reorderQuestions()
+  quiz.value.questions.forEach((question) => reorderQuestionOptions(question))
+}
+
 const handleQuestionDragEnd = (): void => {
   reorderQuestions()
 }
 
-const handleOptionDragEnd = (question: QuestionDraft): void => {
+const handleOptionDragEnd = (questionLocalId: string): void => {
+  const question = quiz.value.questions.find((candidate) => candidate.localId === questionLocalId)
+  if (!question) {
+    return
+  }
+
   reorderQuestionOptions(question)
 }
 
@@ -255,6 +265,21 @@ const buildQuestionUpdatePayload = (question: QuestionDraft): QuestionUpdate => 
   }
 }
 
+const buildQuestionReorderPayload = (question: QuestionDraft, orderIndex: number): QuestionUpdate => {
+  return {
+    text: question.text,
+    selection_type: question.selection_type,
+    time_limit_seconds: question.time_limit_seconds,
+    order_index: orderIndex,
+    options: question.options.map((option) => ({
+      id: option.id,
+      text: option.text,
+      order_index: option.order_index,
+      is_correct: option.is_correct,
+    })),
+  }
+}
+
 const hasUnsavedChanges = computed(() => {
   return serializeDraft(quiz.value) !== initialSnapshot.value
 })
@@ -296,6 +321,8 @@ const loadQuiz = async (): Promise<void> => {
         .sort((left, right) => left.order_index - right.order_index)
         .map((question) => toDraftQuestion(question)),
     }
+
+    normalizeDraftOrder()
 
     initialQuestionIds.value = new Set(
       quiz.value.questions
@@ -402,12 +429,24 @@ const handleSave = async (): Promise<void> => {
       await managementApi.deleteQuestion(targetQuizId, deletedQuestionId)
     }
 
+    const existingQuestions = normalizedQuestions.filter((question): question is QuestionDraft & { id: string } => {
+      return Boolean(question.id)
+    })
+
+    for (const [index, question] of existingQuestions.entries()) {
+      await managementApi.updateQuestion(targetQuizId, question.id, buildQuestionReorderPayload(question, 1_000_000 + index))
+    }
+
+    for (const question of existingQuestions) {
+      await managementApi.updateQuestion(targetQuizId, question.id, buildQuestionUpdatePayload(question))
+    }
+
     for (const question of normalizedQuestions) {
       if (question.id) {
-        await managementApi.updateQuestion(targetQuizId, question.id, buildQuestionUpdatePayload(question))
-      } else {
-        await managementApi.createQuestion(targetQuizId, buildQuestionCreatePayload(question))
+        continue
       }
+
+      await managementApi.createQuestion(targetQuizId, buildQuestionCreatePayload(question))
     }
 
     toast.add({
@@ -521,7 +560,7 @@ useHead({
               class="flex flex-col gap-2"
               handle=".question-card__option-handle"
               :animation="150"
-              @end="handleOptionDragEnd(question)"
+              @end="handleOptionDragEnd(question.localId)"
             >
               <div
                 v-for="option in question.options"

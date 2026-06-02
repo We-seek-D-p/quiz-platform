@@ -26,7 +26,7 @@ export function usePhaseTimer(options: UsePhaseTimerOptions) {
       return options.deadlineAt.value
     }
 
-    if (options.phase.value === 'answer_reveal') {
+    if (options.phase.value === 'answer_reveal' || options.phase.value === 'leaderboard_reveal') {
       return options.revealUntil.value
     }
 
@@ -38,7 +38,10 @@ export function usePhaseTimer(options: UsePhaseTimerOptions) {
       return options.questionTimeLimitSeconds.value * 1000
     }
 
-    if (options.phase.value === 'answer_reveal' && options.revealDurationSec.value) {
+    if (
+      (options.phase.value === 'answer_reveal' || options.phase.value === 'leaderboard_reveal') &&
+      options.revealDurationSec.value
+    ) {
       return options.revealDurationSec.value * 1000
     }
 

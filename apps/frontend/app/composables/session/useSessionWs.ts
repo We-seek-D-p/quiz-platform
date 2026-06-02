@@ -16,11 +16,17 @@ const DEFAULT_MAX_RECONNECT_ATTEMPTS = 8
 const DEFAULT_RECONNECT_DELAY_MS = 800
 
 export async function checkSessionConnectionState(): Promise<boolean> {
-  if (!import.meta.client || typeof navigator === 'undefined') {
+  if (!import.meta.client) {
     return true
   }
 
-  return navigator.onLine
+  const config = useRuntimeConfig()
+  const response = await fetch(config.public.sessionWsPingPath, {
+    cache: 'no-store',
+    credentials: 'same-origin',
+  }).catch(() => null)
+
+  return response?.ok ?? false
 }
 
 function resolveWebSocketUrl(mode: SessionWsMode): string {

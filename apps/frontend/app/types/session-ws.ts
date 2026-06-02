@@ -1,4 +1,4 @@
-export type SessionPhase = 'lobby' | 'question_open' | 'answer_reveal' | 'finished'
+export type SessionPhase = 'lobby' | 'question_open' | 'answer_reveal' | 'leaderboard_reveal' | 'finished'
 
 export type SessionRole = 'host' | 'player'
 
@@ -42,6 +42,7 @@ export interface SessionSnapshotPayload {
   reveal_until?: string
   reveal_duration_sec?: number
   leaderboard_top?: LeaderboardEntryView[]
+  correct_option_ids?: string[]
 }
 
 export interface LobbyUpdatedPayload {
@@ -97,6 +98,15 @@ export interface QuestionRevealHostPayload {
   reveal_until: string
 }
 
+export interface LeaderboardRevealPayload {
+  question_id: string
+  leaderboard_top: LeaderboardEntryView[]
+  reveal_duration_sec: number
+  reveal_until: string
+  your_score?: number
+  your_rank?: number
+}
+
 export interface SessionFinishedPayload {
   leaderboard_top: LeaderboardEntryView[]
 }
@@ -115,5 +125,6 @@ export type SessionServerMessage =
   | WsEnvelope<AnswerAcceptedPayload>
   | WsEnvelope<AnswerRevealPayload>
   | WsEnvelope<QuestionRevealHostPayload>
+  | WsEnvelope<LeaderboardRevealPayload>
   | WsEnvelope<SessionFinishedPayload>
   | WsEnvelope<WsErrorPayload>
