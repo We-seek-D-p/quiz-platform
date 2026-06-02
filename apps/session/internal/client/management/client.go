@@ -239,7 +239,7 @@ func (c *Client) newRequest(ctx context.Context, method, path string, payload an
 }
 
 func (c *Client) do(req *http.Request) (*http.Response, error) {
-	resp, err := c.httpClient.Do(req) // #nosec G107 -- trusted internal service call to configured Management base URL
+	resp, err := c.httpClient.Do(req) // #nosec G704 -- trusted internal service call to configured Management base URL
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrUpstreamUnavailable, err)
 	}

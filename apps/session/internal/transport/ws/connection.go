@@ -49,7 +49,7 @@ type Connection struct {
 }
 
 func NewConnection(parent context.Context, conn *websocket.Conn, log *slog.Logger, readLimit int64, bootstrap BootstrapData) *Connection {
-	ctx, cancel := context.WithCancel(parent)
+	ctx, cancel := context.WithCancel(parent) // #nosec G118 -- cancel is owned by Connection.close and called on lifecycle shutdown
 
 	return &Connection{
 		conn:         conn,
