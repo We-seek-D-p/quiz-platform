@@ -27,7 +27,11 @@ class QuizRepository:
         return result.first()
 
     async def get_by_owner_id(self, owner_id: UUID) -> Sequence[Quiz]:
-        statement = select(Quiz).where(Quiz.owner_id == owner_id).order_by(Quiz.created_at.desc())
+        statement = (
+            select(Quiz)
+            .where(Quiz.owner_id == owner_id, Quiz.deleted_at == None)  # noqa: E711
+            .order_by(Quiz.created_at.desc())
+        )
         result = await self.db.exec(statement)
         return result.all()
 
