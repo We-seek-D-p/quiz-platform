@@ -345,7 +345,7 @@ useHead({
           </div>
         </SessionRevealPanel>
 
-        <SessionFinishedPanel v-else-if="sessionStore.phase === 'finished'" :entries="sessionStore.leaderboardTop" />
+        <SessionRevealPanel v-else-if="sessionStore.phase === 'finished'" phase="finished" :entries="sessionStore.leaderboardTop" />
       </template>
     </Card>
   </section>
