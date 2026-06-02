@@ -4,16 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/domain"
 	goredis "github.com/redis/go-redis/v9"
 )
-
-const participantCreateMaxRetries = 5
-const participantUpdateMaxRetries = 5
 
 type ParticipantRepository struct {
 	client *goredis.Client
@@ -27,6 +24,7 @@ func (r *ParticipantRepository) Create(ctx context.Context, sessionID string, pa
 	participantsKey := sessionParticipantsKey(sessionID)
 	tokenIndexKey := sessionParticipantTokenIndexKey(sessionID)
 	nicknameIndexKey := sessionParticipantNicknameIndexKey(sessionID)
+	leaderboardKey := sessionLeaderboardKey(sessionID)
 
 	if err := validateNickname(participant.Nickname); err != nil {
 		return err
@@ -35,61 +33,17 @@ func (r *ParticipantRepository) Create(ctx context.Context, sessionID string, pa
 	nicknameKey := canonicalNicknameKey(participant.Nickname)
 	payload, err := json.Marshal(participant)
 	if err != nil {
-		return fmt.Errorf("marshal participant: %w", err)
+		return errSerializationFailure("failed to marshal participant", err)
 	}
 
-	for attempt := 0; attempt < participantCreateMaxRetries; attempt++ {
-		err = r.client.Watch(ctx, func(tx *goredis.Tx) error {
-			nicknameExists, err := tx.HExists(ctx, nicknameIndexKey, nicknameKey).Result()
-			if err != nil {
-				return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
-			}
-			if nicknameExists {
-				return ErrNicknameTaken
-			}
-
-			tokenExists, err := tx.HExists(ctx, tokenIndexKey, participant.ParticipantToken).Result()
-			if err != nil {
-				return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
-			}
-			if tokenExists {
-				return ErrParticipantConflict
-			}
-
-			participantExists, err := tx.HExists(ctx, participantsKey, participant.ParticipantID).Result()
-			if err != nil {
-				return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
-			}
-			if participantExists {
-				return ErrParticipantConflict
-			}
-
-			_, err = tx.TxPipelined(ctx, func(pipe goredis.Pipeliner) error {
-				pipe.HSet(ctx, participantsKey, participant.ParticipantID, payload)
-				pipe.HSet(ctx, tokenIndexKey, participant.ParticipantToken, participant.ParticipantID)
-				pipe.HSet(ctx, nicknameIndexKey, nicknameKey, participant.ParticipantID)
-				return nil
-			})
-
-			return err
-		}, participantsKey, tokenIndexKey, nicknameIndexKey)
-
-		if err == nil {
-			return nil
-		}
-
-		if errors.Is(err, ErrNicknameTaken) || errors.Is(err, ErrParticipantConflict) || errors.Is(err, ErrRedisUnavailable) {
-			return err
-		}
-
-		if errors.Is(err, goredis.TxFailedErr) {
-			continue
-		}
-
-		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+	keys := []string{participantsKey, tokenIndexKey, nicknameIndexKey, leaderboardKey}
+	args := []any{participant.ParticipantID, participant.ParticipantToken, nicknameKey, string(payload)}
+	res, err := joinParticipantScript.Run(ctx, r.client, keys, args...).Result()
+	if err != nil {
+		return errRuntimeStoreUnavailable(err)
 	}
 
-	return fmt.Errorf("%w: participant create retries exceeded", ErrRedisUnavailable)
+	return mapParticipantScriptStatus(res)
 }
 
 func (r *ParticipantRepository) GetByToken(ctx context.Context, sessionID, participantToken string) (domain.RuntimeParticipant, error) {
@@ -98,10 +52,10 @@ func (r *ParticipantRepository) GetByToken(ctx context.Context, sessionID, parti
 	participantID, err := r.client.HGet(ctx, tokenIndexKey, participantToken).Result()
 	if err != nil {
 		if errors.Is(err, goredis.Nil) {
-			return domain.RuntimeParticipant{}, ErrParticipantNotFound
+			return domain.RuntimeParticipant{}, errParticipantNotFound(err)
 		}
 
-		return domain.RuntimeParticipant{}, fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return domain.RuntimeParticipant{}, errRuntimeStoreUnavailable(err)
 	}
 
 	return r.GetByID(ctx, sessionID, participantID)
@@ -119,10 +73,10 @@ func (r *ParticipantRepository) GetByNickname(ctx context.Context, sessionID, ni
 	participantID, err := r.client.HGet(ctx, nicknameIndexKey, nicknameKey).Result()
 	if err != nil {
 		if errors.Is(err, goredis.Nil) {
-			return domain.RuntimeParticipant{}, ErrParticipantNotFound
+			return domain.RuntimeParticipant{}, errParticipantNotFound(err)
 		}
 
-		return domain.RuntimeParticipant{}, fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return domain.RuntimeParticipant{}, errRuntimeStoreUnavailable(err)
 	}
 
 	return r.GetByID(ctx, sessionID, participantID)
@@ -134,10 +88,10 @@ func (r *ParticipantRepository) GetByID(ctx context.Context, sessionID, particip
 	payload, err := r.client.HGet(ctx, participantsKey, participantID).Result()
 	if err != nil {
 		if errors.Is(err, goredis.Nil) {
-			return domain.RuntimeParticipant{}, ErrParticipantNotFound
+			return domain.RuntimeParticipant{}, errParticipantNotFound(err)
 		}
 
-		return domain.RuntimeParticipant{}, fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return domain.RuntimeParticipant{}, errRuntimeStoreUnavailable(err)
 	}
 
 	participant, err := unmarshalParticipant(payload)
@@ -153,7 +107,7 @@ func (r *ParticipantRepository) List(ctx context.Context, sessionID string) ([]d
 
 	payloads, err := r.client.HVals(ctx, participantsKey).Result()
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return nil, errRuntimeStoreUnavailable(err)
 	}
 
 	participants := make([]domain.RuntimeParticipant, 0, len(payloads))
@@ -179,7 +133,7 @@ func (r *ParticipantRepository) SetConnected(ctx context.Context, sessionID, par
 	now := time.Now().UTC()
 	participant.LastSeenAt = &now
 
-	return r.update(ctx, sessionID, participant)
+	return r.update(ctx, sessionID, participant, false)
 }
 
 func (r *ParticipantRepository) UpdateScoreAndRank(ctx context.Context, sessionID, participantID string, score, rank int) error {
@@ -191,62 +145,37 @@ func (r *ParticipantRepository) UpdateScoreAndRank(ctx context.Context, sessionI
 	participant.Score = score
 	participant.Rank = rank
 
-	return r.update(ctx, sessionID, participant)
+	return r.update(ctx, sessionID, participant, true)
 }
 
-func (r *ParticipantRepository) update(ctx context.Context, sessionID string, participant domain.RuntimeParticipant) error {
+func (r *ParticipantRepository) update(ctx context.Context, sessionID string, participant domain.RuntimeParticipant, updateLeaderboard bool) error {
 	participantsKey := sessionParticipantsKey(sessionID)
 	leaderboardKey := sessionLeaderboardKey(sessionID)
 
 	payload, err := json.Marshal(participant)
 	if err != nil {
-		return fmt.Errorf("marshal participant: %w", err)
+		return errSerializationFailure("failed to marshal participant", err)
 	}
 
-	for attempt := 0; attempt < participantUpdateMaxRetries; attempt++ {
-		err = r.client.Watch(ctx, func(tx *goredis.Tx) error {
-			exists, err := tx.HExists(ctx, participantsKey, participant.ParticipantID).Result()
-			if err != nil {
-				return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
-			}
-			if !exists {
-				return ErrParticipantNotFound
-			}
-
-			_, err = tx.TxPipelined(ctx, func(pipe goredis.Pipeliner) error {
-				pipe.HSet(ctx, participantsKey, participant.ParticipantID, payload)
-				pipe.ZAdd(ctx, leaderboardKey, goredis.Z{
-					Score:  float64(participant.Score),
-					Member: participant.ParticipantID,
-				})
-				return nil
-			})
-
-			return err
-		}, participantsKey, leaderboardKey)
-
-		if err == nil {
-			return nil
-		}
-
-		if errors.Is(err, ErrParticipantNotFound) || errors.Is(err, ErrRedisUnavailable) {
-			return err
-		}
-
-		if errors.Is(err, goredis.TxFailedErr) {
-			continue
-		}
-
-		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+	updateLeaderboardFlag := "0"
+	if updateLeaderboard {
+		updateLeaderboardFlag = "1"
 	}
 
-	return fmt.Errorf("%w: participant update retries exceeded", ErrRedisUnavailable)
+	keys := []string{participantsKey, leaderboardKey}
+	args := []any{participant.ParticipantID, string(payload), strconv.Itoa(participant.Score), updateLeaderboardFlag}
+	res, err := updateParticipantScript.Run(ctx, r.client, keys, args...).Result()
+	if err != nil {
+		return errRuntimeStoreUnavailable(err)
+	}
+
+	return mapParticipantScriptStatus(res)
 }
 
 func unmarshalParticipant(payload string) (domain.RuntimeParticipant, error) {
 	var participant domain.RuntimeParticipant
 	if err := json.Unmarshal([]byte(payload), &participant); err != nil {
-		return domain.RuntimeParticipant{}, fmt.Errorf("unmarshal participant: %w", err)
+		return domain.RuntimeParticipant{}, errSerializationFailure("failed to unmarshal participant", err)
 	}
 
 	return participant, nil
@@ -255,10 +184,30 @@ func unmarshalParticipant(payload string) (domain.RuntimeParticipant, error) {
 func validateNickname(nickname string) error {
 	n := strings.TrimSpace(nickname)
 	if len(n) > 64 || len(n) < 2 {
-		return ErrInvalidNickname
+		return errInvalidNickname(nil)
 	}
 
 	return nil
+}
+
+func mapParticipantScriptStatus(result any) error {
+	status, ok := result.(string)
+	if !ok {
+		return errSerializationFailure("unexpected redis script response", nil)
+	}
+
+	switch status {
+	case scriptStatusOK:
+		return nil
+	case scriptErrNicknameTaken:
+		return errNicknameTaken(nil)
+	case scriptErrParticipantConflict:
+		return errParticipantConflict(nil)
+	case scriptErrParticipantNotFound:
+		return errParticipantNotFound(nil)
+	default:
+		return errSerializationFailure("unexpected redis script status", nil)
+	}
 }
 
 func canonicalNicknameKey(nickname string) string {

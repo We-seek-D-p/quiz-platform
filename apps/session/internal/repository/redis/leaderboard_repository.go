@@ -3,7 +3,6 @@ package redis
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/domain"
 	goredis "github.com/redis/go-redis/v9"
@@ -22,7 +21,7 @@ func (r *LeaderboardRepository) AddScore(ctx context.Context, sessionID, partici
 
 	score, err := r.client.ZIncrBy(ctx, key, float64(delta), participantID).Result()
 	if err != nil {
-		return 0, fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return 0, errRuntimeStoreUnavailable(err)
 	}
 
 	return int(score), nil
@@ -32,7 +31,7 @@ func (r *LeaderboardRepository) SetScore(ctx context.Context, sessionID, partici
 	key := sessionLeaderboardKey(sessionID)
 
 	if err := r.client.ZAdd(ctx, key, goredis.Z{Score: float64(score), Member: participantID}).Err(); err != nil {
-		return fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return errRuntimeStoreUnavailable(err)
 	}
 
 	return nil
@@ -44,10 +43,10 @@ func (r *LeaderboardRepository) GetScore(ctx context.Context, sessionID, partici
 	score, err := r.client.ZScore(ctx, key, participantID).Result()
 	if err != nil {
 		if errors.Is(err, goredis.Nil) {
-			return 0, ErrLeaderboardEntryNotFound
+			return 0, errParticipantNotFound(err)
 		}
 
-		return 0, fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return 0, errRuntimeStoreUnavailable(err)
 	}
 
 	return int(score), nil
@@ -59,10 +58,10 @@ func (r *LeaderboardRepository) GetRank(ctx context.Context, sessionID, particip
 	rank, err := r.client.ZRevRank(ctx, key, participantID).Result()
 	if err != nil {
 		if errors.Is(err, goredis.Nil) {
-			return 0, ErrLeaderboardEntryNotFound
+			return 0, errParticipantNotFound(err)
 		}
 
-		return 0, fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return 0, errRuntimeStoreUnavailable(err)
 	}
 
 	return int(rank) + 1, nil
@@ -76,7 +75,7 @@ func (r *LeaderboardRepository) GetTop(ctx context.Context, sessionID string, li
 	key := sessionLeaderboardKey(sessionID)
 	items, err := r.client.ZRevRangeWithScores(ctx, key, 0, int64(limit-1)).Result()
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrRedisUnavailable, err)
+		return nil, errRuntimeStoreUnavailable(err)
 	}
 
 	top := make([]domain.LeaderboardEntry, 0, len(items))

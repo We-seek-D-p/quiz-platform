@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"net/http"
 	"runtime/debug"
+
+	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/http/response"
 )
 
 func Recoverer(log *slog.Logger) func(http.Handler) http.Handler {
@@ -25,7 +27,7 @@ func Recoverer(log *slog.Logger) func(http.Handler) http.Handler {
 					"stack", string(debug.Stack()),
 				)
 
-				http.Error(w, "internal server error", http.StatusInternalServerError)
+				response.Error(w, http.StatusInternalServerError, "internal_error", "internal error")
 			}()
 
 			next.ServeHTTP(w, r)

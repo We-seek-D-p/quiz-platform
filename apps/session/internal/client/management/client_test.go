@@ -3,6 +3,7 @@ package management
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,6 +13,21 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func newTestClient(baseURL string) *Client {
+	return newTestClientWithAttempts(baseURL, 3)
+}
+
+func newTestClientWithAttempts(baseURL string, retryAttempts int) *Client {
+	return &Client{
+		baseURL:       baseURL,
+		token:         "test-token",
+		serviceName:   "test-service",
+		retryAttempts: retryAttempts,
+		httpClient:    &http.Client{Timeout: 5 * time.Second},
+		log:           slog.New(slog.DiscardHandler),
+	}
+}
 
 func TestGetSessionBootstrap(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
@@ -37,12 +53,7 @@ func TestGetSessionBootstrap(t *testing.T) {
 		}))
 		defer server.Close()
 
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
+		repo := newTestClient(server.URL)
 
 		result, err := repo.GetSessionBootstrap(context.Background(), "test-123")
 
@@ -61,12 +72,7 @@ func TestGetSessionBootstrap(t *testing.T) {
 		}))
 		defer server.Close()
 
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
+		repo := newTestClient(server.URL)
 
 		_, err := repo.GetSessionBootstrap(context.Background(), "test-123")
 		require.Error(t, err)
@@ -80,12 +86,7 @@ func TestGetSessionBootstrap(t *testing.T) {
 		}))
 		defer server.Close()
 
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
+		repo := newTestClient(server.URL)
 
 		_, err := repo.GetSessionBootstrap(context.Background(), "999")
 		assert.ErrorIs(t, err, ErrSessionNotFound)
@@ -97,12 +98,7 @@ func TestGetSessionBootstrap(t *testing.T) {
 		}))
 		defer server.Close()
 
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
+		repo := newTestClient(server.URL)
 
 		_, err := repo.GetSessionBootstrap(context.Background(), "123")
 		assert.ErrorIs(t, err, ErrUnauthorized)
@@ -114,12 +110,7 @@ func TestGetSessionBootstrap(t *testing.T) {
 		}))
 		defer server.Close()
 
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
+		repo := newTestClient(server.URL)
 
 		_, err := repo.GetSessionBootstrap(context.Background(), "123")
 		assert.ErrorIs(t, err, ErrForbidden)
@@ -131,12 +122,7 @@ func TestGetSessionBootstrap(t *testing.T) {
 		}))
 		defer server.Close()
 
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
+		repo := newTestClient(server.URL)
 
 		_, err := repo.GetSessionBootstrap(context.Background(), "123")
 		assert.ErrorIs(t, err, ErrUpstreamUnavailable)
@@ -149,12 +135,7 @@ func TestGetSessionBootstrap(t *testing.T) {
 		}))
 		defer server.Close()
 
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
+		repo := newTestClient(server.URL)
 
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
@@ -171,12 +152,7 @@ func TestGetSessionBootstrap(t *testing.T) {
 		}))
 		defer server.Close()
 
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
+		repo := newTestClient(server.URL)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 		defer cancel()
@@ -187,7 +163,7 @@ func TestGetSessionBootstrap(t *testing.T) {
 	})
 }
 
-func testContextDeadline(t *testing.T, name string, fn func(ctx context.Context, repo *Repository) error) {
+func testContextDeadline(t *testing.T, name string, fn func(ctx context.Context, repo *Client) error) {
 	t.Run(name, func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			time.Sleep(100 * time.Millisecond)
@@ -195,12 +171,7 @@ func testContextDeadline(t *testing.T, name string, fn func(ctx context.Context,
 		}))
 		defer server.Close()
 
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
+		repo := newTestClient(server.URL)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 		defer cancel()
@@ -224,12 +195,7 @@ func TestReportSessionStatus(t *testing.T) {
 		}))
 		defer server.Close()
 
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
+		repo := newTestClient(server.URL)
 
 		update := domain.SessionStatusUpdate{
 			Status:  "in_progress",
@@ -249,12 +215,7 @@ func TestReportSessionStatus(t *testing.T) {
 		}))
 		defer server.Close()
 
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
+		repo := newTestClient(server.URL)
 
 		update := domain.SessionStatusUpdate{
 			Status:  "finished",
@@ -272,12 +233,7 @@ func TestReportSessionStatus(t *testing.T) {
 		}))
 		defer server.Close()
 
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
+		repo := newTestClient(server.URL)
 
 		update := domain.SessionStatusUpdate{
 			Status:  "finished",
@@ -294,12 +250,7 @@ func TestReportSessionStatus(t *testing.T) {
 		}))
 		defer server.Close()
 
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
+		repo := newTestClient(server.URL)
 
 		update := domain.SessionStatusUpdate{
 			Status:  "in_progress",
@@ -316,12 +267,7 @@ func TestReportSessionStatus(t *testing.T) {
 		}))
 		defer server.Close()
 
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
+		repo := newTestClient(server.URL)
 
 		update := domain.SessionStatusUpdate{
 			Status:  "in_progress",
@@ -332,7 +278,7 @@ func TestReportSessionStatus(t *testing.T) {
 		assert.ErrorIs(t, err, ErrUpstreamUnavailable)
 	})
 
-	testContextDeadline(t, "context deadline exceeded", func(ctx context.Context, repo *Repository) error {
+	testContextDeadline(t, "context deadline exceeded", func(ctx context.Context, repo *Client) error {
 		update := domain.SessionStatusUpdate{
 			Status:  "in_progress",
 			EventID: "event-123",
@@ -354,12 +300,7 @@ func TestReportSessionResults(t *testing.T) {
 		}))
 		defer server.Close()
 
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
+		repo := newTestClient(server.URL)
 
 		results := domain.SessionResults{
 			EventID:      "event-123",
@@ -380,12 +321,7 @@ func TestReportSessionResults(t *testing.T) {
 		}))
 		defer server.Close()
 
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
+		repo := newTestClient(server.URL)
 
 		results := domain.SessionResults{
 			EventID:      "event-123",
@@ -403,12 +339,7 @@ func TestReportSessionResults(t *testing.T) {
 		}))
 		defer server.Close()
 
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
+		repo := newTestClient(server.URL)
 
 		results := domain.SessionResults{
 			EventID:      "event-123",
@@ -425,12 +356,7 @@ func TestReportSessionResults(t *testing.T) {
 		}))
 		defer server.Close()
 
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
+		repo := newTestClient(server.URL)
 
 		results := domain.SessionResults{
 			EventID:      "event-123",
@@ -447,12 +373,7 @@ func TestReportSessionResults(t *testing.T) {
 		}))
 		defer server.Close()
 
-		repo := &Repository{
-			baseURL:     server.URL,
-			token:       "test-token",
-			serviceName: "test-service",
-			httpClient:  &http.Client{Timeout: 5 * time.Second},
-		}
+		repo := newTestClient(server.URL)
 
 		results := domain.SessionResults{
 			EventID:      "event-123",
@@ -463,7 +384,7 @@ func TestReportSessionResults(t *testing.T) {
 		assert.ErrorIs(t, err, ErrUpstreamUnavailable)
 	})
 
-	testContextDeadline(t, "context deadline exceeded", func(ctx context.Context, repo *Repository) error {
+	testContextDeadline(t, "context deadline exceeded", func(ctx context.Context, repo *Client) error {
 		results := domain.SessionResults{
 			EventID:      "event-123",
 			FinishReason: "completed",
@@ -474,11 +395,12 @@ func TestReportSessionResults(t *testing.T) {
 
 func TestNewRequestErrors(t *testing.T) {
 	t.Run("returns error for invalid URL", func(t *testing.T) {
-		repo := &Repository{
+		repo := &Client{
 			baseURL:     "http://invalid\x7furl",
 			token:       "test-token",
 			serviceName: "test-service",
 			httpClient:  &http.Client{Timeout: 5 * time.Second},
+			log:         slog.New(slog.DiscardHandler),
 		}
 
 		ctx := context.Background()

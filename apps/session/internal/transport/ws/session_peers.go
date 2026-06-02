@@ -1,12 +1,12 @@
 package ws
 
 type sessionPeers struct {
-	host    *Connection
-	players map[string]*Connection
+	host    *peerRef
+	players map[string]*peerRef
 }
 
 func newSessionPeers() *sessionPeers {
-	return &sessionPeers{players: make(map[string]*Connection)}
+	return &sessionPeers{players: make(map[string]*peerRef)}
 }
 
 func (s *sessionPeers) isEmpty() bool {

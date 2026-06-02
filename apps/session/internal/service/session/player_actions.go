@@ -2,12 +2,10 @@ package session
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"time"
 
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/domain"
-	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/repository/redis"
 	"github.com/google/uuid"
 )
 
@@ -16,21 +14,21 @@ func (s *Service) HostConnect(ctx context.Context, cmd HostConnectParams) (HostC
 	hostUserID := strings.TrimSpace(cmd.HostUserID)
 
 	if sessionID == "" || hostUserID == "" {
-		return HostConnectResult{}, ErrInvalidParams
+		return HostConnectResult{}, domain.NewInvalidInput("invalid_payload", "invalid payload", nil)
 	}
 
 	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
 	if err != nil {
-		return HostConnectResult{}, s.mapRedisError(err)
+		return HostConnectResult{}, err
 	}
 
 	if snapshot.Runtime.HostID != hostUserID {
-		return HostConnectResult{}, ErrForbidden
+		return HostConnectResult{}, domain.NewForbidden("forbidden", "forbidden", nil)
 	}
 
 	participants, err := s.participantRepository.List(ctx, sessionID)
 	if err != nil {
-		return HostConnectResult{}, s.mapParticipantRepositoryError(err)
+		return HostConnectResult{}, err
 	}
 
 	leaderboardTop, err := s.loadLeaderboardTop(ctx, sessionID, participants, leaderboardTopLimit)
@@ -48,21 +46,21 @@ func (s *Service) PlayerJoin(ctx context.Context, cmd PlayerJoinParams) (PlayerJ
 	nickname := strings.TrimSpace(cmd.Nickname)
 
 	if roomCode == "" || nickname == "" {
-		return PlayerJoinResult{}, ErrInvalidParams
+		return PlayerJoinResult{}, domain.NewInvalidInput("invalid_payload", "invalid payload", nil)
 	}
 
 	sessionID, err := s.roomCodeRepository.GetSessionID(ctx, roomCode)
 	if err != nil {
-		return PlayerJoinResult{}, s.mapRoomCodeError(err)
+		return PlayerJoinResult{}, err
 	}
 
 	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
 	if err != nil {
-		return PlayerJoinResult{}, s.mapRedisError(err)
+		return PlayerJoinResult{}, err
 	}
 
 	if snapshot.Runtime.Status == domain.RuntimeStatusFinished {
-		return PlayerJoinResult{}, ErrGameAlreadyFinished
+		return PlayerJoinResult{}, domain.NewConflict("game_already_finished", "game already finished", nil)
 	}
 
 	pID := uuid.NewString()
@@ -81,21 +79,21 @@ func (s *Service) PlayerJoin(ctx context.Context, cmd PlayerJoinParams) (PlayerJ
 	}
 
 	if err := s.participantRepository.Create(ctx, sessionID, participant); err != nil {
-		return PlayerJoinResult{}, s.mapParticipantRepositoryError(err)
+		return PlayerJoinResult{}, err
 	}
 
 	newScore, err := s.leaderboardRepository.AddScore(ctx, sessionID, pID, 0)
 	if err != nil {
-		return PlayerJoinResult{}, s.mapLeaderboardRepositoryError(err)
+		return PlayerJoinResult{}, err
 	}
 
 	rank, err := s.leaderboardRepository.GetRank(ctx, sessionID, pID)
 	if err != nil {
-		return PlayerJoinResult{}, s.mapLeaderboardRepositoryError(err)
+		return PlayerJoinResult{}, err
 	}
 
 	if err := s.participantRepository.UpdateScoreAndRank(ctx, sessionID, pID, newScore, rank); err != nil {
-		return PlayerJoinResult{}, s.mapParticipantRepositoryError(err)
+		return PlayerJoinResult{}, err
 	}
 
 	participant.Score = newScore
@@ -103,7 +101,7 @@ func (s *Service) PlayerJoin(ctx context.Context, cmd PlayerJoinParams) (PlayerJ
 
 	allParticipants, err := s.participantRepository.List(ctx, sessionID)
 	if err != nil {
-		return PlayerJoinResult{}, s.mapParticipantRepositoryError(err)
+		return PlayerJoinResult{}, err
 	}
 
 	leaderboardTop, err := s.loadLeaderboardTop(ctx, sessionID, allParticipants, leaderboardTopLimit)
@@ -112,14 +110,14 @@ func (s *Service) PlayerJoin(ctx context.Context, cmd PlayerJoinParams) (PlayerJ
 	}
 
 	return PlayerJoinResult{
-		JoinedLobby: JoinedLobbyDTO{
+		JoinedLobby: JoinedLobby{
 			ParticipantID:    pID,
 			ParticipantToken: token,
 			Nickname:         nickname,
 			RoomCode:         roomCode,
 			Status:           string(snapshot.Runtime.Status),
 		},
-		LobbyUpdated: LobbyUpdatedDTO{
+		LobbyUpdated: LobbyUpdated{
 			PlayersCount: len(allParticipants),
 		},
 		SessionSnapshot: s.buildSessionSnapshot(snapshot.Runtime, snapshot.Quiz, allParticipants, leaderboardTop),
@@ -131,35 +129,35 @@ func (s *Service) PlayerReconnect(ctx context.Context, cmd PlayerReconnectParams
 	token := strings.TrimSpace(cmd.ParticipantToken)
 
 	if roomCode == "" || token == "" {
-		return PlayerReconnectResult{}, ErrInvalidParams
+		return PlayerReconnectResult{}, domain.NewInvalidInput("invalid_payload", "invalid payload", nil)
 	}
 
 	sessionID, err := s.roomCodeRepository.GetSessionID(ctx, roomCode)
 	if err != nil {
-		return PlayerReconnectResult{}, s.mapRoomCodeError(err)
+		return PlayerReconnectResult{}, err
 	}
 
 	participant, err := s.participantRepository.GetByToken(ctx, sessionID, token)
 	if err != nil {
-		if errors.Is(err, redis.ErrParticipantNotFound) {
-			return PlayerReconnectResult{}, ErrInvalidParticipantToken
+		if isAppErrorCode(err, "participant_not_found") {
+			return PlayerReconnectResult{}, domain.NewInvalidInput("invalid_participant_token", "invalid participant token", err)
 		}
 
-		return PlayerReconnectResult{}, s.mapParticipantRepositoryError(err)
+		return PlayerReconnectResult{}, err
 	}
 
 	if err := s.participantRepository.SetConnected(ctx, sessionID, participant.ParticipantID, true); err != nil {
-		return PlayerReconnectResult{}, s.mapParticipantRepositoryError(err)
+		return PlayerReconnectResult{}, err
 	}
 
 	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
 	if err != nil {
-		return PlayerReconnectResult{}, s.mapRedisError(err)
+		return PlayerReconnectResult{}, err
 	}
 
 	allParticipants, err := s.participantRepository.List(ctx, sessionID)
 	if err != nil {
-		return PlayerReconnectResult{}, s.mapParticipantRepositoryError(err)
+		return PlayerReconnectResult{}, err
 	}
 
 	leaderboardTop, err := s.loadLeaderboardTop(ctx, sessionID, allParticipants, leaderboardTopLimit)
@@ -173,47 +171,58 @@ func (s *Service) PlayerReconnect(ctx context.Context, cmd PlayerReconnectParams
 	}, nil
 }
 
+// SetParticipantConnected updates runtime presence for a connected player.
+func (s *Service) SetParticipantConnected(ctx context.Context, sessionID, participantID string, connected bool) error {
+	sessionID = strings.TrimSpace(sessionID)
+	participantID = strings.TrimSpace(participantID)
+	if sessionID == "" || participantID == "" {
+		return domain.NewInvalidInput("invalid_payload", "invalid payload", nil)
+	}
+
+	return s.participantRepository.SetConnected(ctx, sessionID, participantID, connected)
+}
+
 func (s *Service) SubmitAnswer(ctx context.Context, cmd SubmitAnswerParams) (SubmitAnswerResult, error) {
 	sessionID := strings.TrimSpace(cmd.SessionID)
 	pID := strings.TrimSpace(cmd.ParticipantID)
 	qID := strings.TrimSpace(cmd.QuestionID)
 
 	if sessionID == "" || pID == "" || qID == "" {
-		return SubmitAnswerResult{}, ErrInvalidParams
+		return SubmitAnswerResult{}, domain.NewInvalidInput("invalid_payload", "invalid payload", nil)
 	}
 	if len(cmd.SelectedOptionIDs) == 0 {
-		return SubmitAnswerResult{}, ErrInvalidAnswerPayload
+		return SubmitAnswerResult{}, domain.NewInvalidInput("invalid_answer_payload", "invalid answer payload", nil)
 	}
 
 	seen := make(map[string]struct{}, len(cmd.SelectedOptionIDs))
 	for _, optionID := range cmd.SelectedOptionIDs {
 		normalized := strings.TrimSpace(optionID)
 		if normalized == "" {
-			return SubmitAnswerResult{}, ErrOptionNotFound
+			return SubmitAnswerResult{}, domain.NewInvalidInput("option_not_in_question", "option not found", nil)
 		}
 		if _, exists := seen[normalized]; exists {
-			return SubmitAnswerResult{}, ErrSelectionCountInvalid
+			return SubmitAnswerResult{}, domain.NewInvalidInput("selection_count_invalid", "selection count invalid", nil)
 		}
 		seen[normalized] = struct{}{}
 	}
 
 	snapshot, err := s.runtimeRepository.GetSnapshot(ctx, sessionID)
 	if err != nil {
-		return SubmitAnswerResult{}, s.mapRedisError(err)
+		return SubmitAnswerResult{}, err
 	}
 
 	if snapshot.Runtime.Status != domain.RuntimeStatusQuestionOpen {
-		return SubmitAnswerResult{}, ErrQuestionNotActive
+		return SubmitAnswerResult{}, domain.NewConflict("question_not_active", "question not active", nil)
 	}
 
 	currIdx := snapshot.Runtime.Progress.CurrentQuestionIndex
 	if currIdx < 0 || currIdx >= len(snapshot.Quiz.Questions) {
-		return SubmitAnswerResult{}, ErrQuestionNotActive
+		return SubmitAnswerResult{}, domain.NewConflict("question_not_active", "question not active", nil)
 	}
 
 	currentQuestion := snapshot.Quiz.Questions[currIdx]
 	if currentQuestion.ID != qID {
-		return SubmitAnswerResult{}, ErrQuestionNotActive
+		return SubmitAnswerResult{}, domain.NewConflict("question_not_active", "question not active", nil)
 	}
 
 	if err := s.validateAnswerPayload(currentQuestion, cmd.SelectedOptionIDs); err != nil {
@@ -221,19 +230,27 @@ func (s *Service) SubmitAnswer(ctx context.Context, cmd SubmitAnswerParams) (Sub
 	}
 
 	if _, err := s.participantRepository.GetByID(ctx, sessionID, pID); err != nil {
-		return SubmitAnswerResult{}, s.mapParticipantRepositoryError(err)
+		return SubmitAnswerResult{}, err
 	}
 
+	now := time.Now().UTC()
 	answer := domain.RuntimeAnswer{
 		ParticipantID:     pID,
 		SelectedOptionIDs: cmd.SelectedOptionIDs,
-		SubmittedAt:       time.Now().UTC(),
+		SubmittedAt:       now,
 	}
 
-	delta := 0
 	result := "wrong"
 	if s.checkIsCorrect(currentQuestion, cmd.SelectedOptionIDs) {
-		delta = 1
+		result = "correct"
+	}
+
+	openedAt := now
+	if snapshot.Runtime.Progress.DeadlineAt != nil {
+		openedAt = snapshot.Runtime.Progress.DeadlineAt.Add(-time.Duration(currentQuestion.TimeLimitSeconds) * time.Second)
+	}
+	delta := domain.CalculatePoints(currentQuestion, cmd.SelectedOptionIDs, openedAt, now)
+	if delta > 0 {
 		result = "correct"
 	}
 
@@ -241,39 +258,39 @@ func (s *Service) SubmitAnswer(ctx context.Context, cmd SubmitAnswerParams) (Sub
 	answer.ScoreDelta = delta
 
 	if err := s.answersRepository.SubmitOnce(ctx, sessionID, qID, answer); err != nil {
-		return SubmitAnswerResult{}, s.mapAnswerRepositoryError(err)
+		return SubmitAnswerResult{}, err
 	}
 
 	newScore, err := s.leaderboardRepository.AddScore(ctx, sessionID, pID, delta)
 	if err != nil {
-		return SubmitAnswerResult{}, s.mapLeaderboardRepositoryError(err)
+		return SubmitAnswerResult{}, err
 	}
 
 	rank, err := s.leaderboardRepository.GetRank(ctx, sessionID, pID)
 	if err != nil {
-		return SubmitAnswerResult{}, s.mapLeaderboardRepositoryError(err)
+		return SubmitAnswerResult{}, err
 	}
 
 	if err := s.participantRepository.UpdateScoreAndRank(ctx, sessionID, pID, newScore, rank); err != nil {
-		return SubmitAnswerResult{}, s.mapParticipantRepositoryError(err)
+		return SubmitAnswerResult{}, err
 	}
 
 	answered, err := s.answersRepository.ListByQuestion(ctx, sessionID, qID)
 	if err != nil {
-		return SubmitAnswerResult{}, s.mapAnswerRepositoryError(err)
+		return SubmitAnswerResult{}, err
 	}
 
 	participants, err := s.participantRepository.List(ctx, sessionID)
 	if err != nil {
-		return SubmitAnswerResult{}, s.mapParticipantRepositoryError(err)
+		return SubmitAnswerResult{}, err
 	}
 
 	return SubmitAnswerResult{
-		AnswerAccepted: AnswerAcceptedDTO{
+		AnswerAccepted: AnswerAccepted{
 			QuestionID: qID,
 			AcceptedAt: answer.SubmittedAt,
 		},
-		HostProgress: &QuestionProgressDTO{
+		HostProgress: &QuestionProgress{
 			QuestionID:    qID,
 			AnsweredCount: len(answered),
 			TotalPlayers:  len(participants),

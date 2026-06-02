@@ -1,6 +1,6 @@
 package ws
 
-type connectionRef struct {
+type peerRef struct {
 	connectionID  string
 	sessionID     string
 	participantID string
@@ -8,12 +8,12 @@ type connectionRef struct {
 	connection    *Connection
 }
 
-func newConnectionRef(conn *Connection) connectionRef {
-	return connectionRef{
+func newPeerRef(conn *Connection, sessionID, participantID string, role ConnectionRole) peerRef {
+	return peerRef{
 		connectionID:  conn.ID(),
-		sessionID:     conn.SessionID(),
-		participantID: conn.ParticipantID(),
-		role:          conn.Role(),
+		sessionID:     sessionID,
+		participantID: participantID,
+		role:          role,
 		connection:    conn,
 	}
 }
