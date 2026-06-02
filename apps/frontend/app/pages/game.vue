@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
 import Card from 'primevue/card'
+import Checkbox from 'primevue/checkbox'
 import Message from 'primevue/message'
+import RadioButton from 'primevue/radiobutton'
+import Tag from 'primevue/tag'
 import { useToast } from 'primevue/usetoast'
 import SessionConnectionBanner from '~/components/session/SessionConnectionBanner.vue'
-import SessionLeaderboard from '~/components/session/SessionLeaderboard.vue'
+import SessionFinishedPanel from '~/components/session/SessionFinishedPanel.vue'
+import SessionRevealPanel from '~/components/session/SessionRevealPanel.vue'
 import SessionTimerBar from '~/components/session/SessionTimerBar.vue'
 import { usePhaseTimer } from '~/composables/session/usePhaseTimer'
 import { useGameSessionStore } from '~/stores/gameSession'
@@ -27,6 +31,7 @@ const isBootstrapping = ref(true)
 const currentQuestion = computed(() => sessionStore.currentQuestion)
 const missingJoinContext = ref(false)
 const hadActiveConnection = ref(false)
+const showLoader = computed(() => isBootstrapping.value || (sessionStore.isConnected && !sessionStore.isSnapshotLoaded))
 
 const selectionTypeLabel = computed(() => {
   const question = currentQuestion.value
@@ -225,13 +230,13 @@ useHead({
         </div>
 
         <SessionTimerBar
-          v-if="!isBootstrapping && sessionStore.phase !== 'lobby'"
+          v-if="!showLoader && sessionStore.phase !== 'lobby' && sessionStore.phase !== 'finished'"
           :label="timerLabel"
           :progress="timerProgress"
           class="mt-3 mb-4"
         />
 
-        <div v-if="isBootstrapping" class="flex flex-col gap-4">
+        <div v-if="showLoader" class="flex flex-col gap-4">
           <p>Подключаемся к игровой сессии...</p>
         </div>
 
@@ -246,13 +251,16 @@ useHead({
           <p class="m-0 text-(--app-color-text-muted)">Игроков в комнате: {{ sessionStore.playersCount }}</p>
         </div>
 
-        <div v-else-if="sessionStore.phase === 'question_open' && currentQuestion" class="flex flex-col gap-4">
+        <div v-else-if="['question_open', 'answer_reveal'].includes(sessionStore.phase) && currentQuestion" class="flex flex-col gap-4">
           <div class="flex flex-wrap items-baseline justify-between gap-2">
             <p class="m-0 text-(--app-color-text-muted)">
               Вопрос {{ sessionStore.currentQuestionNumber }}
               <span v-if="sessionStore.totalQuestions">/ {{ sessionStore.totalQuestions }}</span>
             </p>
-            <p class="m-0 text-(--app-color-text-muted)">{{ selectionTypeLabel }}</p>
+            <p v-if="sessionStore.phase === 'question_open'" class="m-0 text-(--app-color-text-muted)">{{ selectionTypeLabel }}</p>
+            <p v-else-if="sessionStore.myScore !== null" class="m-0 text-(--app-color-text-muted)">
+              Ваш счет: {{ sessionStore.myScore }} · Место: {{ sessionStore.myRank ?? '-' }}
+            </p>
           </div>
 
           <h1 class="m-0 text-[clamp(1.5rem,2.6vw,2.2rem)] leading-[1.2]">{{ currentQuestion.text }}</h1>
@@ -263,12 +271,32 @@ useHead({
               :key="option.id"
               type="button"
               class="option-btn"
-              :class="{ 'option-btn--active': sessionStore.selectedOptionIds.includes(option.id) }"
-              :disabled="sessionStore.hasSubmittedAnswer"
+              :class="{
+                'option-btn--active': sessionStore.phase === 'question_open' && sessionStore.selectedOptionIds.includes(option.id),
+                'option-btn--correct': sessionStore.phase === 'answer_reveal' && sessionStore.correctOptionIds.includes(option.id),
+                'option-btn--wrong': sessionStore.phase === 'answer_reveal' && sessionStore.selectedOptionIds.includes(option.id) && !sessionStore.correctOptionIds.includes(option.id),
+                'option-btn--dimmed': sessionStore.phase === 'answer_reveal' && !sessionStore.correctOptionIds.includes(option.id) && !sessionStore.selectedOptionIds.includes(option.id),
+              }"
+              :disabled="sessionStore.hasSubmittedAnswer || sessionStore.phase === 'answer_reveal'"
               @click="toggleOption(option.id)"
             >
               <span>{{ option.text }}</span>
-              <i v-if="sessionStore.selectedOptionIds.includes(option.id)" class="pi pi-check" />
+              <span class="option-control" @pointerdown.stop.prevent @mousedown.stop.prevent @click.stop.prevent>
+                <RadioButton
+                  v-if="currentQuestion.selection_type === 'single'"
+                  :model-value="sessionStore.selectedOptionIds[0] ?? null"
+                  :value="option.id"
+                  :disabled="sessionStore.hasSubmittedAnswer || sessionStore.phase === 'answer_reveal'"
+                  tabindex="-1"
+                />
+                <Checkbox
+                  v-else
+                  :model-value="sessionStore.selectedOptionIds.includes(option.id)"
+                  binary
+                  :disabled="sessionStore.hasSubmittedAnswer || sessionStore.phase === 'answer_reveal'"
+                  tabindex="-1"
+                />
+              </span>
             </button>
           </div>
 
@@ -276,7 +304,7 @@ useHead({
             {{ sessionStore.answerSubmitError }}
           </Message>
 
-          <div class="flex flex-wrap items-center gap-3">
+          <div v-if="sessionStore.phase === 'question_open'" class="flex flex-wrap items-center gap-3">
             <Button
               label="Ответить"
               icon="pi pi-send"
@@ -288,26 +316,19 @@ useHead({
           </div>
         </div>
 
-        <div v-else-if="sessionStore.phase === 'answer_reveal'" class="flex flex-col gap-4">
-          <h1 class="m-0 text-[clamp(1.5rem,2.6vw,2.2rem)] leading-[1.2]">Ответы раскрыты</h1>
-          <p class="m-0 text-(--app-color-text-muted)">Сейчас откроется следующий вопрос</p>
-          <p class="m-0 text-(--app-color-text-muted)" v-if="sessionStore.myScore !== null">
-            Ваш счет: {{ sessionStore.myScore }} · Место: {{ sessionStore.myRank ?? '-' }}
-          </p>
+        <SessionRevealPanel
+          v-else-if="sessionStore.phase === 'leaderboard_reveal'"
+          phase="leaderboard_reveal"
+          :entries="sessionStore.leaderboardTop"
+          :score="sessionStore.myScore"
+          :rank="sessionStore.myRank"
+        />
 
-          <SessionLeaderboard :entries="sessionStore.leaderboardTop" />
-        </div>
-
-        <div v-else-if="sessionStore.phase === 'finished'" class="flex flex-col gap-4">
-          <h1 class="m-0 text-[clamp(1.5rem,2.6vw,2.2rem)] leading-[1.2]">Игра завершена</h1>
-          <p class="m-0 text-(--app-color-text-muted)">Финальный рейтинг</p>
-
-          <SessionLeaderboard :entries="sessionStore.leaderboardTop" />
-
-          <div class="flex flex-wrap items-center gap-3">
-            <Button label="Вернуться на главную" outlined @click="router.replace('/')" />
-          </div>
-        </div>
+        <SessionFinishedPanel
+          v-else-if="sessionStore.phase === 'finished'"
+          :entries="sessionStore.leaderboardTop"
+          :rank="sessionStore.myRank"
+        />
       </template>
     </Card>
   </section>
@@ -336,8 +357,33 @@ useHead({
   background: color-mix(in srgb, var(--app-color-primary) 12%, transparent);
 }
 
+.option-btn--correct {
+  border-color: var(--p-green-500);
+  background: color-mix(in srgb, var(--p-green-500) 15%, transparent);
+}
+
+.option-btn--wrong {
+  border-color: var(--p-red-500);
+  background: color-mix(in srgb, var(--p-red-500) 15%, transparent);
+}
+
+.option-btn--dimmed {
+  opacity: 0.5;
+}
+
 .option-btn:disabled {
   cursor: default;
-  opacity: 0.7;
+}
+
+.option-control {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.option-control :deep(.p-checkbox),
+.option-control :deep(.p-radiobutton) {
+  pointer-events: none;
 }
 </style>

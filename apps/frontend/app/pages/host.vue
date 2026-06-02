@@ -3,7 +3,8 @@ import Button from 'primevue/button'
 import Card from 'primevue/card'
 import { useToast } from 'primevue/usetoast'
 import SessionConnectionBanner from '~/components/session/SessionConnectionBanner.vue'
-import SessionLeaderboard from '~/components/session/SessionLeaderboard.vue'
+import SessionFinishedPanel from '~/components/session/SessionFinishedPanel.vue'
+import SessionRevealPanel from '~/components/session/SessionRevealPanel.vue'
 import SessionTimerBar from '~/components/session/SessionTimerBar.vue'
 import { usePhaseTimer } from '~/composables/session/usePhaseTimer'
 import { useAuthStore } from '~/stores/auth'
@@ -28,6 +29,7 @@ const currentQuestion = computed(() => sessionStore.currentQuestion)
 const isStartPending = ref(false)
 const isFinishPending = ref(false)
 const hadActiveConnection = ref(false)
+const showLoader = computed(() => isBootstrapping.value || (sessionStore.isConnected && !sessionStore.isSnapshotLoaded))
 
 const sessionIdFromQuery = computed(() => {
   return typeof route.query.session_id === 'string' ? route.query.session_id.trim() : ''
@@ -277,9 +279,9 @@ useHead({
           </div>
         </div>
 
-        <SessionTimerBar v-if="!isBootstrapping && sessionStore.phase !== 'lobby'" :label="timerLabel" :progress="timerProgress" class="my-3" />
+        <SessionTimerBar v-if="!showLoader && sessionStore.phase !== 'lobby' && sessionStore.phase !== 'finished'" :label="timerLabel" :progress="timerProgress" class="my-3" />
 
-        <div v-if="isBootstrapping" class="flex flex-col gap-4">
+        <div v-if="showLoader" class="flex flex-col gap-4">
           <p>Подготавливаем сессию...</p>
         </div>
 
@@ -326,12 +328,11 @@ useHead({
           </div>
         </div>
 
-        <div v-else-if="sessionStore.phase === 'answer_reveal'" class="flex flex-col gap-4">
-          <h1 class="m-0 text-[clamp(1.4rem,2.2vw,2rem)] leading-tight">Промежуточный рейтинг</h1>
-          <p class="m-0 text-(--app-color-text-muted)">Следующий вопрос откроется автоматически</p>
-
-          <SessionLeaderboard :entries="sessionStore.leaderboardTop" />
-
+        <SessionRevealPanel
+          v-else-if="sessionStore.phase === 'answer_reveal' || sessionStore.phase === 'leaderboard_reveal'"
+          :phase="sessionStore.phase"
+          :entries="sessionStore.leaderboardTop"
+        >
           <div class="flex flex-wrap items-center gap-2">
             <Button
               label="Завершить игру"
@@ -342,14 +343,9 @@ useHead({
               @click="runFinishGame"
             />
           </div>
-        </div>
+        </SessionRevealPanel>
 
-        <div v-else-if="sessionStore.phase === 'finished'" class="flex flex-col gap-4">
-          <h1 class="m-0 text-[clamp(1.4rem,2.2vw,2rem)] leading-tight">Игра завершена</h1>
-          <p class="m-0 text-(--app-color-text-muted)">Финальный leaderboard</p>
-
-          <SessionLeaderboard :entries="sessionStore.leaderboardTop" />
-        </div>
+        <SessionFinishedPanel v-else-if="sessionStore.phase === 'finished'" :entries="sessionStore.leaderboardTop" />
       </template>
     </Card>
   </section>
