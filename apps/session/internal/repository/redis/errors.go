@@ -2,29 +2,11 @@ package redis
 
 import "github.com/We-seek-D-p/quiz-platform/apps/session/internal/domain"
 
-func errSessionRuntimeNotFound(err error) error {
-	return domain.NewNotFound("session_runtime_not_found", "session runtime not found", err)
-}
-
-func errSessionRuntimeConflict(err error) error {
-	return domain.NewConflict("session_runtime_conflict", "session runtime conflict", err)
-}
-
-func errRoomNotFound(err error) error {
-	return domain.NewNotFound("room_not_found", "room not found", err)
-}
-
-func errNicknameTaken(err error) error {
-	return domain.NewConflict("nickname_taken", "nickname already taken", err)
-}
-
-func errParticipantNotFound(err error) error {
-	return domain.NewNotFound("participant_not_found", "participant not found", err)
-}
-
-func errParticipantConflict(err error) error {
-	return domain.NewConflict("participant_conflict", "participant already exists", err)
-}
+var (
+	ErrRedisUnavailable = domain.NewInternal("redis_unavailable", "redis service is unavailable", nil)
+	ErrSessionNotFound  = domain.NewNotFound("session_not_found", "session not found in redis", nil)
+	ErrSessionConflict  = domain.NewConflict("session_runtime_conflict", "session already exists", nil)
+)
 
 func errAnswerAlreadySubmitted(err error) error {
 	return domain.NewConflict("answer_already_submitted", "answer already submitted", err)
@@ -36,6 +18,22 @@ func errAnswerNotFound(err error) error {
 
 func errInvalidNickname(err error) error {
 	return domain.NewInvalidInput("invalid_payload", "nickname length must be between 2 and 64 chars", err)
+}
+
+func errNicknameTaken(err error) error {
+	return domain.NewConflict("nickname_taken", "nickname already taken", err)
+}
+
+func errParticipantConflict(err error) error {
+	return domain.NewConflict("participant_conflict", "participant already exists", err)
+}
+
+func errParticipantNotFound(err error) error {
+	return domain.NewNotFound("participant_not_found", "participant not found", err)
+}
+
+func errRoomNotFound(err error) error {
+	return domain.NewNotFound("room_not_found", "room not found", err)
 }
 
 func errRuntimeStoreUnavailable(err error) error {
