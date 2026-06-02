@@ -344,7 +344,11 @@ useHead({
           </div>
         </SessionRevealPanel>
 
-        <SessionRevealPanel v-else-if="sessionStore.phase === 'finished'" phase="finished" :entries="sessionStore.leaderboardTop" />
+        <SessionRevealPanel v-else-if="sessionStore.phase === 'finished'" phase="finished" :entries="sessionStore.leaderboardTop">
+          <div class="flex flex-wrap items-center gap-2">
+            <Button label="Вернуться на главную" outlined @click="router.replace('/')" />
+          </div>
+        </SessionRevealPanel>
       </template>
     </Card>
   </section>
