@@ -18,19 +18,19 @@ const nickname = ref('')
 const hasReconnectContext = ref(false)
 
 const isJoinDisabled = computed(() => {
-  return roomCode.value.trim().length !== 8 || nickname.value.trim().length < 2
+  return roomCode.value.trim().length !== 6 || nickname.value.trim().length < 2
 })
 
 const handleJoin = async () => {
   const normalizedCode = roomCode.value.replace(/\D/g, '').trim()
   const normalizedNickname = nickname.value.trim()
 
-  if (normalizedCode.length !== 8) {
+  if (normalizedCode.length !== 6) {
     toast.add({
       group: 'global',
       severity: 'warn',
       summary: 'Некорректный код',
-      detail: 'Код комнаты должен содержать 8 цифр',
+      detail: 'Код комнаты должен содержать 6 цифр',
       life: 3000,
     })
     return
@@ -60,7 +60,7 @@ const continueLastGame = async () => {
   const storedRoomCode = import.meta.client ? (localStorage.getItem(PLAYER_ROOM_CODE_STORAGE_KEY) ?? '') : ''
   const normalizedCode = storedRoomCode.replace(/\D/g, '').trim()
 
-  if (!normalizedCode || normalizedCode.length !== 8) {
+  if (!normalizedCode || normalizedCode.length !== 6) {
     toast.add({
       group: 'global',
       severity: 'warn',
@@ -104,7 +104,7 @@ useHead({
       <template #content>
         <div class="flex flex-col gap-3">
           <FloatLabel variant="in">
-            <InputMask id="room_code" v-model="roomCode" mask="99999999" slot-char="" class="w-full" />
+            <InputMask id="room_code" v-model="roomCode" mask="999999" slot-char="" class="w-full" />
             <label for="room_code">Код комнаты</label>
           </FloatLabel>
 
