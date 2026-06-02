@@ -20,7 +20,7 @@ import (
 	"github.com/We-seek-D-p/quiz-platform/apps/session/internal/transport/ws/dto"
 )
 
-var roomCodePattern = regexp.MustCompile(`^\d{8}$`)
+var roomCodePattern = regexp.MustCompile(`^\d{6}$`)
 
 type Handler struct {
 	log       *slog.Logger

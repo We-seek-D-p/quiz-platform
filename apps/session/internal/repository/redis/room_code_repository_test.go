@@ -21,12 +21,12 @@ func TestRoomCodeRepository_Reserve(t *testing.T) {
 		repo := NewRoomCodeRepository(client)
 		ctx := context.Background()
 
-		ok, err := repo.Reserve(ctx, "12345678", "session-1")
+		ok, err := repo.Reserve(ctx, "123456", "session-1")
 
 		require.NoError(t, err)
 		assert.True(t, ok)
 
-		val, err := client.Get(ctx, "room_code:12345678").Result()
+		val, err := client.Get(ctx, "room_code:123456").Result()
 		require.NoError(t, err)
 		assert.Equal(t, "session-1", val)
 	})
@@ -41,15 +41,15 @@ func TestRoomCodeRepository_Reserve(t *testing.T) {
 		repo := NewRoomCodeRepository(client)
 		ctx := context.Background()
 
-		ok1, err := repo.Reserve(ctx, "12345678", "session-1")
+		ok1, err := repo.Reserve(ctx, "123456", "session-1")
 		require.NoError(t, err)
 		assert.True(t, ok1)
 
-		ok2, err := repo.Reserve(ctx, "12345678", "session-2")
+		ok2, err := repo.Reserve(ctx, "123456", "session-2")
 		require.NoError(t, err)
 		assert.False(t, ok2)
 
-		val, err := client.Get(ctx, "room_code:12345678").Result()
+		val, err := client.Get(ctx, "room_code:123456").Result()
 		require.NoError(t, err)
 		assert.Equal(t, "session-1", val)
 	})
@@ -67,7 +67,7 @@ func TestRoomCodeRepository_Reserve(t *testing.T) {
 		repo := NewRoomCodeRepository(client)
 		ctx := context.Background()
 
-		ok, err := repo.Reserve(ctx, "12345678", "session-1")
+		ok, err := repo.Reserve(ctx, "123456", "session-1")
 
 		require.Error(t, err)
 		assert.False(t, ok)
@@ -85,18 +85,18 @@ func TestRoomCodeRepository_Release(t *testing.T) {
 		repo := NewRoomCodeRepository(client)
 		ctx := context.Background()
 
-		ok, err := repo.Reserve(ctx, "12345678", "session-1")
+		ok, err := repo.Reserve(ctx, "123456", "session-1")
 		require.NoError(t, err)
 		assert.True(t, ok)
 
-		exists, err := client.Exists(ctx, "room_code:12345678").Result()
+		exists, err := client.Exists(ctx, "room_code:123456").Result()
 		require.NoError(t, err)
 		assert.Equal(t, int64(1), exists)
 
-		err = repo.Release(ctx, "12345678")
+		err = repo.Release(ctx, "123456")
 		require.NoError(t, err)
 
-		exists, err = client.Exists(ctx, "room_code:12345678").Result()
+		exists, err = client.Exists(ctx, "room_code:123456").Result()
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), exists)
 	})
@@ -131,7 +131,7 @@ func TestRoomCodeRepository_Release(t *testing.T) {
 		repo := NewRoomCodeRepository(client)
 		ctx := context.Background()
 
-		err := repo.Release(ctx, "12345678")
+		err := repo.Release(ctx, "123456")
 
 		require.Error(t, err)
 	})
@@ -148,11 +148,11 @@ func TestRoomCodeRepository_GetSessionID(t *testing.T) {
 		repo := NewRoomCodeRepository(client)
 		ctx := context.Background()
 
-		ok, err := repo.Reserve(ctx, "12345678", "session-1")
+		ok, err := repo.Reserve(ctx, "123456", "session-1")
 		require.NoError(t, err)
 		assert.True(t, ok)
 
-		sessionID, err := repo.GetSessionID(ctx, "12345678")
+		sessionID, err := repo.GetSessionID(ctx, "123456")
 		require.NoError(t, err)
 		assert.Equal(t, "session-1", sessionID)
 	})
@@ -184,7 +184,7 @@ func TestRoomCodeRepository_GetSessionID(t *testing.T) {
 		repo := NewRoomCodeRepository(client)
 		ctx := context.Background()
 
-		_, err := repo.GetSessionID(ctx, "12345678")
+		_, err := repo.GetSessionID(ctx, "123456")
 		require.Error(t, err)
 	})
 }

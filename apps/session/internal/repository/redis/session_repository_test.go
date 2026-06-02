@@ -17,7 +17,7 @@ func createTestRuntime() domain.SessionRuntime {
 		SessionID:     "session-1",
 		QuizID:        "quiz-123",
 		HostID:        "host-456",
-		RoomCode:      "12345678",
+		RoomCode:      "123456",
 		Status:        domain.RuntimeStatusLobby,
 		InitializedAt: time.Now().UTC(),
 		Progress: domain.RuntimeProgress{
@@ -223,7 +223,7 @@ func TestSessionRepository_Get(t *testing.T) {
 			"session_id":             "invalid-session",
 			"quiz_id":                "quiz-123",
 			"host_id":                "host-456",
-			"room_code":              "12345678",
+			"room_code":              "123456",
 			"status":                 "lobby",
 			"initialized_at":         "not-a-valid-timestamp",
 			"current_question_index": "0",
@@ -251,7 +251,7 @@ func TestSessionRepository_Get(t *testing.T) {
 			"session_id":     "missing-fields",
 			"quiz_id":        "quiz-123",
 			"host_id":        "host-456",
-			"room_code":      "12345678",
+			"room_code":      "123456",
 			"status":         "lobby",
 			"initialized_at": time.Now().UTC().Format(time.RFC3339Nano),
 		}).Err()
@@ -478,7 +478,7 @@ func TestSessionRepository_Delete(t *testing.T) {
 		err = repo.Create(ctx, runtime, quiz)
 		require.NoError(t, err)
 
-		roomCodeKey := "room_code:12345678"
+		roomCodeKey := "room_code:123456"
 		exists, err := client.Exists(ctx, roomCodeKey).Result()
 		require.NoError(t, err)
 		assert.Equal(t, int64(1), exists)

@@ -6,7 +6,7 @@ import (
 	"math/rand/v2"
 )
 
-const defaultCodeLength = 8
+const defaultCodeLength = 6
 
 type RandomRoomCodeGenerator struct {
 	length int
