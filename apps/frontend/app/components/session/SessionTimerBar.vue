@@ -2,6 +2,7 @@
 const props = defineProps<{
   label: string
   progress: number
+  showProgress?: boolean
 }>()
 
 const clampProgress = (value: number) => Math.max(0, Math.min(100, value))
@@ -40,6 +41,7 @@ watch(
   <div class="session-timer">
     <span class="session-timer__label">{{ label }}</span>
     <div
+      v-if="props.showProgress !== false"
       class="session-timer__bar"
       role="progressbar"
       :aria-valuenow="Math.round(displayedProgress)"
@@ -68,7 +70,7 @@ watch(
 }
 
 .session-timer__bar {
-  height: 0.625rem;
+  height: 0.25rem;
   overflow: hidden;
   border-radius: 999px;
   background: color-mix(in srgb, var(--app-color-primary) 18%, transparent);
