@@ -233,6 +233,7 @@ useHead({
           v-if="!showLoader && sessionStore.phase !== 'lobby' && sessionStore.phase !== 'finished'"
           :label="timerLabel"
           :progress="timerProgress"
+          :show-progress="sessionStore.phase === 'question_open'"
           class="mt-3 mb-4"
         />
 

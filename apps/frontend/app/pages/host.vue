@@ -278,7 +278,13 @@ useHead({
           </div>
         </div>
 
-        <SessionTimerBar v-if="!showLoader && sessionStore.phase !== 'lobby' && sessionStore.phase !== 'finished'" :label="timerLabel" :progress="timerProgress" class="my-3" />
+        <SessionTimerBar
+          v-if="!showLoader && sessionStore.phase !== 'lobby' && sessionStore.phase !== 'finished'"
+          :label="timerLabel"
+          :progress="timerProgress"
+          :show-progress="sessionStore.phase === 'question_open'"
+          class="my-3"
+        />
 
         <div v-if="showLoader" class="flex flex-col gap-4">
           <p>Подготавливаем сессию...</p>
