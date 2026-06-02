@@ -6,6 +6,7 @@ import type {
   ConnectionStatus,
   JoinedLobbyPayload,
   LeaderboardEntryView,
+  LeaderboardRevealPayload,
   LobbyUpdatedPayload,
   QuestionOpenedPayload,
   QuestionProgressPayload,
@@ -157,8 +158,8 @@ function toQuizQuestion(raw: unknown): QuizQuestionView | null {
 function normalizeSnapshotPayload(raw: unknown): SessionSnapshotPayload {
   const source = asRecord(raw)
   const statusRaw = pickString(source, ['status', 'Status'])
-  const status: SessionPhase =
-    statusRaw === 'question_open' || statusRaw === 'answer_reveal' || statusRaw === 'finished' ? statusRaw : 'lobby'
+  const validStatuses: SessionPhase[] = ['lobby', 'question_open', 'answer_reveal', 'leaderboard_reveal', 'finished']
+  const status: SessionPhase = validStatuses.includes(statusRaw as SessionPhase) ? statusRaw as SessionPhase : 'lobby'
   const participants = pickArray(source, ['participants', 'Participants']) ?? []
   const currentQuestion = toQuizQuestion(
     source.question ?? source.Question ?? source.current_question ?? source.CurrentQuestion,
@@ -175,13 +176,19 @@ function normalizeSnapshotPayload(raw: unknown): SessionSnapshotPayload {
     total_questions: pickNumber(source, ['total_questions', 'TotalQuestions']),
     question: currentQuestion ?? undefined,
     deadline_at: pickString(source, ['deadline_at', 'DeadlineAt']),
-    reveal_until: pickString(source, ['reveal_until', 'RevealUntil']),
-    reveal_duration_sec: pickNumber(revealData, ['reveal_duration_sec', 'RevealDurationSec']) ??
+    reveal_until: pickString(source, ['reveal_until', 'RevealUntil']) ??
+      pickString(revealData, ['reveal_until', 'RevealUntil']),
+    reveal_duration_sec: pickNumber(source, ['reveal_duration_sec', 'RevealDurationSec']) ??
+      pickNumber(source, ['reveal_duration', 'RevealDuration']) ??
+      pickNumber(revealData, ['reveal_duration_sec', 'RevealDurationSec']) ??
       pickNumber(revealData, ['reveal_duration', 'RevealDuration']),
     leaderboard_top: toLeaderboardEntries(source.leaderboard_top ?? source.LeaderboardTop),
+    correct_option_ids: (pickArray(revealData, ['correct_option_ids', 'CorrectOptionIDs']) ?? []).filter(
+      (item): item is string => typeof item === 'string',
+    ),
   }
 
-  if (!payload.reveal_until && status === 'answer_reveal') {
+  if (!payload.reveal_until && (status === 'answer_reveal' || status === 'leaderboard_reveal')) {
     payload.reveal_until = pickString(revealData, ['reveal_until', 'RevealUntil'])
   }
 
@@ -268,22 +275,11 @@ function normalizeAnswerAcceptedPayload(raw: unknown): AnswerAcceptedPayload | n
 function normalizeAnswerRevealPayload(raw: unknown): AnswerRevealPayload | null {
   const source = asRecord(raw)
   const questionId = pickString(source, ['question_id', 'QuestionID'])
-  const yourResult = pickString(source, ['your_result', 'YourResult'])
   const revealUntil = pickString(source, ['reveal_until', 'RevealUntil'])
-  const scoreDelta = pickNumber(source, ['score_delta', 'ScoreDelta'])
-  const totalScore = pickNumber(source, ['total_score', 'TotalScore'])
-  const yourRank = pickNumber(source, ['your_rank', 'YourRank'])
-  const revealDurationSec = pickNumber(source, ['reveal_duration_sec', 'RevealDurationSec'])
+  const revealDurationSec = pickNumber(source, ['reveal_duration_sec', 'RevealDurationSec']) ??
+    pickNumber(source, ['reveal_duration', 'RevealDuration'])
 
-  if (
-    !questionId ||
-    !yourResult ||
-    !revealUntil ||
-    scoreDelta === undefined ||
-    totalScore === undefined ||
-    yourRank === undefined ||
-    revealDurationSec === undefined
-  ) {
+  if (!questionId || !revealUntil || revealDurationSec === undefined) {
     return null
   }
 
@@ -295,10 +291,10 @@ function normalizeAnswerRevealPayload(raw: unknown): AnswerRevealPayload | null 
     your_selected_option_ids: (pickArray(source, ['your_selected_option_ids', 'YourSelectedOptionIDs']) ?? []).filter(
       (item): item is string => typeof item === 'string',
     ),
-    your_result: yourResult,
-    score_delta: scoreDelta,
-    total_score: totalScore,
-    your_rank: yourRank,
+    your_result: pickString(source, ['your_result', 'YourResult']) ?? '',
+    score_delta: pickNumber(source, ['score_delta', 'ScoreDelta']) ?? 0,
+    total_score: pickNumber(source, ['total_score', 'TotalScore']) ?? 0,
+    your_rank: pickNumber(source, ['your_rank', 'YourRank']) ?? 0,
     leaderboard_top: toLeaderboardEntries(source.leaderboard_top ?? source.LeaderboardTop),
     reveal_duration_sec: revealDurationSec,
     reveal_until: revealUntil,
@@ -336,6 +332,26 @@ function normalizeQuestionRevealHostPayload(raw: unknown): QuestionRevealHostPay
   }
 }
 
+function normalizeLeaderboardRevealPayload(raw: unknown): LeaderboardRevealPayload | null {
+  const source = asRecord(raw)
+  const questionId = pickString(source, ['question_id', 'QuestionID'])
+  const revealDurationSec = pickNumber(source, ['reveal_duration_sec', 'RevealDurationSec'])
+  const revealUntil = pickString(source, ['reveal_until', 'RevealUntil'])
+
+  if (!questionId || revealDurationSec === undefined || !revealUntil) {
+    return null
+  }
+
+  return {
+    question_id: questionId,
+    leaderboard_top: toLeaderboardEntries(source.leaderboard_top ?? source.LeaderboardTop),
+    reveal_duration_sec: revealDurationSec,
+    reveal_until: revealUntil,
+    your_score: pickNumber(source, ['your_score', 'YourScore']),
+    your_rank: pickNumber(source, ['your_rank', 'YourRank']),
+  }
+}
+
 function normalizeSessionFinishedPayload(raw: unknown): SessionFinishedPayload {
   const source = asRecord(raw)
   return {
@@ -364,9 +380,51 @@ function getErrorMessage(payload: WsErrorPayload): string {
   return 'Неизвестная ошибка сессии'
 }
 
+async function checkLiveness(path: string) {
+  if (!import.meta.client) {
+    return
+  }
+
+  const response = await fetch(path, {
+    cache: 'no-store',
+    credentials: 'same-origin',
+  }).catch(() => null)
+
+  if (!response) {
+    throw new Error('Сервис игровых сессий недоступен')
+  }
+
+  if (response.ok) {
+    return
+  }
+
+  const payload = await response.json().catch(() => null)
+  const errorPayload = normalizeErrorPayload(payload)
+  throw new Error(getErrorMessage(errorPayload))
+}
+
+async function checkRoomLiveness(roomCode: string) {
+  const normalizedRoomCode = roomCode.trim()
+  if (!normalizedRoomCode) {
+    throw new Error('Код комнаты обязателен')
+  }
+
+  await checkLiveness(`/api/v1/ws/rooms/${encodeURIComponent(normalizedRoomCode)}/liveness`)
+}
+
+async function checkSessionLiveness(sessionID: string) {
+  const normalizedSessionID = sessionID.trim()
+  if (!normalizedSessionID) {
+    throw new Error('ID сессии обязателен')
+  }
+
+  await checkLiveness(`/api/v1/ws/sessions/${encodeURIComponent(normalizedSessionID)}/liveness`)
+}
+
 export const useGameSessionStore = defineStore('game-session', () => {
   const role = ref<SessionRole | null>(null)
   const phase = ref<SessionPhase>('lobby')
+  const isSnapshotLoaded = ref(false)
 
   const sessionId = ref<string | null>(null)
   const roomCode = ref<string | null>(null)
@@ -390,6 +448,7 @@ export const useGameSessionStore = defineStore('game-session', () => {
   const myRank = ref<number | null>(null)
 
   const selectedOptionIds = ref<string[]>([])
+  const correctOptionIds = ref<string[]>([])
   const hasSubmittedAnswer = ref(false)
   const isSubmittingAnswer = ref(false)
   const answerSubmitError = ref<string | null>(null)
@@ -496,6 +555,7 @@ export const useGameSessionStore = defineStore('game-session', () => {
 
   const clearAnswerUi = () => {
     selectedOptionIds.value = []
+    correctOptionIds.value = []
     hasSubmittedAnswer.value = false
     isSubmittingAnswer.value = false
     answerSubmitError.value = null
@@ -529,6 +589,7 @@ export const useGameSessionStore = defineStore('game-session', () => {
 
     role.value = null
     phase.value = 'lobby'
+    isSnapshotLoaded.value = false
     sessionId.value = null
     roomCode.value = null
     participantId.value = null
@@ -608,6 +669,8 @@ export const useGameSessionStore = defineStore('game-session', () => {
     clearSessionErrors()
     reconnectNotice.value = null
 
+    await checkSessionLiveness(targetSessionId)
+
     await hostWs.connect()
     sendHostConnect()
   }
@@ -618,6 +681,8 @@ export const useGameSessionStore = defineStore('game-session', () => {
     nickname.value = targetNickname
     clearSessionErrors()
     reconnectNotice.value = null
+
+    await checkRoomLiveness(targetRoomCode)
 
     await playerWs.connect()
     playerWs.send('player_join', {
@@ -648,6 +713,8 @@ export const useGameSessionStore = defineStore('game-session', () => {
     participantToken.value = reconnectContext.participantToken
     restorePlayerNickname()
 
+    await checkRoomLiveness(reconnectContext.roomCode)
+
     await playerWs.connect()
     sendPlayerReconnect()
   }
@@ -670,7 +737,7 @@ export const useGameSessionStore = defineStore('game-session', () => {
 
   const replaceSelectedOptions = (optionIds: string[]) => {
     const question = currentQuestion.value
-    if (!question || hasSubmittedAnswer.value) {
+    if (!question || hasSubmittedAnswer.value || phase.value !== 'question_open') {
       return
     }
 
@@ -685,7 +752,7 @@ export const useGameSessionStore = defineStore('game-session', () => {
 
   const toggleSelectedOption = (optionId: string) => {
     const question = currentQuestion.value
-    if (!question || hasSubmittedAnswer.value) {
+    if (!question || hasSubmittedAnswer.value || phase.value !== 'question_open') {
       return
     }
 
@@ -788,14 +855,17 @@ export const useGameSessionStore = defineStore('game-session', () => {
     revealUntil.value = payload.reveal_until ?? null
     revealDurationSec.value = payload.reveal_duration_sec ?? revealDurationSec.value
     leaderboardTop.value = payload.leaderboard_top ?? []
+    correctOptionIds.value = payload.correct_option_ids ?? []
 
-    if (payload.status !== 'question_open') {
+    if (payload.status !== 'question_open' && payload.status !== 'answer_reveal') {
       clearAnswerUi()
     }
 
     if (payload.status === 'finished') {
       clearPlayerAuth()
     }
+
+    isSnapshotLoaded.value = true
   }
 
   const onJoinedLobby = (payload: JoinedLobbyPayload) => {
@@ -847,6 +917,7 @@ export const useGameSessionStore = defineStore('game-session', () => {
     hasSubmittedAnswer.value = true
     isSubmittingAnswer.value = false
     selectedOptionIds.value = payload.your_selected_option_ids
+    correctOptionIds.value = payload.correct_option_ids
   }
 
   const onQuestionRevealHost = (payload: QuestionRevealHostPayload) => {
@@ -857,7 +928,22 @@ export const useGameSessionStore = defineStore('game-session', () => {
     answeredCount.value = payload.answered_count
     totalPlayers.value = payload.total_players
     playersCount.value = payload.total_players
-    clearAnswerUi()
+    correctOptionIds.value = payload.correct_option_ids
+  }
+
+  const onLeaderboardReveal = (payload: LeaderboardRevealPayload) => {
+    phase.value = 'leaderboard_reveal'
+    revealUntil.value = payload.reveal_until
+    revealDurationSec.value = payload.reveal_duration_sec
+    leaderboardTop.value = payload.leaderboard_top
+
+    if (payload.your_score !== undefined) {
+      myScore.value = payload.your_score
+    }
+
+    if (payload.your_rank !== undefined) {
+      myRank.value = payload.your_rank
+    }
   }
 
   const onSessionFinished = (payload: SessionFinishedPayload) => {
@@ -952,6 +1038,15 @@ export const useGameSessionStore = defineStore('game-session', () => {
         }
         break
       }
+      case 'leaderboard_reveal':
+      case 'leaderboard_reveal_host':
+      case 'leaderboard_reveal_player': {
+        const payload = normalizeLeaderboardRevealPayload(message.payload)
+        if (payload) {
+          onLeaderboardReveal(payload)
+        }
+        break
+      }
       case 'session_finished':
         onSessionFinished(normalizeSessionFinishedPayload(message.payload))
         break
@@ -966,6 +1061,7 @@ export const useGameSessionStore = defineStore('game-session', () => {
   return {
     role,
     phase,
+    isSnapshotLoaded,
     sessionId,
     roomCode,
     participantId,
@@ -984,6 +1080,7 @@ export const useGameSessionStore = defineStore('game-session', () => {
     myScore,
     myRank,
     selectedOptionIds,
+    correctOptionIds,
     hasSubmittedAnswer,
     isSubmittingAnswer,
     answerSubmitError,
