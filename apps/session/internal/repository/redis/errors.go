@@ -2,12 +2,6 @@ package redis
 
 import "github.com/We-seek-D-p/quiz-platform/apps/session/internal/domain"
 
-var (
-	ErrRedisUnavailable = domain.NewInternal("redis_unavailable", "redis service is unavailable", nil)
-	ErrSessionNotFound  = domain.NewNotFound("session_not_found", "session not found in redis", nil)
-	ErrSessionConflict  = domain.NewConflict("session_runtime_conflict", "session already exists", nil)
-)
-
 func errAnswerAlreadySubmitted(err error) error {
 	return domain.NewConflict("answer_already_submitted", "answer already submitted", err)
 }
@@ -41,11 +35,11 @@ func errRuntimeStoreUnavailable(err error) error {
 }
 
 func errSessionRuntimeConflict(err error) error {
-	return domain.NewConflict("session_runtime_conflict", "session already exists", err)
+	return domain.NewConflict("session_runtime_conflict", "session runtime conflict", err)
 }
 
 func errSessionRuntimeNotFound(err error) error {
-	return domain.NewNotFound("session_not_found", "session not found in redis", err)
+	return domain.NewNotFound("session_runtime_not_found", "session runtime not found", err)
 }
 
 func errSerializationFailure(message string, err error) error {

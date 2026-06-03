@@ -50,6 +50,14 @@ func createTestQuizSnapshot() domain.QuizSnapshot {
 	}
 }
 
+func assertAppErrorCode(t *testing.T, err error, code string) {
+	t.Helper()
+
+	var appErr *domain.AppError
+	require.ErrorAs(t, err, &appErr)
+	assert.Equal(t, code, appErr.Code)
+}
+
 func TestSessionRepository_Create(t *testing.T) {
 	t.Run("creates meta and quiz snapshot keys", func(t *testing.T) {
 		mr, client := setupTestRedis(t)
@@ -206,6 +214,7 @@ func TestSessionRepository_Get(t *testing.T) {
 
 		_, err := repo.Get(ctx, "non-existent-session")
 		require.Error(t, err)
+		assertAppErrorCode(t, err, "session_runtime_not_found")
 	})
 
 	t.Run("returns error for invalid initialized_at", func(t *testing.T) {
@@ -421,6 +430,7 @@ func TestSessionRepository_UpdateRuntime(t *testing.T) {
 
 		err := repo.UpdateRuntime(ctx, runtime)
 		require.Error(t, err)
+		assertAppErrorCode(t, err, "session_runtime_not_found")
 	})
 }
 
