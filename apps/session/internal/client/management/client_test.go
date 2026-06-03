@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -15,15 +16,11 @@ import (
 )
 
 func newTestClient(baseURL string) *Client {
-	return newTestClientWithAttempts(baseURL, 3)
-}
-
-func newTestClientWithAttempts(baseURL string, retryAttempts int) *Client {
 	return &Client{
 		baseURL:       baseURL,
 		token:         "test-token",
 		serviceName:   "test-service",
-		retryAttempts: retryAttempts,
+		retryAttempts: 3,
 		httpClient:    &http.Client{Timeout: 5 * time.Second},
 		log:           slog.New(slog.DiscardHandler),
 	}
@@ -89,6 +86,7 @@ func TestGetSessionBootstrap(t *testing.T) {
 		repo := newTestClient(server.URL)
 
 		_, err := repo.GetSessionBootstrap(context.Background(), "999")
+		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrSessionNotFound)
 	})
 
@@ -101,6 +99,7 @@ func TestGetSessionBootstrap(t *testing.T) {
 		repo := newTestClient(server.URL)
 
 		_, err := repo.GetSessionBootstrap(context.Background(), "123")
+		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrUnauthorized)
 	})
 
@@ -113,6 +112,7 @@ func TestGetSessionBootstrap(t *testing.T) {
 		repo := newTestClient(server.URL)
 
 		_, err := repo.GetSessionBootstrap(context.Background(), "123")
+		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrForbidden)
 	})
 
@@ -125,6 +125,7 @@ func TestGetSessionBootstrap(t *testing.T) {
 		repo := newTestClient(server.URL)
 
 		_, err := repo.GetSessionBootstrap(context.Background(), "123")
+		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrUpstreamUnavailable)
 	})
 
@@ -241,6 +242,7 @@ func TestReportSessionStatus(t *testing.T) {
 		}
 
 		err := repo.ReportSessionStatus(context.Background(), "123", update)
+		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrAlreadyFinished)
 	})
 
@@ -258,6 +260,7 @@ func TestReportSessionStatus(t *testing.T) {
 		}
 
 		err := repo.ReportSessionStatus(context.Background(), "999", update)
+		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrSessionNotFound)
 	})
 
@@ -275,6 +278,7 @@ func TestReportSessionStatus(t *testing.T) {
 		}
 
 		err := repo.ReportSessionStatus(context.Background(), "123", update)
+		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrUpstreamUnavailable)
 	})
 
@@ -347,6 +351,7 @@ func TestReportSessionResults(t *testing.T) {
 		}
 
 		err := repo.ReportSessionResults(context.Background(), "999", results)
+		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrSessionNotFound)
 	})
 
@@ -364,6 +369,7 @@ func TestReportSessionResults(t *testing.T) {
 		}
 
 		err := repo.ReportSessionResults(context.Background(), "123", results)
+		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrAlreadyFinished)
 	})
 
@@ -381,6 +387,7 @@ func TestReportSessionResults(t *testing.T) {
 		}
 
 		err := repo.ReportSessionResults(context.Background(), "123", results)
+		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrUpstreamUnavailable)
 	})
 
@@ -425,4 +432,80 @@ func TestNewRequestErrors(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "parse")
 	})
+}
+
+func TestRetryPolicy(t *testing.T) {
+	t.Run("retries transient server errors until success", func(t *testing.T) {
+		var attempts int32
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			attempt := atomic.AddInt32(&attempts, 1)
+			if attempt < 3 {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(BootstrapResponse{
+				Session: BootstrapSessionDTO{
+					SessionID: "123",
+					QuizID:    "quiz-1",
+					HostID:    "host-1",
+					Status:    "lobby",
+				},
+			})
+		}))
+		defer server.Close()
+
+		repo := newTestClient(server.URL)
+
+		_, err := repo.GetSessionBootstrap(context.Background(), "123")
+
+		require.NoError(t, err)
+		assert.Equal(t, int32(3), atomic.LoadInt32(&attempts))
+	})
+
+	t.Run("stops after configured attempts", func(t *testing.T) {
+		var attempts int32
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			atomic.AddInt32(&attempts, 1)
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer server.Close()
+
+		repo := newTestClient(server.URL)
+
+		_, err := repo.GetSessionBootstrap(context.Background(), "123")
+
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrUpstreamUnavailable)
+		assert.Equal(t, int32(3), atomic.LoadInt32(&attempts))
+	})
+
+	for _, tt := range []struct {
+		name        string
+		status      int
+		expectedErr error
+	}{
+		{name: "unauthorized", status: http.StatusUnauthorized, expectedErr: ErrUnauthorized},
+		{name: "forbidden", status: http.StatusForbidden, expectedErr: ErrForbidden},
+		{name: "not found", status: http.StatusNotFound, expectedErr: ErrSessionNotFound},
+		{name: "conflict", status: http.StatusConflict, expectedErr: ErrAlreadyFinished},
+	} {
+		t.Run("does not retry "+tt.name, func(t *testing.T) {
+			var attempts int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				atomic.AddInt32(&attempts, 1)
+				w.WriteHeader(tt.status)
+			}))
+			defer server.Close()
+
+			repo := newTestClient(server.URL)
+
+			_, err := repo.GetSessionBootstrap(context.Background(), "123")
+
+			require.Error(t, err)
+			require.ErrorIs(t, err, tt.expectedErr)
+			assert.Equal(t, int32(1), atomic.LoadInt32(&attempts))
+		})
+	}
 }

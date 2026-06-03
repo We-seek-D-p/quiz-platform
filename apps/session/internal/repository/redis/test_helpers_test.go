@@ -11,7 +11,10 @@ import (
 func setupTestRedis(t *testing.T) (*miniredis.Miniredis, *redis.Client) {
 	t.Helper()
 
-	mr := miniredis.RunT(t)
+	mr, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("failed to start miniredis: %v", err)
+	}
 
 	client := redis.NewClient(&redis.Options{
 		Addr:     mr.Addr(),
@@ -21,6 +24,7 @@ func setupTestRedis(t *testing.T) (*miniredis.Miniredis, *redis.Client) {
 
 	ctx := context.Background()
 	if err := client.Ping(ctx).Err(); err != nil {
+		mr.Close()
 		t.Fatalf("failed to connect to miniredis: %v", err)
 	}
 
