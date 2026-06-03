@@ -130,6 +130,10 @@ class SessionService:
         if not session.quiz:
             raise ServiceException(404, "quiz_not_found", "Linked quiz not found")
 
+        session.quiz.questions.sort(key=lambda question: question.order_index)
+        for question in session.quiz.questions:
+            question.options.sort(key=lambda option: option.order_index)
+
         return session
 
     async def update_session_status(self, session_id: UUID, data: SessionStatusUpdate) -> None:
