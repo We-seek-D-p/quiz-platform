@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import pytest
 
+from quiz_management.core.exceptions import ServiceException
 from quiz_management.models.question import Question, QuestionCreate, QuestionOption, QuestionUpdate
 
 pytestmark = pytest.mark.anyio
@@ -86,6 +87,75 @@ class TestQuestionService:
         assert call_args.options[2].text == "Option 1"
         assert call_args.options[3].order_index == 3
         assert call_args.options[3].text == "Option 4"
+
+    async def test_create_question_rejects_negative_question_order_index(
+        self, question_service, mock_db, question_create_factory
+    ):
+        create_data = question_create_factory(order_index=-1)
+
+        with pytest.raises(ServiceException) as exc:
+            await question_service.create_question(create_data, uuid4())
+
+        assert exc.value.status_code == 400
+        assert exc.value.detail["code"] == "invalid_payload"
+        assert "Question order index" in exc.value.detail["message"]
+
+    async def test_create_question_rejects_duplicate_question_order_index(
+        self, question_service, mock_db, question_create_factory
+    ):
+        quiz_id = uuid4()
+        existing_question = MagicMock(spec=Question)
+        existing_question.id = uuid4()
+        existing_question.order_index = 0
+        question_service.repository.get_by_quiz_id = AsyncMock(return_value=[existing_question])
+
+        with pytest.raises(ServiceException) as exc:
+            await question_service.create_question(question_create_factory(order_index=0), quiz_id)
+
+        assert exc.value.status_code == 400
+        assert "unique" in exc.value.detail["message"]
+
+    async def test_create_question_rejects_duplicate_option_order_indexes(
+        self, question_service, mock_db, option_create_factory
+    ):
+        create_data = QuestionCreate(
+            text="Question",
+            order_index=0,
+            options=[
+                option_create_factory(text="A", order_index=0, is_correct=True),
+                option_create_factory(text="B", order_index=0),
+                option_create_factory(text="C", order_index=2),
+                option_create_factory(text="D", order_index=3),
+            ],
+        )
+        question_service.repository.get_by_quiz_id = AsyncMock(return_value=[])
+
+        with pytest.raises(ServiceException) as exc:
+            await question_service.create_question(create_data, uuid4())
+
+        assert exc.value.status_code == 400
+        assert "unique" in exc.value.detail["message"]
+
+    async def test_create_question_rejects_negative_option_order_index(
+        self, question_service, mock_db, option_create_factory
+    ):
+        create_data = QuestionCreate(
+            text="Question",
+            order_index=0,
+            options=[
+                option_create_factory(text="A", order_index=-1, is_correct=True),
+                option_create_factory(text="B", order_index=1),
+                option_create_factory(text="C", order_index=2),
+                option_create_factory(text="D", order_index=3),
+            ],
+        )
+        question_service.repository.get_by_quiz_id = AsyncMock(return_value=[])
+
+        with pytest.raises(ServiceException) as exc:
+            await question_service.create_question(create_data, uuid4())
+
+        assert exc.value.status_code == 400
+        assert "non-negative" in exc.value.detail["message"]
 
     async def test_question_updates_fields(
         self, question_service, mock_db, question_update_factory
@@ -252,6 +322,132 @@ class TestQuestionService:
 
         assert existing_option2.order_index == 1
         assert existing_option1.order_index == 3
+
+    async def test_update_question_rejects_conflicting_question_order_index(
+        self, question_service, mock_db, question_update_factory
+    ):
+        quiz_id = uuid4()
+        question = MagicMock(spec=Question)
+        question.id = uuid4()
+        question.quiz_id = quiz_id
+        question.options = []
+        other_question = MagicMock(spec=Question)
+        other_question.id = uuid4()
+        other_question.order_index = 2
+        question_service.repository.get_by_quiz_id = AsyncMock(
+            return_value=[question, other_question]
+        )
+
+        with pytest.raises(ServiceException) as exc:
+            await question_service.update_question(question, question_update_factory(order_index=2))
+
+        assert exc.value.status_code == 400
+        assert "unique" in exc.value.detail["message"]
+
+    async def test_update_question_allows_same_question_order_index(
+        self, question_service, mock_db, question_update_factory
+    ):
+        quiz_id = uuid4()
+        question = MagicMock(spec=Question)
+        question.id = uuid4()
+        question.quiz_id = quiz_id
+        question.options = []
+        question.order_index = 2
+        question_service.repository.get_by_quiz_id = AsyncMock(return_value=[question])
+        question_service.repository.save = AsyncMock(return_value=question)
+
+        await question_service.update_question(question, question_update_factory(order_index=2))
+
+        question_service.repository.save.assert_called_once_with(question)
+
+    async def test_update_question_rejects_unknown_option_id(
+        self, question_service, mock_db, option_update_factory
+    ):
+        question = MagicMock(spec=Question)
+        question.options = []
+
+        update_data = QuestionUpdate(
+            options=[
+                option_update_factory(option_id=uuid4(), text="A", order_index=0, is_correct=True),
+                option_update_factory(text="B", order_index=1),
+                option_update_factory(text="C", order_index=2),
+                option_update_factory(text="D", order_index=3),
+            ]
+        )
+
+        with pytest.raises(ServiceException) as exc:
+            await question_service.update_question(question, update_data)
+
+        assert exc.value.status_code == 400
+        assert exc.value.detail["message"] == "Unknown option id"
+
+    async def test_update_question_rejects_new_option_without_text(
+        self, question_service, mock_db, option_update_factory
+    ):
+        question = MagicMock(spec=Question)
+        question.options = []
+
+        update_data = QuestionUpdate(
+            options=[
+                option_update_factory(order_index=0, is_correct=True),
+                option_update_factory(text="B", order_index=1),
+                option_update_factory(text="C", order_index=2),
+                option_update_factory(text="D", order_index=3),
+            ]
+        )
+
+        with pytest.raises(ServiceException) as exc:
+            await question_service.update_question(question, update_data)
+
+        assert exc.value.status_code == 400
+        assert exc.value.detail["message"] == "New options must include text"
+
+    async def test_update_question_rejects_options_without_correct_answer(
+        self, question_service, mock_db, option_update_factory
+    ):
+        question = MagicMock(spec=Question)
+        question.options = []
+
+        update_data = QuestionUpdate(
+            options=[
+                option_update_factory(text="A", order_index=0, is_correct=False),
+                option_update_factory(text="B", order_index=1, is_correct=False),
+                option_update_factory(text="C", order_index=2, is_correct=False),
+                option_update_factory(text="D", order_index=3, is_correct=False),
+            ]
+        )
+
+        with pytest.raises(ServiceException) as exc:
+            await question_service.update_question(question, update_data)
+
+        assert exc.value.status_code == 400
+        assert "correct" in exc.value.detail["message"]
+
+    async def test_update_question_rejects_deleted_existing_option_id(
+        self, question_service, mock_db, option_update_factory
+    ):
+        deleted_option = MagicMock(spec=QuestionOption)
+        deleted_option.id = uuid4()
+        deleted_option.deleted_at = datetime.now(UTC).replace(tzinfo=None)
+        question = MagicMock(spec=Question)
+        question.options = [deleted_option]
+
+        update_data = QuestionUpdate(
+            options=[
+                option_update_factory(
+                    option_id=deleted_option.id, text="A", order_index=0, is_correct=True
+                ),
+                option_update_factory(text="B", order_index=1),
+                option_update_factory(text="C", order_index=2),
+                option_update_factory(text="D", order_index=3),
+            ]
+        )
+
+        with pytest.raises(ServiceException) as exc:
+            await question_service.update_question(question, update_data)
+
+        assert exc.value.status_code == 400
+        assert exc.value.detail["message"] == "Unknown option id"
 
     async def test_delete_question_soft_deletes_question_and_options(
         self, question_service, mock_db

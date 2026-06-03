@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 
-from quiz_management.models.quiz import Quiz
+from quiz_management.models.quiz import Quiz, QuizUpdate
 
 pytestmark = pytest.mark.anyio
 
@@ -109,6 +109,20 @@ class TestQuizService:
         assert quiz.updated_at is not None
         assert quiz.updated_at != original_updated_at
         quiz_service.repository.save.assert_called_once()
+
+    async def test_update_quiz_with_empty_payload_keeps_existing_fields(
+        self, quiz_service, mock_db
+    ):
+        quiz = Quiz(title="Original Title", description="Original Description", owner_id=uuid4())
+        original_updated_at = quiz.updated_at
+        quiz_service.repository.save = AsyncMock(return_value=quiz)
+
+        await quiz_service.update_quiz(quiz, QuizUpdate())
+
+        assert quiz.title == "Original Title"
+        assert quiz.description == "Original Description"
+        assert quiz.updated_at == original_updated_at
+        quiz_service.repository.save.assert_called_once_with(quiz)
 
     async def test_update_quiz_with_empty_strings(self, quiz_service, mock_db, quiz_update_factory):
         quiz = Quiz(title="Original Title", description="Original Description", owner_id=uuid4())

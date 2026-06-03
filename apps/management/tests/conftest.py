@@ -1,20 +1,30 @@
-from collections.abc import Callable
-from typing import Any
-from unittest.mock import AsyncMock
-from uuid import UUID
+import sys
+from unittest.mock import MagicMock
 
-import pytest
+mock_settings = MagicMock()
+mock_settings.database_url = "sqlite:///:memory:"
+mock_settings.session_provider_url = "http://localhost:8080"
 
-from quiz_management.models.question import (
+sys.modules["quiz_management.core.config"] = MagicMock()
+sys.modules["quiz_management.core.config"].settings = mock_settings
+
+from collections.abc import Callable  # noqa: E402
+from typing import Any  # noqa: E402
+from unittest.mock import AsyncMock  # noqa: E402
+from uuid import UUID  # noqa: E402
+
+import pytest  # noqa: E402
+
+from quiz_management.models.question import (  # noqa: E402
     OptionCreate,
     OptionUpdate,
     QuestionCreate,
     QuestionUpdate,
 )
-from quiz_management.models.quiz import QuizCreate, QuizUpdate
-from quiz_management.services.question import QuestionService
-from quiz_management.services.quiz import QuizService
-from quiz_management.services.session import SessionService
+from quiz_management.models.quiz import QuizCreate, QuizUpdate  # noqa: E402
+from quiz_management.services.question import QuestionService  # noqa: E402
+from quiz_management.services.quiz import QuizService  # noqa: E402
+from quiz_management.services.session import SessionService  # noqa: E402
 
 
 @pytest.fixture
