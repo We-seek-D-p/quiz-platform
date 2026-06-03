@@ -40,6 +40,14 @@ func errRuntimeStoreUnavailable(err error) error {
 	return domain.NewInternal("internal_error", "runtime storage unavailable", err)
 }
 
+func errSessionRuntimeConflict(err error) error {
+	return domain.NewConflict("session_runtime_conflict", "session already exists", err)
+}
+
+func errSessionRuntimeNotFound(err error) error {
+	return domain.NewNotFound("session_not_found", "session not found in redis", err)
+}
+
 func errSerializationFailure(message string, err error) error {
 	return domain.NewInternal("internal_error", message, err)
 }
